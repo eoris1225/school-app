@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { subjectIcon } from '@/components/icon';
 import { Tap } from '@/components/motion';
-import { Chip, ChipRow, Divider, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
+import { Chip, ChipRow, Divider, Empty, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
   CLASSES,
@@ -20,13 +20,9 @@ import {
 } from '@/data/mock';
 import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
+import { holidayName, readSubject } from '@/lib/subject';
 import { currentPeriod, weekdayOf } from '@/lib/time';
 
-/** 한 주 보기 칸이 좁아서 긴 과목 이름은 줄여요. */
-const SHORT: Record<string, string> = { 자율활동: '자율', 동아리: '동아리', 한국사: '한국사' };
-
-/** 지정해둔 줄임말이 없으면 네 글자 이상만 앞 두 글자로 줄여요. */
-const shortSubject = (name: string) => SHORT[name] ?? (name.length > 3 ? name.slice(0, 2) : name);
 
 export default function TimetableScreen() {
   const { palette, role, now } = useApp();
@@ -38,6 +34,7 @@ export default function TimetableScreen() {
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
   const week = TIMETABLES[cls];
+  const holiday = holidayName(week[day]);
 
   return (
     <Screen>
@@ -87,12 +84,18 @@ export default function TimetableScreen() {
           </View>
 
           <View>
-            {week[day].map((subject, i, arr) => {
+            {/* 추석 같은 날은 NEIS가 1교시부터 끝까지 같은 말로 채워서 줘요.
+                그대로 그리면 "1교시 추석, 2교시 추석..." 이 되니 한 줄로 보여줘요. */}
+            {holiday ? (
+              <Empty text={`${day}요일은 ${holiday}이라 수업이 없어요`} />
+            ) : (
+            week[day].map((raw, i, arr) => {
+              const subject = readSubject(raw);
               const period = i + 1;
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
-              const who = teacherFor(subject, cls);
-              const st = subjectTone(subject, palette.scheme);
+              const who = teacherFor(subject.name, cls);
+              const st = subjectTone(raw, palette.scheme);
               return (
                 <View key={period}>
                   {period === LUNCH.afterPeriod + 1 ? (
@@ -105,12 +108,13 @@ export default function TimetableScreen() {
                   <View
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessible
-                    accessibilityLabel={`${period}교시 ${subject}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}`}>
-                    <IconChip icon={subjectIcon(subject)} subject={subject} size={42} />
+                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}`}>
+                    <IconChip icon={subjectIcon(raw)} subject={raw} size={42} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
                         <Text style={[styles.periodTag, { color: st.fg }]}>{period}교시</Text>
-                        <Text style={[styles.subject, { color: palette.text }]}>{subject}</Text>
+                        <Text style={[styles.subject, { color: palette.text }]}>{subject.name}</Text>
+                        {subject.makeup ? <Tag label="보강" /> : null}
                       </View>
                       <View style={styles.metaRow}>
                         <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
@@ -124,7 +128,8 @@ export default function TimetableScreen() {
                   {i < arr.length - 1 && period !== LUNCH.afterPeriod ? <Divider /> : null}
                 </View>
               );
-            })}
+            })
+            )}
           </View>
         </>
       ) : (
@@ -167,7 +172,7 @@ export default function TimetableScreen() {
                       <Text
                         style={[styles.weekCellText, { color: isNow ? palette.onAccent : st.fg }]}
                         numberOfLines={1}>
-                        {shortSubject(subject)}
+                        {readSubject(subject).short}
                       </Text>
                     </View>
                   );

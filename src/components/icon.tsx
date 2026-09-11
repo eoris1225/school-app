@@ -1,5 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import type { ComponentProps } from 'react';
+import { subjectGroup, type SubjectGroup } from '@/lib/subject';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -35,21 +36,30 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-/** 과목마다 어울리는 아이콘. 표에 없으면 별표를 써요. */
-const SUBJECT_ICONS: Record<string, IconName> = {
+/**
+ * 교과군마다 어울리는 아이콘이에요.
+ * NEIS는 "미적분Ⅰ" 같은 선택과목 이름을 주기 때문에 이름이 아니라
+ * 교과군으로 골라요. 어떤 이름이 어느 교과군인지는 `src/lib/subject.ts` 가 정해요.
+ */
+const GROUP_ICONS: Record<SubjectGroup, IconName> = {
   국어: 'book',
   수학: 'number',
   영어: 'globe',
+  외국어: 'globe',
   과학: 'flask',
   사회: 'map',
-  한국사: 'clock',
+  역사: 'clock',
   정보: 'laptop',
   체육: 'run',
   음악: 'music',
   미술: 'brush',
+  교양: 'book',
+  창체: 'star',
+  휴일: 'star',
+  기타: 'star',
 };
 
-export const subjectIcon = (name: string): IconName => SUBJECT_ICONS[name] ?? 'star';
+export const subjectIcon = (name: string): IconName => GROUP_ICONS[subjectGroup(name)];
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
   return <SymbolView name={ICONS[name]} size={size} tintColor={color} />;
