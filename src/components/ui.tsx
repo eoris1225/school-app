@@ -81,14 +81,14 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
 /** 탭 화면 맨 위 제목. 오른쪽 동그라미를 누르면 내 정보가 열려요. */
 export function Header({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
   const { palette } = useApp();
-  const { tablet } = useLayout();
+  const { tablet, short } = useLayout();
   return (
     <View style={styles.header}>
       <View style={styles.fill}>
         {subtitle ? <Text style={[styles.headerSub, { color: palette.sub }]}>{subtitle}</Text> : null}
         <Text
           accessibilityRole="header"
-          style={[styles.headerTitle, tablet && styles.headerTitleWide, { color: palette.text }]}>
+          style={[styles.headerTitle, tablet && !short && styles.headerTitleWide, { color: palette.text }]}>
           {title}
         </Text>
       </View>
