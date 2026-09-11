@@ -68,18 +68,49 @@
 
 ## 배포
 
+### 자동 (보통은 이것만 알면 돼요)
+
+`supabase/functions/` 가 바뀐 채로 main에 올라오면 GitHub Actions가 알아서 올려요.
+`.github/workflows/deploy-function.yml` 이에요.
+
+올리기 전에 타입 검사와 테스트를 먼저 돌려요. 깨진 코드가 올라가면
+급식도 시간표도 통째로 멈추니까요. 올린 뒤에는 함수가 실제로 답하는지 확인해요.
+
+서버를 안 건드린 커밋에서는 돌지 않아요. 지금까지 커밋 21개 중 서버를 건드린 건
+3개뿐이라, 매번 돌리면 시간만 쓰고 얻는 게 없어요.
+
+처음 한 번만 저장소 시크릿 두 개를 넣어주세요.
+(Settings > Secrets and variables > Actions > New repository secret)
+
+| 이름 | 값 |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | supabase.com/dashboard/account/tokens 에서 발급 |
+| `SUPABASE_PROJECT_REF` | 대시보드 주소의 `/project/` 뒤에 있는 값 |
+
+**토큰은 최대 1년이에요.** 만료되면 이 워크플로가 실패해요. 그때 새로 발급해서
+`SUPABASE_ACCESS_TOKEN` 만 바꿔주면 돼요. 그리고 이 토큰은 계정 비밀번호와 같은
+힘을 가져요. 새어나간 것 같으면 계정 페이지에서 바로 Revoke 하세요.
+
+### 손으로 올리기
+
+시크릿을 아직 안 넣었거나, 급하게 올려야 할 때요.
 Supabase 프로젝트가 아직 없으면 supabase.com 에서 하나 만들고 시작해요.
 
 ```bash
-npm i -g supabase           # CLI 설치
-supabase login              # 브라우저가 열려요
-supabase link --project-ref <프로젝트 ref>
+# 설치는 안 해도 돼요. npx가 알아서 받아와요.
+npx supabase login --token <발급받은 토큰>
+npx supabase link --project-ref <프로젝트 ref>
 
 # 키 넣기. 이 값은 Supabase 서버에만 저장되고 저장소에는 안 남아요.
-supabase secrets set NEIS_API_KEY=받은키
+# 한 번만 하면 돼요. 함수를 다시 올려도 키는 그대로 있어요.
+npx supabase secrets set NEIS_API_KEY=받은키
 
-supabase functions deploy neis
+# --use-api 는 Docker 없이 올리는 방법이에요.
+npx supabase functions deploy neis --use-api
 ```
+
+`supabase login` 은 브라우저를 거치는 방법도 있지만, 태블릿처럼 긴 주소를
+복사하기 어려운 환경에서는 `--token` 이 훨씬 편해요.
 
 배포되면 주소가 이렇게 나와요.
 
