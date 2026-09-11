@@ -46,13 +46,20 @@ QR을 카메라(iOS)나 Expo Go 앱(Android)으로 찍으면 열려요.
 
 ## 글꼴
 
-앱 전체에 네이버 **나눔스퀘어라운드**를 써요. `assets/fonts/`에 Regular · Bold · ExtraBold
-세 가지가 들어 있고, 화면 코드에서는 지금처럼 `fontWeight`만 적으면
-`src/components/text.tsx`가 알맞은 파일을 골라 줘요.
+상황에 따라 두 벌을 나눠 써요.
 
-> 이 앱에는 네이버에서 제공한 나눔스퀘어라운드 글꼴이 적용되어 있습니다.
+- **Pretendard** — 한글과 일반 글씨. Regular / Medium / SemiBold / Bold 네 굵기예요.
+- **Outfit** — 시각, 날짜, D-day처럼 숫자와 영문만 나오는 자리에 써요.
+  숫자가 또렷해지고 화면이 단조롭지 않아요.
 
-자세한 저작권 안내는 `assets/fonts/LICENSE.md`에 있어요.
+화면 코드에서는 `fontWeight`만 적으면 `src/components/text.tsx`가 알맞은 파일을
+골라 주고, 숫자 자리에는 `<Text numeric>`을 쓰면 돼요.
+
+용량을 줄이려고 Pretendard는 KS X 1001 완성형 한글 2,350자와 영문·기호만 남겨
+줄여서 넣었어요 (2.6MB → 445KB/굵기). 여기에 없는 드문 글자는 폰 기본 글꼴로 나와요.
+
+두 글꼴 모두 SIL Open Font License 1.1이에요. 자세한 안내는
+`assets/fonts/LICENSE.md`에 있어요.
 
 ## 폴더 구조
 
@@ -64,7 +71,7 @@ src/app/            화면 (expo-router 파일 기반 라우팅)
   profile.tsx       내 정보 · 테마 색 · 화면 밝기
   add-event.tsx     일정 추가 (선생님 전용)
 src/components/     공통 UI 조각 (버튼, 카드, 입력칸, 탭 막대)
-  text.tsx          굵기에 맞는 둥근 글꼴을 골라 주는 글씨 컴포넌트
+  text.tsx          굵기와 용도에 맞는 글꼴을 골라 주는 글씨 컴포넌트
 src/constants/      테마 색 (accent 하나로 밝은/어두운 팔레트를 자동으로 만들어요)
 src/lib/            앱 상태, 시간 계산
 src/data/mock.ts    임시 데이터 (NEIS · Supabase로 교체 예정)

@@ -112,7 +112,7 @@ export default function TimetableScreen() {
                         <Text style={[styles.subject, { color: palette.text }]}>{subject}</Text>
                       </View>
                       <View style={styles.metaRow}>
-                        <Text style={[styles.periodMeta, { color: palette.sub }]}>
+                        <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
                           {bell.start}–{bell.end}
                         </Text>
                         {who ? <Text style={[styles.periodMeta, { color: palette.sub }]}>{who}</Text> : null}
@@ -144,7 +144,9 @@ export default function TimetableScreen() {
               ) : null}
               <View style={styles.weekRow}>
                 <View style={styles.weekPeriodCell}>
-                  <Text style={[styles.weekPeriod, { color: palette.sub }]}>{bell.period}</Text>
+                  <Text numeric style={[styles.weekPeriod, { color: palette.sub }]}>
+                    {bell.period}
+                  </Text>
                 </View>
                 {WEEKDAYS.map((d) => {
                   const subject = week[d][i];
@@ -183,26 +185,26 @@ const styles = StyleSheet.create({
 
   dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   dayTab: { flex: 1, height: 44, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  dayTabText: { fontSize: 16, fontWeight: '800' },
+  dayTabText: { fontSize: 15, fontWeight: '800' },
 
   dayCard: { padding: 8 },
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 16 },
   subjectRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
-  periodTag: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  subject: { fontSize: 18, fontWeight: '800' },
+  periodTag: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  subject: { fontSize: 16, fontWeight: '800' },
   metaRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  periodMeta: { fontSize: 14, fontVariant: ['tabular-nums'] },
+  periodMeta: { fontSize: 12, fontVariant: ['tabular-nums'] },
   lunch: { borderTopWidth: 1.5, borderBottomWidth: 1.5, borderStyle: 'dashed', paddingVertical: 10, marginVertical: 6, marginHorizontal: 12 },
-  lunchText: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  lunchText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
   weekCard: { padding: 10 },
   weekRow: { flexDirection: 'row' },
   weekPeriodCell: { width: 26, alignItems: 'center', justifyContent: 'center' },
-  weekPeriod: { fontSize: 14, fontWeight: '800' },
+  weekPeriod: { fontSize: 12, fontWeight: '800' },
   weekHead: { flex: 1, alignItems: 'center', paddingVertical: 8, marginHorizontal: 1, borderRadius: 10 },
-  weekHeadText: { fontSize: 15, fontWeight: '800' },
+  weekHeadText: { fontSize: 13, fontWeight: '800' },
   weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 2, borderRadius: 12 },
-  weekCellText: { fontSize: 14, fontWeight: '700' },
+  weekCellText: { fontSize: 12, fontWeight: '700' },
   weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 5, paddingTop: 5 },
-  weekLunchText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  weekLunchText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
 });

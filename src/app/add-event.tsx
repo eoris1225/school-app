@@ -106,7 +106,7 @@ export default function AddEventScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 16, fontWeight: '800', marginBottom: 8, marginTop: 6 },
+  label: { fontSize: 14, fontWeight: '800', marginBottom: 8, marginTop: 6 },
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
   dateRow: {
     flexDirection: 'row',
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     padding: 6,
     marginBottom: 16,
   },
-  dateText: { fontSize: 17, fontWeight: '800' },
+  dateText: { fontSize: 15, fontWeight: '800' },
   chips: { marginBottom: 16, marginRight: -20 },
   preview: { paddingVertical: 4 },
 });

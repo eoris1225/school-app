@@ -40,7 +40,9 @@ export default function MealScreen() {
                   : { borderColor: isToday ? palette.accent : palette.line },
               ]}>
               <Text style={[styles.dayName, { color: selected ? palette.onAccent : palette.sub }]}>{d}</Text>
-              <Text style={[styles.dayNum, { color: selected ? palette.onAccent : palette.text }]}>{date}</Text>
+              <Text numeric style={[styles.dayNum, { color: selected ? palette.onAccent : palette.text }]}>
+                {date}
+              </Text>
               {/* 오늘 표시는 골라도 사라지지 않게 점으로 남겨둬요. */}
               <View
                 style={[
@@ -83,6 +85,7 @@ export default function MealScreen() {
                   <Text style={[styles.itemName, { color: palette.text }]}>{item.name}</Text>
                   {item.allergy.length ? (
                     <Text
+                      numeric
                       style={[styles.itemAllergy, { color: palette.sub }]}
                       accessibilityLabel={`알레르기 ${item.allergy.map((n) => ALLERGENS[n - 1]).join(', ')}`}>
                       {item.allergy.join(' ')}
@@ -134,17 +137,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
-  dayName: { fontSize: 14, fontWeight: '700' },
-  dayNum: { fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  dayName: { fontSize: 12, fontWeight: '700' },
+  dayNum: { fontSize: 19, fontWeight: '800', fontVariant: ['tabular-nums'] },
   todayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 1 },
 
   fill: { flex: 1 },
   mealHead: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingBottom: 6 },
-  mealTitle: { fontSize: 17, fontWeight: '800' },
-  mealSub: { fontSize: 13, fontWeight: '600', marginTop: 1 },
+  mealTitle: { fontSize: 15, fontWeight: '800' },
+  mealSub: { fontSize: 12, fontWeight: '600', marginTop: 1 },
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13 },
-  itemName: { fontSize: 18, fontWeight: '700' },
-  itemAllergy: { fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  itemName: { fontSize: 15, fontWeight: '700' },
+  itemAllergy: { fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
   kcalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   kcalValue: { fontSize: 15, fontWeight: '800' },
 
   allergyToggle: { paddingVertical: 8, marginBottom: 8 },
-  allergyToggleText: { fontSize: 15, fontWeight: '700' },
+  allergyToggleText: { fontSize: 13, fontWeight: '700' },
   allergyGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
-  allergyItem: { fontSize: 15 },
+  allergyItem: { fontSize: 13 },
 });

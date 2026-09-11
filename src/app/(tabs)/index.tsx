@@ -273,7 +273,7 @@ function EventCards({ events }: { events: SchoolEvent[] }) {
               pressed && styles.pressed,
             ]}>
             <View style={styles.eventTop}>
-              <Text style={[styles.eventDate, { color: today ? '#FFFFFF' : t.fg }]}>
+              <Text numeric style={[styles.eventDate, { color: today ? '#FFFFFF' : t.fg }]}>
                 {date.getMonth() + 1}/{date.getDate()}
               </Text>
               <View style={[styles.ddayPill, { backgroundColor: today ? '#FFFFFF33' : palette.surface }]}>
@@ -328,7 +328,9 @@ function EventList({ events }: { events: SchoolEvent[] }) {
                 pressed && styles.pressed,
               ]}>
               <View style={[styles.listDate, { backgroundColor: t.bg }]}>
-                <Text style={[styles.listDay, { color: t.fg }]}>{date.getDate()}</Text>
+                <Text numeric style={[styles.listDay, { color: t.fg }]}>
+                  {date.getDate()}
+                </Text>
                 <Text style={[styles.listMonth, { color: t.fg }]}>{date.getMonth() + 1}월</Text>
               </View>
               <View style={styles.fill}>
@@ -396,7 +398,9 @@ function TodayClasses({
                 numberOfLines={1}>
                 {r.name}
               </Text>
-              <Text style={[styles.todayTime, { color: palette.sub }]}>{r.sub}</Text>
+              <Text numeric style={[styles.todayTime, { color: palette.sub }]}>
+                {r.sub}
+              </Text>
             </View>
           ))}
         </View>
@@ -822,15 +826,15 @@ const styles = StyleSheet.create({
 
   bandTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 11 },
   bandTopCompact: { paddingBottom: 9 },
-  bandDate: { fontSize: 14, fontWeight: '700', opacity: 0.85 },
-  bandName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, marginTop: 2 },
-  bandNameCompact: { fontSize: 19 },
-  bandNameWide: { fontSize: 26 },
+  bandDate: { fontSize: 12, fontWeight: '700', opacity: 0.85 },
+  bandName: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, marginTop: 2 },
+  bandNameCompact: { fontSize: 17 },
+  bandNameWide: { fontSize: 22 },
 
-  heroLine: { fontSize: 15, fontWeight: '700', opacity: 0.9 },
-  heroBig: { fontSize: 34, lineHeight: 41, fontWeight: '800', letterSpacing: -1, marginTop: 2 },
-  heroBigCompact: { fontSize: 26, lineHeight: 33 },
-  heroBigWide: { fontSize: 44, lineHeight: 54 },
+  heroLine: { fontSize: 13, fontWeight: '700', opacity: 0.9 },
+  heroBig: { fontSize: 27, lineHeight: 34, fontWeight: '800', letterSpacing: -1, marginTop: 2 },
+  heroBigCompact: { fontSize: 23, lineHeight: 29 },
+  heroBigWide: { fontSize: 34, lineHeight: 42 },
 
   dots: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, height: 20 },
   dotsCompact: { marginTop: 7, height: 16, gap: 6 },
@@ -853,10 +857,10 @@ const styles = StyleSheet.create({
   stripItemCompact: { paddingVertical: 9 },
   stripLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   stripDot: { width: 6, height: 6, borderRadius: 3 },
-  stripLabel: { fontSize: 12, fontWeight: '700' },
-  stripValue: { fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
-  stripValueCompact: { fontSize: 18 },
-  stripSub: { fontSize: 12, fontWeight: '700' },
+  stripLabel: { fontSize: 11, fontWeight: '700' },
+  stripValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.4 },
+  stripValueCompact: { fontSize: 16 },
+  stripSub: { fontSize: 11, fontWeight: '700' },
 
   wide: {
     flexShrink: 0,
@@ -872,46 +876,46 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   wideHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  wideTitle: { fontSize: 16, fontWeight: '800', flex: 1 },
-  wideTitleWide: { fontSize: 18 },
-  wideRight: { fontSize: 13, fontWeight: '700' },
-  wideBody: { fontSize: 14, lineHeight: 19, marginTop: 3 },
+  wideTitle: { fontSize: 15, fontWeight: '800', flex: 1 },
+  wideTitleWide: { fontSize: 16 },
+  wideRight: { fontSize: 12, fontWeight: '700' },
+  wideBody: { fontSize: 13, lineHeight: 18, marginTop: 3 },
 
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 13, marginBottom: 9 },
   rowHeadCompact: { marginTop: 10, marginBottom: 7 },
-  rowTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-  rowTitleWide: { fontSize: 20 },
+  rowTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  rowTitleWide: { fontSize: 17 },
   rowAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  rowActionText: { fontSize: 14, fontWeight: '700' },
+  rowActionText: { fontSize: 13, fontWeight: '700' },
 
   cardScroll: { flexGrow: 0, flexShrink: 0 },
   cardRow: { gap: 10, paddingRight: 20 },
-  eventCard: { width: 132, height: 104, borderWidth: 1.5, borderRadius: 20, padding: 13, justifyContent: 'space-between' },
+  eventCard: { width: 146, height: 104, borderWidth: 1.5, borderRadius: 20, padding: 13, justifyContent: 'space-between' },
   eventCardCompact: { height: 92, padding: 10 },
   eventTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  eventDate: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  eventDate: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
   ddayPill: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  ddayText: { fontSize: 12, fontWeight: '800' },
-  eventTitle: { fontSize: 15, fontWeight: '800', lineHeight: 19, flex: 1, marginTop: 6 },
-  eventKind: { fontSize: 12, fontWeight: '600' },
+  ddayText: { fontSize: 11, fontWeight: '800' },
+  eventTitle: { fontSize: 14, fontWeight: '700', lineHeight: 18, flex: 1, marginTop: 6 },
+  eventKind: { fontSize: 11, fontWeight: '600' },
 
   emptyCard: { height: 104, flexShrink: 0, borderWidth: 1.5, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 15, textAlign: 'center', paddingVertical: 18 },
+  emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 18 },
 
   todayWrap: { flex: 1, minHeight: 0 },
   todayFill: { flex: 1, minHeight: 0 },
   todayCard: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   todayRow: { height: TODAY_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12 },
-  todayPeriod: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  todayName: { flex: 1, fontSize: 15, fontWeight: '700' },
-  todayTime: { fontSize: 13, fontVariant: ['tabular-nums'] },
+  todayPeriod: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  todayName: { flex: 1, fontSize: 14, fontWeight: '700' },
+  todayTime: { fontSize: 12, fontVariant: ['tabular-nums'] },
 
   listRow: { height: EVENT_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
   listDate: { width: 40, paddingVertical: 4, borderRadius: 12, alignItems: 'center' },
-  listDay: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 20 },
-  listMonth: { fontSize: 11, fontWeight: '700' },
-  listTitle: { fontSize: 15, fontWeight: '700' },
-  listKind: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  listDay: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 20 },
+  listMonth: { fontSize: 10, fontWeight: '700' },
+  listTitle: { fontSize: 14, fontWeight: '700' },
+  listKind: { fontSize: 11, fontWeight: '600', marginTop: 2 },
 
   quickRow: { flexShrink: 0, flexDirection: 'row', gap: 10, marginTop: 'auto', paddingTop: 12, paddingBottom: 4 },
   quickRowCompact: { paddingTop: 10, paddingBottom: 2 },
@@ -928,5 +932,5 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   quickCompact: { paddingVertical: 10, gap: 6 },
-  quickLabel: { fontSize: 13, fontWeight: '700' },
+  quickLabel: { fontSize: 12, fontWeight: '700' },
 });

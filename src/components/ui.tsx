@@ -413,13 +413,13 @@ export const styles = StyleSheet.create({
   pressed: { opacity: 0.6 },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 20 },
-  headerSub: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
-  headerTitle: { fontSize: 28, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6 },
-  headerTitleWide: { fontSize: 34, lineHeight: 44 },
+  headerSub: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  headerTitle: { fontSize: 24, lineHeight: 31, fontWeight: '800', letterSpacing: -0.6 },
+  headerTitleWide: { fontSize: 28, lineHeight: 36 },
 
   backHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8, paddingBottom: 16 },
-  backTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  backSub: { fontSize: 14, fontWeight: '500', marginTop: 1 },
+  backTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  backSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
   avatar: { alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '800' },
@@ -451,8 +451,8 @@ export const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 10,
   },
-  sectionText: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  sectionAction: { fontSize: 15, fontWeight: '700' },
+  sectionText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  sectionAction: { fontSize: 13, fontWeight: '700' },
 
   chipRow: { gap: 8, paddingRight: 20 },
   chip: {
@@ -463,7 +463,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipText: { fontSize: 15, fontWeight: '700' },
+  chipText: { fontSize: 14, fontWeight: '700' },
 
   segmented: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 16 },
   segment: {
@@ -475,10 +475,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segmentText: { fontSize: 15 },
+  segmentText: { fontSize: 14 },
 
   tag: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
-  tagText: { fontSize: 13, fontWeight: '700' },
+  tagText: { fontSize: 12, fontWeight: '700' },
 
   button: {
     height: 54,
@@ -490,10 +490,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  buttonText: { fontSize: 17, fontWeight: '800' },
+  buttonText: { fontSize: 15, fontWeight: '800' },
 
   iconChip: { alignItems: 'center', justifyContent: 'center' },
-  field: { borderWidth: 1.5, fontSize: 16, fontFamily: FONT.regular },
-  empty: { fontSize: 15, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
+  field: { borderWidth: 1.5, fontSize: 15, fontFamily: FONT.regular },
+  empty: { fontSize: 14, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
   divider: { height: 1, marginVertical: 2 },
 });

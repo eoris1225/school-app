@@ -112,6 +112,7 @@ export default function CalendarScreen() {
                       isToday && { backgroundColor: palette.accent, borderColor: palette.accent },
                     ]}>
                     <Text
+                      numeric
                       style={[
                         styles.dayText,
                         {
@@ -182,13 +183,13 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  monthText: { fontSize: 22, fontWeight: '800' },
+  monthText: { fontSize: 19, fontWeight: '800' },
   monthNav: { flexDirection: 'row', gap: 8 },
   filters: { flexDirection: 'row', gap: 8, marginBottom: 14 },
 
   calendarCard: { paddingHorizontal: 8, paddingVertical: 12 },
   weekRow: { flexDirection: 'row' },
-  dow: { flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '700', paddingBottom: 6 },
+  dow: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingBottom: 6 },
   cell: { flex: 1, height: 54, alignItems: 'center', paddingTop: 2 },
   dayCircle: {
     width: 38,
@@ -199,15 +200,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayText: { fontSize: 16, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  dayText: { fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
   dayTextBold: { fontWeight: '800' },
   marks: { flexDirection: 'row', gap: 3, marginTop: 3, height: 7 },
   mark: { width: 7, height: 7, borderRadius: 4 },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 10 },
-  legendText: { fontSize: 14, fontWeight: '600' },
+  legendText: { fontSize: 12, fontWeight: '600' },
 
   listCard: { paddingVertical: 6 },
   confirm: { borderRadius: 16, padding: 14, marginBottom: 12, gap: 12 },
-  confirmText: { fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  confirmText: { fontSize: 14, fontWeight: '600', lineHeight: 21 },
   confirmButtons: { flexDirection: 'row', gap: 8 },
 });

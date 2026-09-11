@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     minHeight: 58,
   },
-  label: { fontSize: 12 },
+  label: { fontSize: 11 },
   badge: {
     position: 'absolute',
     top: -6,
