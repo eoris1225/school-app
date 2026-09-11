@@ -5,8 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
+  type TextInputProps,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,10 +29,13 @@ export function Screen({
   children,
   scroll = true,
   footer,
+  /** 탭 막대가 없는 화면(내 정보, 일정 추가)은 아래 여백을 직접 챙겨야 해요. */
+  bottomInset = false,
 }: {
   children: ReactNode;
   scroll?: boolean;
   footer?: ReactNode;
+  bottomInset?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { palette } = useApp();
@@ -38,7 +43,10 @@ export function Screen({
     <View style={[styles.screen, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            bottomInset && { paddingBottom: insets.bottom + 32 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.column}>{children}</View>
@@ -244,7 +252,7 @@ export function Segmented<T extends string>({
             accessibilityState={{ selected }}
             style={[
               styles.segment,
-              selected && { backgroundColor: palette.surface, borderColor: palette.line },
+              selected && { backgroundColor: palette.raised, borderColor: palette.line },
             ]}>
             <Text
               style={[
@@ -308,6 +316,24 @@ export function Button({
       {icon ? <Icon name={icon} size={20} color={color} /> : null}
       <Text style={[styles.buttonText, { color }]}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** 앱 안의 모든 글 입력칸. 테마 색과 밝기를 한곳에서 맞춰요. */
+export function Field({ style, ...props }: TextInputProps) {
+  const { palette } = useApp();
+  return (
+    <TextInput
+      placeholderTextColor={palette.sub}
+      keyboardAppearance={palette.scheme}
+      selectionColor={palette.accent}
+      {...props}
+      style={[
+        styles.field,
+        { borderColor: palette.line, color: palette.text, backgroundColor: palette.surface },
+        style,
+      ]}
+    />
   );
 }
 
@@ -398,6 +424,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: { fontSize: 17, fontWeight: '800' },
 
+  field: { borderWidth: 1.5, fontSize: 16 },
   empty: { fontSize: 15, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
   divider: { height: 1, marginVertical: 2 },
 });

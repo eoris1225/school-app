@@ -1,14 +1,14 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, MAX_WIDTH } from '@/components/ui';
-import { THEMES } from '@/constants/themes';
+import { buildPalette, THEMES } from '@/constants/themes';
 import { SCHOOL, type Role } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 
 export default function StartScreen() {
-  const { palette, setRole } = useApp();
+  const { palette, setRole, scheme, themeKey, setThemeKey } = useApp();
   const insets = useSafeAreaInsets();
 
   const start = (role: Role) => {
@@ -27,10 +27,26 @@ export default function StartScreen() {
           <Text style={[styles.desc, { color: palette.sub }]}>
             급식, 시간표, 학교 일정, 선생님께 질문하기까지 한곳에서 확인해요.
           </Text>
-          <View style={styles.swatches} accessible accessibilityLabel="고를 수 있는 테마 색상 6가지">
-            {THEMES.map((t) => (
-              <View key={t.key} style={[styles.swatch, { backgroundColor: t.accent }]} />
-            ))}
+          <Text style={[styles.swatchLabel, { color: palette.sub }]}>마음에 드는 색을 골라보세요</Text>
+          <View style={styles.swatches} accessibilityRole="radiogroup">
+            {THEMES.map((t) => {
+              const selected = t.key === themeKey;
+              return (
+                <Pressable
+                  key={t.key}
+                  onPress={() => setThemeKey(t.key)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${t.name} 색`}
+                  style={({ pressed }) => [
+                    styles.swatchWrap,
+                    { borderColor: selected ? palette.accent : 'transparent' },
+                    pressed && styles.pressed,
+                  ]}>
+                  <View style={[styles.swatch, { backgroundColor: buildPalette(t.accent, scheme).accent }]} />
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -60,8 +76,18 @@ const styles = StyleSheet.create({
   school: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
   title: { fontSize: 48, lineHeight: 56, fontWeight: '800', letterSpacing: -2 },
   desc: { fontSize: 17, lineHeight: 26, marginTop: 16 },
-  swatches: { flexDirection: 'row', gap: 10, marginTop: 28 },
-  swatch: { width: 22, height: 22, borderRadius: 11 },
+  swatchLabel: { fontSize: 15, fontWeight: '600', marginTop: 28 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginLeft: -9 },
+  swatchWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatch: { width: 24, height: 24, borderRadius: 12 },
+  pressed: { opacity: 0.6 },
   actions: { gap: 12 },
   note: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 4 },
 });

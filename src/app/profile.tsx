@@ -2,13 +2,13 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
-import { Avatar, BackHeader, Button, Card, Divider, Screen, SectionTitle, Tag } from '@/components/ui';
-import { THEMES } from '@/constants/themes';
+import { Avatar, BackHeader, Button, Card, Divider, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
+import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
 import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 
 export default function ProfileScreen() {
-  const { palette, role, setRole, themeKey, setThemeKey } = useApp();
+  const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref } = useApp();
   const teacher = role === 'teacher';
   const [grade, cls] = STUDENT.cls.split('-');
 
@@ -33,7 +33,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen>
+    <Screen bottomInset>
       <BackHeader title="내 정보" />
 
       <View style={styles.profile}>
@@ -64,6 +64,8 @@ export default function ProfileScreen() {
       <View style={styles.themeGrid}>
         {THEMES.map((t) => {
           const selected = t.key === themeKey;
+          // 지금 밝기에서 실제로 보이게 될 색으로 미리보기를 만들어요.
+          const swatch = buildPalette(t.accent, scheme);
           return (
             <Pressable
               key={t.key}
@@ -76,8 +78,8 @@ export default function ProfileScreen() {
                 { borderColor: selected ? palette.accent : palette.line, borderWidth: selected ? 2.5 : 1.5 },
                 pressed && { opacity: 0.6 },
               ]}>
-              <View style={[styles.swatch, { backgroundColor: t.accent }]}>
-                {selected ? <Icon name="check" size={22} color="#FFFFFF" /> : null}
+              <View style={[styles.swatch, { backgroundColor: swatch.accent }]}>
+                {selected ? <Icon name="check" size={22} color={swatch.onAccent} /> : null}
               </View>
               <Text style={[styles.themeName, { color: palette.text, fontWeight: selected ? '800' : '600' }]}>
                 {t.name}
@@ -86,6 +88,12 @@ export default function ProfileScreen() {
           );
         })}
       </View>
+
+      <SectionTitle title="화면 밝기" />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        시스템으로 두면 폰 설정을 따라가요. 어두운 곳에서는 어둡게가 눈이 편해요.
+      </Text>
+      <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
 
       <SectionTitle title="화면 미리보기" />
       <Text style={[styles.help, { color: palette.sub }]}>

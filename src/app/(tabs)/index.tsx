@@ -112,7 +112,11 @@ function StudentHome() {
         accessibilityRole="button"
         accessibilityLabel={`${hero.label} ${hero.big}. ${hero.line}. 시간표 열기`}
         style={({ pressed }) => [styles.hero, { backgroundColor: palette.tint }, pressed && styles.pressed]}>
-        <Text style={[styles.heroLabel, { color: palette.accentDeep }]}>{hero.label}</Text>
+        <View style={styles.heroTop}>
+          <Text style={[styles.heroLabel, { color: palette.accentDeep }]}>{hero.label}</Text>
+          {/* 누르면 시간표로 간다는 걸 화살표로 알려줘요. */}
+          <Icon name="next" size={18} color={palette.accentDeep} />
+        </View>
         <Text style={[styles.heroBig, { color: palette.text }]} numberOfLines={1}>
           {hero.big}
         </Text>
@@ -229,6 +233,7 @@ function TeacherHome() {
         onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
       />
       <Card style={styles.listCard}>
+        {upcoming.length === 0 ? <Empty text="예정된 일정이 없어요" /> : null}
         {upcoming.slice(0, 3).map((e, i) => (
           <View key={e.id}>
             {i > 0 ? <Divider /> : null}
@@ -266,6 +271,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
 
   hero: { borderRadius: 28, padding: 24, marginBottom: 14 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroLabel: { fontSize: 16, fontWeight: '700' },
   heroBig: { fontSize: 60, lineHeight: 70, fontWeight: '800', letterSpacing: -2, marginTop: 4 },
   heroLine: { fontSize: 16, fontWeight: '500', lineHeight: 22 },

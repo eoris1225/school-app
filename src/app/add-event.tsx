@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
-import { BackHeader, Button, Card, Chip, ChipRow, Empty, goBack, IconButton, Screen, Segmented } from '@/components/ui';
+import { BackHeader, Button, Card, Chip, ChipRow, Empty, Field, goBack, IconButton, Screen, Segmented } from '@/components/ui';
 import { classLabel, SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { addDays, formatDay, fromYmd, toYmd } from '@/lib/time';
@@ -21,7 +21,7 @@ export default function AddEventScreen() {
 
   if (role !== 'teacher') {
     return (
-      <Screen>
+      <Screen bottomInset>
         <BackHeader title="일정 추가" />
         <Empty text="일정은 선생님만 추가할 수 있어요" />
       </Screen>
@@ -43,7 +43,7 @@ export default function AddEventScreen() {
   };
 
   return (
-    <Screen>
+    <Screen bottomInset>
       <BackHeader title="일정 추가" subtitle="학생 달력에 바로 보여요" />
 
       <Text style={[styles.label, { color: palette.text }]}>종류</Text>
@@ -57,13 +57,12 @@ export default function AddEventScreen() {
       />
 
       <Text style={[styles.label, { color: palette.text }]}>제목</Text>
-      <TextInput
+      <Field
         value={title}
         onChangeText={setTitle}
         placeholder={kind === 'assessment' ? '예: 이차함수 활용 수행평가' : '예: 체육대회'}
-        placeholderTextColor={palette.sub}
         accessibilityLabel="일정 제목"
-        style={[styles.input, { borderColor: palette.line, color: palette.text }]}
+        style={styles.input}
       />
 
       <Text style={[styles.label, { color: palette.text }]}>날짜</Text>
@@ -107,7 +106,7 @@ export default function AddEventScreen() {
 
 const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '800', marginBottom: 8, marginTop: 6 },
-  input: { borderWidth: 1.5, borderRadius: 16, height: 52, paddingHorizontal: 16, fontSize: 16, marginBottom: 16 },
+  input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',

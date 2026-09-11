@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ThreadRow } from '@/components/rows';
-import { Button, Card, Chip, ChipRow, Empty, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { SUBJECT_TEACHERS, SUBJECTS, TEACHER, type Subject, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
 
@@ -61,17 +61,16 @@ function StudentCommunity() {
           </Text>
         ) : null}
 
-        <TextInput
+        <Field
           value={text}
           onChangeText={(v) => {
             setText(v);
             setSentTo(null);
           }}
           placeholder="궁금한 내용을 적어주세요"
-          placeholderTextColor={palette.sub}
           multiline
           accessibilityLabel="질문 내용"
-          style={[styles.input, { borderColor: palette.line, color: palette.text }]}
+          style={styles.input}
         />
         <Button label={subject ? `${subject} 선생님께 보내기` : '과목을 먼저 골라주세요'} icon="send" disabled={!canSend} onPress={send} />
         {sentTo ? <Text style={[styles.sent, { color: palette.accentDeep }]}>{sentTo}</Text> : null}
@@ -123,11 +122,9 @@ const styles = StyleSheet.create({
   subjects: { marginTop: 14, marginHorizontal: -18, paddingLeft: 18 },
   to: { fontSize: 15, fontWeight: '700', marginTop: 12 },
   input: {
-    borderWidth: 1.5,
     borderRadius: 16,
     minHeight: 110,
     padding: 14,
-    fontSize: 16,
     lineHeight: 23,
     textAlignVertical: 'top',
     marginTop: 12,

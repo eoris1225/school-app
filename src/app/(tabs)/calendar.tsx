@@ -36,9 +36,17 @@ export default function CalendarScreen() {
   const moveMonth = (delta: number) => {
     const d = new Date(cursor.y, cursor.m + delta, 1);
     setCursor({ y: d.getFullYear(), m: d.getMonth() });
+    // 달을 넘기면 아래 목록도 그 달로 같이 옮겨요. 옮긴 달이 이번 달이면 오늘을 골라요.
+    const hasToday = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    setSelected(toYmd(hasToday ? now : d));
+    setConfirmId(null);
   };
 
   const openAdd = () => router.push({ pathname: '/add-event', params: { date: selected } });
+
+  // 종이 달력처럼 일요일은 빨강, 토요일은 파랑으로 보여줘요.
+  const weekendColor = (dow: number, weekday: string) =>
+    dow === 0 ? palette.sunday : dow === 6 ? palette.saturday : weekday;
 
   return (
     <Screen>
@@ -66,8 +74,8 @@ export default function CalendarScreen() {
 
       <Card style={styles.calendarCard}>
         <View style={styles.weekRow}>
-          {DOW.map((d) => (
-            <Text key={d} style={[styles.dow, { color: palette.sub }]}>
+          {DOW.map((d, i) => (
+            <Text key={d} style={[styles.dow, { color: weekendColor(i, palette.sub) }]}>
               {d}
             </Text>
           ))}
@@ -100,7 +108,13 @@ export default function CalendarScreen() {
                     <Text
                       style={[
                         styles.dayText,
-                        { color: isToday ? palette.onAccent : isSelected ? palette.accentDeep : palette.text },
+                        {
+                          color: isToday
+                            ? palette.onAccent
+                            : isSelected
+                              ? palette.accentDeep
+                              : weekendColor(di, palette.text),
+                        },
                         (isToday || isSelected) && styles.dayTextBold,
                       ]}>
                       {day}
