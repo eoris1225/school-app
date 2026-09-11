@@ -1,0 +1,74 @@
+# supabase/functions/ 이 바뀐 채로 main에 올라오면 서버 함수를 자동으로 배포해요.
+#
+# 이게 없으면 앱만 자동으로 올라가고 서버는 손으로 올려야 해서 둘이 어긋나요.
+# (앱은 "학교 골라줘"라고 하는데 서버는 학교를 무시하는 식으로요)
+#
+# 처음 한 번만 저장소 설정에서 시크릿 두 개를 넣어주세요.
+#   Settings > Secrets and variables > Actions > New repository secret
+#     SUPABASE_ACCESS_TOKEN   supabase.com/dashboard/account/tokens 에서 발급
+#     SUPABASE_PROJECT_REF    대시보드 주소의 /project/ 뒤에 있는 값
+#
+# 토큰은 최대 1년짜리예요. 만료되면 이 워크플로가 실패해요.
+# 그때는 새로 발급해서 SUPABASE_ACCESS_TOKEN 을 바꿔주면 돼요.
+name: 서버 함수 배포
+
+on:
+  push:
+    branches: [main]
+    # 서버를 안 건드린 커밋에서는 돌지 않아요. 대부분의 작업은 앱 쪽이라
+    # 매번 배포하면 시간만 쓰고 얻는 게 없어요.
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-function.yml'
+  # 시크릿을 막 넣었을 때처럼 직접 돌리고 싶으면 Actions 탭에서 "Run workflow"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 배포가 겹치면 마지막 것만 남겨요.
+concurrency:
+  group: supabase-function
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: 검사하고 배포
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # 깨진 코드를 올리면 급식도 시간표도 통째로 멈춰요. 먼저 확인해요.
+      - name: 타입 검사
+        working-directory: supabase/functions
+        run: deno check neis/index.ts
+
+      - name: 변환 함수 테스트
+        working-directory: supabase/functions
+        run: deno test --allow-net _shared/neis_test.ts
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: 함수 올리기
+        # --use-api 는 Docker 없이 올리는 방법이에요.
+        run: supabase functions deploy neis --project-ref "$PROJECT_REF" --use-api
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+      - name: 올라간 함수가 답하는지 확인
+        # 급식이 있든 없든 200이면 함수는 살아 있는 거예요.
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://$PROJECT_REF.supabase.co/functions/v1/neis?kind=school&name=%EC%84%9C%EC%9D%BC%EC%97%AC%EC%9E%90%EA%B3%A0%EB%93%B1%ED%95%99%EA%B5%90")
+          echo "함수 응답: $code"
+          test "$code" = "200"
+        env:
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
