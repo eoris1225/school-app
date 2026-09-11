@@ -14,6 +14,8 @@
  * 이 주소는 비밀이 아니에요. 공개된 엔드포인트라서 코드에 그대로 둬요.
  * 진짜 숨겨야 하는 NEIS 인증키는 이 주소 너머 서버 안에 있어요.
  */
+import { accessToken } from '@/lib/auth';
+
 const BASE = 'https://isxbdvgvzdqpugaxqrzs.supabase.co/functions/v1/neis';
 
 /** 서버가 늦게 답하면 손 놓고 기다리지 않고 끊어요. */
@@ -83,8 +85,6 @@ export class ApiError extends Error {
 type CallOptions = {
   method?: 'GET' | 'POST' | 'DELETE';
   body?: unknown;
-  /** 선생님만 할 수 있는 일에 붙여요. 서버가 이 값을 확인해요. */
-  teacherCode?: string;
 };
 
 async function call<T>(params: Record<string, string | number>, opts: CallOptions = {}): Promise<T> {
@@ -96,8 +96,9 @@ async function call<T>(params: Record<string, string | number>, opts: CallOption
 
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['content-type'] = 'application/json';
-  // 헤더에는 영문만 실을 수 있어요. 한글 코드는 서버가 알려주니 그대로 보내요.
-  if (opts.teacherCode) headers['x-teacher-code'] = opts.teacherCode;
+  // 로그인했으면 토큰을 같이 보내요. 서버가 이걸로 내가 누구인지 알아요.
+  const token = await accessToken();
+  if (token) headers.authorization = `Bearer ${token}`;
 
   let res: Response;
   try {
@@ -214,23 +215,43 @@ export async function getAssessments(
 
 export async function addAssessment(
   item: Omit<Assessment, 'id'>,
-  teacherCode: string,
   school?: SchoolRef,
 ): Promise<Assessment> {
   const r = await call<{ assessment: Assessment }>(
     { kind: 'assessments', ...at(school) },
-    { method: 'POST', body: item, teacherCode },
+    { method: 'POST', body: item },
   );
   return r.assessment;
 }
 
-export async function removeAssessment(
-  id: string,
-  teacherCode: string,
-  school?: SchoolRef,
-): Promise<void> {
-  await call<{ deleted: number }>(
-    { kind: 'assessments', id, ...at(school) },
-    { method: 'DELETE', teacherCode },
-  );
+export async function removeAssessment(id: string, school?: SchoolRef): Promise<void> {
+  await call<{ deleted: number }>({ kind: 'assessments', id, ...at(school) }, { method: 'DELETE' });
+}
+
+
+// ---------------------------------------------------------------- 로그인
+
+export type Me = {
+  id: string;
+  role: 'student' | 'teacher';
+  name: string;
+  subjects: string[];
+};
+
+/** 서버가 보는 나. 로그인 안 했으면 null이에요. */
+export async function getMe(): Promise<Me | null> {
+  const { me } = await call<{ me: Me | null }>({ kind: 'me' });
+  return me;
+}
+
+/**
+ * 선생님으로 올려요. 코드는 이때 한 번만 써요.
+ * 통과하면 계정에 역할이 붙고, 그 뒤로는 코드가 필요 없어요.
+ */
+export async function promoteToTeacher(code: string, subjects: string[]): Promise<Me> {
+  const { me } = await call<{ me: Me }>({ kind: 'promote' }, {
+    method: 'POST',
+    body: { code, subjects },
+  });
+  return me;
 }

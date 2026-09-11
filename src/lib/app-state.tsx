@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Appearance } from 'react-native';
 
-import { loadMySchool, loadTeacherCode, saveMySchool, saveTeacherCode, type MySchool } from '@/lib/my-school';
+import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
 import { subjectGroup } from '@/lib/subject';
+import { getMe } from '@/lib/api';
+import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
 import {
   loadAllergies,
   loadMyEvents,
@@ -41,8 +43,15 @@ import {
 } from '@/data/mock';
 
 type AppContextValue = {
+  /** 로그인한 계정의 역할. 로그인 안 했으면 null이에요. */
   role: Role | null;
-  setRole: (role: Role | null) => void;
+  /** 로그인한 계정. 로그인 안 했으면 null이에요. */
+  me: Me | null;
+  /** 로그인 상태를 아직 확인하는 중인지 */
+  authLoading: boolean;
+  /** 서버에서 내 정보를 다시 읽어요. 선생님으로 올린 뒤에 불러요. */
+  reloadMe: () => void;
+  signOut: () => Promise<void>;
   themeKey: ThemeKey;
   setThemeKey: (key: ThemeKey) => void;
   /** 사용자가 고른 밝기 ('system'이면 폰 설정을 따라가요) */
@@ -65,9 +74,6 @@ type AppContextValue = {
   removeEvent: (id: string) => Promise<string | null>;
   /** 서버에 담긴 수행평가를 다시 읽어요. */
   reloadEvents: () => void;
-  /** 선생님 코드. 없으면 등록·삭제를 못 해요. */
-  teacherCode: string;
-  setTeacherCode: (code: string) => void;
 
   /** NEIS 시간표 과목 -> 내가 실제로 듣는 과목 */
   swaps: SubjectSwaps;
@@ -123,11 +129,14 @@ function useNow(): Date {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role | null>(null);
+  // 로그인 상태. 역할은 계정에 붙어 있어서 앱에서 마음대로 바꿀 수 없어요.
+  const [me, setMe] = useState<Me | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [meNonce, setMeNonce] = useState(0);
+  const role: Role | null = me?.role ?? null;
   const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
   const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
-  const [teacherCode, setTeacherCodeState] = useState('');
   const [swaps, setSwapsState] = useState<SubjectSwaps>({});
   const [allergies, setAllergiesState] = useState<Allergies>([]);
   const [myEvents, setMyEventsState] = useState<MyEvent[]>([]);
@@ -145,16 +154,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!alive) return;
       setSchoolState(saved);
       setSchoolLoading(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    loadTeacherCode().then((code) => {
-      if (alive) setTeacherCodeState(code);
     });
     return () => {
       alive = false;
@@ -229,10 +228,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setTeacherCode = useCallback((code: string) => {
-    const trimmed = code.trim();
-    setTeacherCodeState(trimmed);
-    void saveTeacherCode(trimmed);
+  /**
+   * 로그인 상태를 따라가요.
+   *
+   * 로그인하면 서버에 "나 누구야?" 하고 물어봐요. 역할은 서버가 알려주는
+   * 것만 믿어요. 앱이 "나 선생님이야" 라고 정할 수 있으면 의미가 없어요.
+   */
+  useEffect(() => {
+    let alive = true;
+
+    const refresh = async () => {
+      try {
+        const who = await getMe();
+        if (alive) setMe(who);
+      } catch {
+        // 못 물어봐도 앱은 돌아가야 해요. 로그인 안 한 것으로 봐요.
+        if (alive) setMe(null);
+      } finally {
+        if (alive) setAuthLoading(false);
+      }
+    };
+
+    void refresh();
+    // 로그인하거나 로그아웃하면 다시 물어봐요.
+    // 물어보는 동안 authLoading을 다시 켜요. 안 그러면 로그인 직후
+    // "아직 로그인 안 함"으로 잠깐 보여서 시작 화면으로 되돌아가요.
+    const stop = watchSession(() => {
+      setAuthLoading(true);
+      void refresh();
+    });
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [meNonce]);
+
+  const reloadMe = useCallback(() => setMeNonce((n) => n + 1), []);
+
+  const signOut = useCallback(async () => {
+    await authSignOut();
+    setMe(null);
   }, []);
 
   const setSchool = useCallback((next: MySchool) => {
@@ -266,7 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addEvent = useCallback(
     async (event: Omit<SchoolEvent, 'id'>): Promise<string | null> => {
       if (!school) return '학교를 먼저 골라주세요';
-      if (!teacherCode) return '선생님 코드를 먼저 넣어주세요. 내 정보에서 넣을 수 있어요';
+      if (role !== 'teacher') return '선생님만 등록할 수 있어요';
       try {
         const saved = await addAssessment(
           {
@@ -276,7 +311,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             grades: event.grades,
             classes: event.classes,
           },
-          teacherCode,
           school,
         );
         // 서버가 준 id로 바로 화면에 올려요. 다시 받아오지 않아도 돼요.
@@ -286,22 +320,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return e instanceof ApiError ? e.message : '등록하지 못했어요';
       }
     },
-    [school, teacherCode],
+    [school, role],
   );
 
   const removeEvent = useCallback(
     async (id: string): Promise<string | null> => {
       if (!school) return '학교를 먼저 골라주세요';
-      if (!teacherCode) return '선생님 코드를 먼저 넣어주세요. 내 정보에서 넣을 수 있어요';
+      if (role !== 'teacher') return '선생님만 지울 수 있어요';
       try {
-        await removeAssessment(id, teacherCode, school);
+        await removeAssessment(id, school);
         setAllEvents((prev) => prev.filter((e) => e.id !== id));
         return null;
       } catch (e) {
         return e instanceof ApiError ? e.message : '지우지 못했어요';
       }
     },
-    [school, teacherCode],
+    [school, role],
   );
 
   const askQuestion = useCallback((subject: Subject, text: string) => {
@@ -392,7 +426,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       role === 'teacher' ? threads.filter(isPending).length : threads.filter((t) => t.unreadStudent).length;
     return {
       role,
-      setRole,
+      me,
+      authLoading,
+      reloadMe,
+      signOut,
       themeKey,
       setThemeKey,
       schemePref,
@@ -407,8 +444,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addEvent,
       removeEvent,
       reloadEvents,
-      teacherCode,
-      setTeacherCode,
       swaps,
       setSwap,
       allergies,
@@ -425,6 +460,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [
     role,
+    me,
+    authLoading,
+    reloadMe,
+    signOut,
     themeKey,
     schemePref,
     scheme,
@@ -438,8 +477,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addEvent,
     removeEvent,
     reloadEvents,
-    teacherCode,
-    setTeacherCode,
     swaps,
     setSwap,
     allergies,
