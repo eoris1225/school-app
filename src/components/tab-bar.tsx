@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
 import { Text } from '@/components/text';
-import { MAX_WIDTH } from '@/components/ui';
+
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 
 export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { palette, role, badgeCount } = useApp();
+  const { content } = useLayout();
   const teacher = role === 'teacher';
 
   const meta: Record<string, { label: string; icon: IconName }> = {
@@ -20,7 +22,8 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 
   return (
     <View style={[styles.wrap, { backgroundColor: palette.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={[styles.bar, { borderColor: palette.line, backgroundColor: palette.surface }]}>
+      <View
+        style={[styles.bar, { maxWidth: Math.min(content, 640), borderColor: palette.line, backgroundColor: palette.surface }]}>
         {state.routes.map((route, index) => {
           const focused = state.index === index;
           const item = meta[route.name];
@@ -66,7 +69,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     padding: 6,
     width: '100%',
-    maxWidth: MAX_WIDTH,
     alignSelf: 'center',
   },
   item: {

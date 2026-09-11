@@ -7,8 +7,9 @@ import { Icon, type IconName } from '@/components/icon';
 import { FONT, Text } from '@/components/text';
 import { STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 
-/** 넓은 화면(웹)에서도 글이 너무 길게 퍼지지 않게 가운데로 모아요. */
+/** 폰에서 쓰는 기본 기둥 너비. 태블릿에서는 useLayout().content가 더 넓은 값을 줘요. */
 export const MAX_WIDTH = 560;
 
 export function goBack() {
@@ -30,6 +31,7 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   const { palette } = useApp();
+  const { content } = useLayout();
   return (
     <View style={[styles.screen, { backgroundColor: palette.bg, paddingTop: insets.top }]}>
       {scroll ? (
@@ -40,10 +42,10 @@ export function Screen({
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View style={styles.column}>{children}</View>
+          <View style={[styles.column, { maxWidth: content }]}>{children}</View>
         </ScrollView>
       ) : (
-        <View style={[styles.column, styles.fill]}>{children}</View>
+        <View style={[styles.column, styles.fill, { maxWidth: content }]}>{children}</View>
       )}
       {footer}
     </View>
@@ -78,11 +80,14 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
 /** 탭 화면 맨 위 제목. 오른쪽 동그라미를 누르면 내 정보가 열려요. */
 export function Header({ title, subtitle, right }: { title: string; subtitle?: string; right?: ReactNode }) {
   const { palette } = useApp();
+  const { tablet } = useLayout();
   return (
     <View style={styles.header}>
       <View style={styles.fill}>
         {subtitle ? <Text style={[styles.headerSub, { color: palette.sub }]}>{subtitle}</Text> : null}
-        <Text accessibilityRole="header" style={[styles.headerTitle, { color: palette.text }]}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.headerTitle, tablet && styles.headerTitleWide, { color: palette.text }]}>
           {title}
         </Text>
       </View>
@@ -348,6 +353,7 @@ export const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 20 },
   headerSub: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
   headerTitle: { fontSize: 28, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6 },
+  headerTitleWide: { fontSize: 34, lineHeight: 44 },
 
   backHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8, paddingBottom: 16 },
   backTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },

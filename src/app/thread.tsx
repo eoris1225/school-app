@@ -4,14 +4,16 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { BackHeader, Empty, Field, IconButton, MAX_WIDTH, Screen } from '@/components/ui';
+import { BackHeader, Empty, Field, IconButton, Screen } from '@/components/ui';
 import { classLabel, SUBJECT_TEACHERS } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette, role, threads, sendMessage, markRead } = useApp();
   const insets = useSafeAreaInsets();
+  const { content } = useLayout();
   const scrollRef = useRef<ScrollView>(null);
   const [text, setText] = useState('');
   const thread = threads.find((t) => t.id === id);
@@ -81,7 +83,12 @@ export default function ThreadScreen() {
         <View
           style={[
             styles.composer,
-            { borderTopColor: palette.line, paddingBottom: Math.max(insets.bottom, 12), backgroundColor: palette.bg },
+            {
+              maxWidth: content,
+              borderTopColor: palette.line,
+              paddingBottom: Math.max(insets.bottom, 12),
+              backgroundColor: palette.bg,
+            },
           ]}>
           <Field
             value={text}
@@ -115,7 +122,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1.5,
     width: '100%',
-    maxWidth: MAX_WIDTH,
     alignSelf: 'center',
   },
   input: {

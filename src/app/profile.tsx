@@ -7,9 +7,11 @@ import { Avatar, BackHeader, Button, Card, Divider, Screen, SectionTitle, Segmen
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
 import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
   const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref } = useApp();
+  const { tablet } = useLayout();
   const teacher = role === 'teacher';
   const [grade, cls] = STUDENT.cls.split('-');
 
@@ -76,6 +78,7 @@ export default function ProfileScreen() {
               accessibilityLabel={`${t.name} 테마`}
               style={({ pressed }) => [
                 styles.themeTile,
+                { width: tablet ? '14%' : '30%' },
                 { borderColor: selected ? palette.accent : palette.line, borderWidth: selected ? 2.5 : 1.5 },
                 pressed && { opacity: 0.6 },
               ]}>
@@ -125,7 +128,6 @@ const styles = StyleSheet.create({
   help: { fontSize: 15, lineHeight: 21, marginTop: -4, marginBottom: 12 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   themeTile: {
-    width: '30%',
     flexGrow: 1,
     alignItems: 'center',
     gap: 8,

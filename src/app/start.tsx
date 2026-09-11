@@ -1,16 +1,18 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { Button, MAX_WIDTH } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { buildPalette, THEMES } from '@/constants/themes';
 import { SCHOOL, type Role } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 
 export default function StartScreen() {
   const { palette, setRole, scheme, themeKey, setThemeKey } = useApp();
   const insets = useSafeAreaInsets();
+  const { content } = useLayout();
 
   const start = (role: Role) => {
     setRole(role);
@@ -18,8 +20,12 @@ export default function StartScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: palette.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
-      <View style={styles.column}>
+    // 폰을 눕히면 한 화면에 안 들어와서, 그럴 때만 스크롤되게 했어요.
+    <ScrollView
+      style={[styles.screen, { backgroundColor: palette.bg }]}
+      contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
+      showsVerticalScrollIndicator={false}>
+      <View style={[styles.column, { maxWidth: Math.min(content, 620) }]}>
         <View style={styles.top}>
           <Text style={[styles.school, { color: palette.accentDeep }]}>{SCHOOL.name}</Text>
           <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
@@ -59,16 +65,16 @@ export default function StartScreen() {
           </Text>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  scroll: { flexGrow: 1 },
   column: {
     flex: 1,
     width: '100%',
-    maxWidth: MAX_WIDTH,
     alignSelf: 'center',
     paddingHorizontal: 24,
     justifyContent: 'space-between',
