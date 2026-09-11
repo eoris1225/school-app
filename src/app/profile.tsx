@@ -7,7 +7,7 @@ import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Avatar, BackHeader, Button, Chip, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
-import { ALLERGENS, classLabel, SCHOOL, STUDENT, SUBJECTS, TEACHER } from '@/data/mock';
+import { ALLERGENS, SUBJECTS } from '@/data/mock';
 import { ApiError, promoteToTeacher } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
@@ -20,26 +20,40 @@ export default function ProfileScreen() {
   const [subjectDraft, setSubjectDraft] = useState<string[]>([]);
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
-  const [grade, cls] = school ? [String(school.grade), school.cls] : STUDENT.cls.split('-');
-  const schoolName = school?.name ?? SCHOOL.name;
-  const myName = me?.name || (teacher ? TEACHER.name : STUDENT.name);
+  const schoolName = school?.name ?? '';
+  const myName = me?.name ?? '';
 
+  // 전부 계정과 설정에서 가져와요. 지어낸 값은 한 줄도 없어요.
   const rows: [string, string][] = teacher
     ? [
         ['학교', schoolName],
-        ['담당 과목', TEACHER.subjects.join(', ')],
-        ['담임', classLabel(TEACHER.homeroom)],
+        ['담당 과목', me?.subjects.length ? me.subjects.join(', ') : '아직 없어요'],
+        ['맡은 반', school ? `${school.grade}학년 ${school.cls}반` : '아직 안 골랐어요'],
         ['이름', myName],
       ]
     : [
         ['학교', schoolName],
-        ['학년', `${grade}학년`],
-        ['반', `${cls}반`],
-        ['번호', `${STUDENT.number}번`],
+        ['학년', school ? `${school.grade}학년` : '아직 안 골랐어요'],
+        ['반', school ? `${school.cls}반` : '아직 안 골랐어요'],
+        ['번호', school?.number ? `${school.number}번` : '아직 안 적었어요'],
         ['이름', myName],
       ];
 
   const changeSchool = () => router.push('/pick-school');
+
+  /** 학교는 그대로 두고 학년·반·번호만 다시 고르러 가요. */
+  const changeClass = () => {
+    if (!school) return changeSchool();
+    router.push({
+      pathname: '/pick-class',
+      params: {
+        office: school.office,
+        officeName: school.officeName,
+        code: school.code,
+        name: school.name,
+      },
+    });
+  };
 
   const [promoting, setPromoting] = useState(false);
   const [promoteFailed, setPromoteFailed] = useState<string | null>(null);
@@ -221,9 +235,18 @@ export default function ProfileScreen() {
 
       <SectionTitle title="학교" />
       <Text style={[styles.help, { color: palette.sub }]}>
-        학교나 반이 바뀌면 여기서 다시 골라요. 급식과 시간표가 그 학교 것으로 바뀌어요.
+        {teacher
+          ? '맡은 반이 바뀌면 여기서 다시 골라요.'
+          : '반이 바뀌었거나 번호를 안 적었으면 여기서 고쳐요. 학교를 옮겼을 때만 아래쪽을 눌러요.'}
       </Text>
-      <Button label="학교·반 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
+      <Button
+        label={teacher ? '맡은 반 바꾸기' : '학년·반·번호 바꾸기'}
+        icon="next"
+        variant="secondary"
+        onPress={changeClass}
+      />
+      <View style={styles.gap} />
+      <Button label="다른 학교로 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
 
       <SectionTitle title="계정" />
       <Button label="로그아웃" icon="swap" variant="secondary" onPress={leave} />
@@ -268,4 +291,5 @@ const styles = StyleSheet.create({
   },
   swatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   themeName: { fontSize: 13 },
+  gap: { height: 8 },
 });

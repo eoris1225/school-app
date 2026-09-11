@@ -15,6 +15,8 @@ export type MySchool = {
   name: string;
   grade: number;
   cls: string;
+  /** 출석 번호. 선생님이거나 아직 안 정했으면 없어요. */
+  number?: number;
 };
 
 const KEY = 'my-school';
@@ -38,6 +40,7 @@ function parse(raw: string | null): MySchool | null {
         name: v.name,
         grade: v.grade,
         cls: v.cls,
+        number: typeof v.number === 'number' ? v.number : undefined,
       };
     }
   } catch {
@@ -72,13 +75,19 @@ export async function clearMySchool(): Promise<void> {
 }
 
 /** 검색 결과 한 줄과 고른 학년·반을 합쳐요. */
-export const toMySchool = (found: SchoolInfo, grade: number, cls: string): MySchool => ({
+export const toMySchool = (
+  found: SchoolInfo,
+  grade: number,
+  cls: string,
+  number?: number,
+): MySchool => ({
   office: found.office,
   officeName: found.officeName,
   code: found.code,
   name: found.name,
   grade,
   cls,
+  number,
 });
 
 /** '2학년 3반' */

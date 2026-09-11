@@ -6,7 +6,7 @@ import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, Divider, Empty, ErrorNote, Field, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
-import { gradeOf, STUDENT, TEACHER, type EventKind, type SchoolEvent } from '@/data/mock';
+import { type EventKind, type SchoolEvent } from '@/data/mock';
 import { getEvents } from '@/lib/api';
 import { useRemote } from '@/lib/use-remote';
 import { useApp } from '@/lib/app-state';
@@ -40,7 +40,8 @@ export default function CalendarScreen() {
     getEvents(monthStart, monthEnd, school ?? undefined),
   );
 
-  const myGrade = school ? school.grade : gradeOf(teacher ? TEACHER.homeroom : STUDENT.cls);
+  // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
+  const myGrade = school?.grade ?? 1;
   const academic: SchoolEvent[] = (remote.data ?? [])
     // 선생님은 전 학년을 보고, 학생은 자기 학년 것만 봐요.
     .filter((e) => teacher || e.grades.includes(myGrade))

@@ -19,8 +19,6 @@ import {
   classLabel,
   classOf,
   gradeOf,
-  STUDENT,
-  TEACHER,
   type SchoolEvent,
   type Weekday,
 } from '@/data/mock';
@@ -235,13 +233,14 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
 }
 
 function StudentHome() {
-  const { palette, now, events, threads, school, swaps } = useApp();
+  const { palette, now, events, threads, school, swaps, me } = useApp();
   const { compact } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
   const today = toYmd(now);
 
-  const myClass = school ? `${school.grade}-${school.cls}` : STUDENT.cls;
+  // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
+  const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
   const lessons = useRemote(`home-timetable:${school?.code}:${myClass}:${dates.월}`, () =>
     getLessons(gradeOf(myClass), classOf(myClass), dates.월, dates.금, school ?? undefined),
   );
@@ -288,7 +287,7 @@ function StudentHome() {
     <HomeShell
       hero={
         <>
-          <TopRow name={`${STUDENT.name.slice(1)}님`} />
+          <TopRow name={me ? `${me.name}님` : ''} />
           <Text style={[styles.heroLabel, { color: palette.onAccent }]}>{hero.label}</Text>
           <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onAccent }]} numberOfLines={2}>
             {hero.big}
@@ -309,31 +308,35 @@ function StudentHome() {
 /* ================= 선생님 ================= */
 
 function TeacherHome() {
-  const { palette, now, events, threads, school } = useApp();
+  const { palette, now, events, threads, school, me } = useApp();
   const { compact } = useLayout();
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const nowPeriod = currentPeriod(now);
 
-  // 내가 가르치는 반들의 시간표를 한 번에 받아와요.
+  /*
+   * 맡은 반의 오늘 시간표를 받아와요.
+   *
+   * 예전에는 '이 선생님이 가르치는 반 목록'을 가짜로 박아뒀어요(2-1, 2-3).
+   * 학교가 바뀌면 있지도 않은 반이라 아무것도 안 나와요. 지금 우리가 확실히
+   * 아는 반은 설정에서 직접 고른 반 하나뿐이라, 그 반만 보여주고 그렇게 적어요.
+   * 담당 반을 여러 개 받는 건 나중에 따로 만들어요.
+   */
+  const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
   const dates = weekDates(now);
-  const lessons = useRemote(`teacher-timetable:${school?.code}:${TEACHER.classes.join()}:${dates.월}`, () =>
-    Promise.all(
-      TEACHER.classes.map((cls) =>
-        getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금, school ?? undefined).then((rows) =>
-          rows.map((r) => ({ ...r, id: cls })),
-        ),
-      ),
-    ).then((lists) => lists.flat()),
+  const lessons = useRemote(`teacher-timetable:${school?.code}:${myClass}:${dates.월}`, () =>
+    getLessons(gradeOf(myClass), classOf(myClass), dates.월, dates.금, school ?? undefined),
   );
 
   // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 수학 선생님이면 수학 교과군을
   // 전부 내 수업으로 봐요. 이름을 하나하나 맞춰보면 하나도 안 걸려요.
-  const mine = new Set(TEACHER.subjects.map((s) => subjectGroup(s)));
-  const myClasses = (lessons.data ?? [])
-    .filter((l) => l.date === toYmd(now) && mine.has(subjectGroup(l.subject)))
-    .map((l) => ({ cls: l.id, subject: readSubject(l.subject).name, period: l.period }))
+  const mine = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
+  const today = (lessons.data ?? [])
+    .filter((l) => l.date === toYmd(now))
     .sort((a, b) => a.period - b.period);
+  const myClasses = today
+    .filter((l) => mine.has(subjectGroup(l.subject)))
+    .map((l) => ({ subject: readSubject(l.subject).name, period: l.period }));
   const nextClass = myClasses.find((c) => c.period >= nowPeriod) ?? null;
 
   const tiles = (
@@ -352,11 +355,18 @@ function TeacherHome() {
 
   const classBlock = (
     <>
-      <Head title="오늘 내 수업" value={`${myClasses.length}개`} action="시간표" onAction={() => router.push('/timetable')} />
+      <Head
+        title={`${classLabel(myClass)} 오늘 수업`}
+        value={myClasses.length ? `내 수업 ${myClasses.length}개` : undefined}
+        action="시간표"
+        onAction={() => router.push('/timetable')}
+      />
       <Text style={[styles.body, { color: palette.sub }]} numberOfLines={2}>
         {myClasses.length
-          ? myClasses.map((c) => `${c.period}교시 ${classLabel(c.cls)}`).join(' · ')
-          : '오늘은 수업이 없어요'}
+          ? myClasses.map((c) => `${c.period}교시 ${c.subject}`).join(' · ')
+          : today.length
+            ? '이 반에서 맡으신 수업은 오늘 없어요'
+            : '오늘은 수업이 없어요'}
       </Text>
     </>
   );
@@ -380,7 +390,7 @@ function TeacherHome() {
     <HomeShell
       hero={
         <>
-          <TopRow name={`${TEACHER.name} 선생님`} />
+          <TopRow name={me ? `${me.name} 선생님` : ''} />
           <Text style={[styles.heroLabel, { color: palette.onAccent }]}>
             {pending.length ? '답변을 기다려요' : '오늘도 수고 많으세요'}
           </Text>
@@ -388,7 +398,9 @@ function TeacherHome() {
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
           <Text style={[styles.heroLine, { color: palette.onAccent }]} numberOfLines={1}>
-            {nextClass ? `다음 수업 ${nextClass.period}교시 ${classLabel(nextClass.cls)}` : '오늘 수업은 끝났어요'}
+            {nextClass
+              ? `다음 수업 ${nextClass.period}교시 ${nextClass.subject}`
+              : '오늘 수업은 끝났어요'}
           </Text>
         </>
       }>

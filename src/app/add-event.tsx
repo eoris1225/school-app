@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { BackHeader, Button, Chip, ChipRow, Empty, ErrorNote, Field, goBack, IconButton, Loading, Screen, Segmented } from '@/components/ui';
-import { SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
+import { SUBJECTS, type EventKind, type Subject } from '@/data/mock';
 import { getClasses } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { addDays, formatDay, fromYmd, toYmd } from '@/lib/time';
@@ -18,13 +18,17 @@ function toggle<T>(list: T[], value: T): T[] {
 
 export default function AddEventScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
-  const { palette, role, now, addEvent, school } = useApp();
+  const { palette, role, now, addEvent, school, me } = useApp();
+  // 내 담당 과목을 처음부터 골라둬요. 과목 선생님이 제일 자주 쓰는 값이에요.
+  const myFirstSubject =
+    (me?.subjects.find((s): s is Subject => (SUBJECTS as readonly string[]).includes(s)) ??
+      SUBJECTS[0]);
   const [kind, setKind] = useState<EventKind>('academic');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(() => (params.date ? fromYmd(params.date) : now));
   const [grades, setGrades] = useState<number[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
-  const [subject, setSubject] = useState<Subject>(TEACHER.subjects[0]);
+  const [subject, setSubject] = useState<Subject>(myFirstSubject);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
