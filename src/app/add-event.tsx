@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
+import { Text } from '@/components/text';
 import { BackHeader, Button, Card, Chip, ChipRow, Empty, Field, goBack, IconButton, Screen, Segmented } from '@/components/ui';
 import { classLabel, SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
 import { useApp } from '@/lib/app-state';

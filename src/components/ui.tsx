@@ -1,19 +1,10 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type StyleProp,
-  type TextInputProps,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
+import { FONT, Text } from '@/components/text';
 import { STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 
@@ -424,7 +415,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: { fontSize: 17, fontWeight: '800' },
 
-  field: { borderWidth: 1.5, fontSize: 16 },
+  field: { borderWidth: 1.5, fontSize: 16, fontFamily: FONT.regular },
   empty: { fontSize: 15, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
   divider: { height: 1, marginVertical: 2 },
 });

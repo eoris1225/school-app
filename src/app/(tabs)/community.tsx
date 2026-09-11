@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThreadRow } from '@/components/rows';
+import { Text } from '@/components/text';
 import { Button, Card, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { SUBJECT_TEACHERS, SUBJECTS, TEACHER, type Subject, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';

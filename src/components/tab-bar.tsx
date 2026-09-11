@@ -1,7 +1,8 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
+import { Text } from '@/components/text';
 import { MAX_WIDTH } from '@/components/ui';
 import { useApp } from '@/lib/app-state';
 

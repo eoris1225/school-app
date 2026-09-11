@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/components/text';
 import { Card, Chip, ChipRow, Header, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,

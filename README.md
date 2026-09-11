@@ -44,6 +44,16 @@ npx expo start --tunnel
 
 QR을 카메라(iOS)나 Expo Go 앱(Android)으로 찍으면 열려요.
 
+## 글꼴
+
+앱 전체에 네이버 **나눔스퀘어라운드**를 써요. `assets/fonts/`에 Regular · Bold · ExtraBold
+세 가지가 들어 있고, 화면 코드에서는 지금처럼 `fontWeight`만 적으면
+`src/components/text.tsx`가 알맞은 파일을 골라 줘요.
+
+> 이 앱에는 네이버에서 제공한 나눔스퀘어라운드 글꼴이 적용되어 있습니다.
+
+자세한 저작권 안내는 `assets/fonts/LICENSE.md`에 있어요.
+
 ## 폴더 구조
 
 ```
@@ -54,6 +64,7 @@ src/app/            화면 (expo-router 파일 기반 라우팅)
   profile.tsx       내 정보 · 테마 색 · 화면 밝기
   add-event.tsx     일정 추가 (선생님 전용)
 src/components/     공통 UI 조각 (버튼, 카드, 입력칸, 탭 막대)
+  text.tsx          굵기에 맞는 둥근 글꼴을 골라 주는 글씨 컴포넌트
 src/constants/      테마 색 (accent 하나로 밝은/어두운 팔레트를 자동으로 만들어요)
 src/lib/            앱 상태, 시간 계산
 src/data/mock.ts    임시 데이터 (NEIS · Supabase로 교체 예정)

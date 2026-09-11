@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Text } from '@/components/text';
 import { Tag } from '@/components/ui';
 import { classLabel, SUBJECT_TEACHERS, type SchoolEvent, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';

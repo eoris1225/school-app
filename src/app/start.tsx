@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { Button, MAX_WIDTH } from '@/components/ui';
 import { buildPalette, THEMES } from '@/constants/themes';
 import { SCHOOL, type Role } from '@/data/mock';
