@@ -46,6 +46,7 @@ function StudentCommunity() {
               <Chip
                 key={s}
                 label={s}
+                colored
                 selected={subject === s}
                 onPress={() => {
                   setSubject(s);

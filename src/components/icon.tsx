@@ -18,9 +18,38 @@ const ICONS = {
   check: { ios: 'checkmark', android: 'check', web: 'check' },
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
   swap: { ios: 'arrow.left.arrow.right', android: 'swap_horiz', web: 'swap_horiz' },
+
+  // 과목 아이콘
+  book: { ios: 'book', android: 'menu_book', web: 'menu_book' },
+  number: { ios: 'number', android: 'calculate', web: 'calculate' },
+  globe: { ios: 'globe', android: 'language', web: 'language' },
+  flask: { ios: 'flask', android: 'science', web: 'science' },
+  map: { ios: 'map', android: 'public', web: 'public' },
+  clock: { ios: 'clock', android: 'history', web: 'history' },
+  laptop: { ios: 'laptopcomputer', android: 'computer', web: 'computer' },
+  run: { ios: 'figure.run', android: 'directions_run', web: 'directions_run' },
+  music: { ios: 'music.note', android: 'music_note', web: 'music_note' },
+  brush: { ios: 'paintbrush', android: 'brush', web: 'brush' },
+  star: { ios: 'star', android: 'star', web: 'star' },
 } satisfies Record<string, SymbolName>;
 
 export type IconName = keyof typeof ICONS;
+
+/** 과목마다 어울리는 아이콘. 표에 없으면 별표를 써요. */
+const SUBJECT_ICONS: Record<string, IconName> = {
+  국어: 'book',
+  수학: 'number',
+  영어: 'globe',
+  과학: 'flask',
+  사회: 'map',
+  한국사: 'clock',
+  정보: 'laptop',
+  체육: 'run',
+  음악: 'music',
+  미술: 'brush',
+};
+
+export const subjectIcon = (name: string): IconName => SUBJECT_ICONS[name] ?? 'star';
 
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
   return <SymbolView name={ICONS[name]} size={size} tintColor={color} />;

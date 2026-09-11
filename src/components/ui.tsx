@@ -8,6 +8,7 @@ import { FONT, Text } from '@/components/text';
 import { STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
+import { subjectTone, tone as toneColor, type ToneKey } from '@/constants/tones';
 
 /** 폰에서 쓰는 기본 기둥 너비. 태블릿에서는 useLayout().content가 더 넓은 값을 줘요. */
 export const MAX_WIDTH = 560;
@@ -162,7 +163,11 @@ export function Card({
   label?: string;
 }) {
   const { palette } = useApp();
-  const base = [styles.card, { borderColor: palette.line, backgroundColor: palette.surface }, style];
+  const base = [
+    styles.card,
+    { borderColor: palette.line, backgroundColor: palette.surface, shadowColor: palette.shadow },
+    style,
+  ];
   if (!onPress) return <View style={base}>{children}</View>;
   return (
     <Pressable
@@ -199,21 +204,34 @@ export function SectionTitle({
   );
 }
 
-export function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+export function Chip({
+  label,
+  selected,
+  onPress,
+  /** 켜면 label을 과목 이름으로 보고 과목별 포인트 색을 입혀요. */
+  colored = false,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  colored?: boolean;
+}) {
   const { palette } = useApp();
+  const t = colored ? subjectTone(label, palette.scheme) : null;
+  const off = t
+    ? { backgroundColor: t.bg, borderColor: t.bg }
+    : { backgroundColor: palette.surface, borderColor: palette.line };
+  const on = t
+    ? { backgroundColor: t.fg, borderColor: t.fg }
+    : { backgroundColor: palette.accent, borderColor: palette.accent };
+  const color = selected ? '#FFFFFF' : t ? t.fg : palette.text;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={({ pressed }) => [
-        styles.chip,
-        selected
-          ? { backgroundColor: palette.accent, borderColor: palette.accent }
-          : { backgroundColor: palette.surface, borderColor: palette.line },
-        pressed && styles.pressed,
-      ]}>
-      <Text style={[styles.chipText, { color: selected ? palette.onAccent : palette.text }]}>{label}</Text>
+      style={({ pressed }) => [styles.chip, selected ? on : off, pressed && styles.pressed]}>
+      <Text style={[styles.chipText, { color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -264,8 +282,25 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Tag({ label, tone = 'soft' }: { label: string; tone?: 'soft' | 'solid' | 'plain' }) {
+export function Tag({
+  label,
+  tone = 'soft',
+  /** 주면 그 과목 색으로 칠해요. (tone보다 우선) */
+  subject,
+}: {
+  label: string;
+  tone?: 'soft' | 'solid' | 'plain';
+  subject?: string;
+}) {
   const { palette } = useApp();
+  const st = subject ? subjectTone(subject, palette.scheme) : null;
+  if (st) {
+    return (
+      <View style={[styles.tag, { backgroundColor: st.bg, borderColor: st.bg }]}>
+        <Text style={[styles.tagText, { color: st.fg }]}>{label}</Text>
+      </View>
+    );
+  }
   const toneStyle =
     tone === 'solid'
       ? { backgroundColor: palette.accent, borderColor: palette.accent }
@@ -333,6 +368,33 @@ export function Field({ style, ...props }: TextInputProps) {
   );
 }
 
+/** 색 배경을 깐 아이콘. 회색 화면에 색 점을 찍어 줘요. */
+export function IconChip({
+  icon,
+  subject,
+  tone,
+  size = 40,
+}: {
+  icon: IconName;
+  /** 과목 이름을 주면 그 과목 색을 써요. */
+  subject?: string;
+  /** 색을 직접 고르고 싶을 때. */
+  tone?: ToneKey;
+  size?: number;
+}) {
+  const { palette } = useApp();
+  const t = tone ? toneColor(tone, palette.scheme) : subjectTone(subject ?? '', palette.scheme);
+  return (
+    <View
+      style={[
+        styles.iconChip,
+        { width: size, height: size, borderRadius: size * 0.32, backgroundColor: t.bg },
+      ]}>
+      <Icon name={icon} size={Math.round(size * 0.5)} color={t.fg} />
+    </View>
+  );
+}
+
 export function Empty({ text }: { text: string }) {
   const { palette } = useApp();
   return <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>;
@@ -371,7 +433,16 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  card: { borderWidth: 1.5, borderRadius: 22, padding: 18, marginBottom: 14 },
+  card: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
 
   sectionTitle: {
     flexDirection: 'row',
@@ -421,6 +492,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: { fontSize: 17, fontWeight: '800' },
 
+  iconChip: { alignItems: 'center', justifyContent: 'center' },
   field: { borderWidth: 1.5, fontSize: 16, fontFamily: FONT.regular },
   empty: { fontSize: 15, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
   divider: { height: 1, marginVertical: 2 },

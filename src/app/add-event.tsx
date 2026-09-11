@@ -88,7 +88,7 @@ export default function AddEventScreen() {
           <View style={styles.chips}>
             <ChipRow>
               {SUBJECTS.map((s) => (
-                <Chip key={s} label={s} selected={subject === s} onPress={() => setSubject(s)} />
+                <Chip key={s} label={s} colored selected={subject === s} onPress={() => setSubject(s)} />
               ))}
             </ChipRow>
           </View>
