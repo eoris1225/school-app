@@ -23,9 +23,11 @@ export type Layout = {
 
 export function useLayout(): Layout {
   const { width, height } = useWindowDimensions();
-  const tablet = Math.min(width, height) >= 600;
-  // 두 칸은 가로로 누운 태블릿에서만. 세로 태블릿은 한 칸이 더 자연스러워요.
-  const twoColumn = tablet && width >= 900;
+  // 가로가 넓으면 세로가 짧아도 태블릿으로 봐요.
+  // (패드를 눕히고 브라우저로 열면 주소창 때문에 세로가 600 아래로 내려가요)
+  const twoColumn = width >= 900;
+  const tablet = twoColumn || Math.min(width, height) >= 600;
+  const short = height < 620;
   // 한 줄짜리 목록이 너무 길게 퍼지면 읽기 힘들어서 720에서 끊어요.
   const content = tablet ? 720 : 560;
   return {
@@ -33,8 +35,8 @@ export function useLayout(): Layout {
     height,
     tablet,
     twoColumn,
-    short: height < 560,
-    compact: !tablet && height < 760,
+    short,
+    compact: short || (!tablet && height < 760),
     content,
     home: twoColumn ? Math.min(width - 40, 1040) : content,
   };

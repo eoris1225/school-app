@@ -37,19 +37,33 @@ const OVERLAP = 34;
 function HomeShell({ band, children }: { band: React.ReactNode; children: React.ReactNode }) {
   const { palette } = useApp();
   const insets = useSafeAreaInsets();
-  const { compact, short, home } = useLayout();
+  const { compact, short, home, width } = useLayout();
+  // 화면이 기둥보다 훨씬 넓으면(태블릿·노트북) 밴드를 끝까지 칠하지 않고
+  // 가운데 카드처럼 둬요. 안 그러면 위쪽이 거대한 색 띠가 돼요.
+  const inset = width > home + 48;
 
   const inner = (
     <>
       <View
         style={[
           styles.band,
-          compact && styles.bandCompact,
-          {
-            backgroundColor: palette.band,
-            paddingTop: insets.top + (compact ? 6 : 10),
-            paddingBottom: OVERLAP + (compact ? 8 : 14),
-          },
+          inset
+            ? {
+                marginTop: insets.top + 12,
+                borderRadius: 28,
+                alignSelf: 'center',
+                width: '100%',
+                maxWidth: home,
+                paddingTop: compact ? 16 : 20,
+                paddingBottom: OVERLAP + 16,
+              }
+            : {
+                borderBottomLeftRadius: compact ? 26 : 30,
+                borderBottomRightRadius: compact ? 26 : 30,
+                paddingTop: insets.top + (compact ? 6 : 10),
+                paddingBottom: OVERLAP + (compact ? 8 : 14),
+              },
+          { backgroundColor: palette.band },
         ]}>
         <View style={[styles.bandInner, { maxWidth: home }]}>{band}</View>
       </View>
@@ -92,7 +106,7 @@ function BandTop({ title }: { title: string }) {
           style={[
             styles.bandName,
             compact && styles.bandNameCompact,
-            tablet && styles.bandNameWide,
+            tablet && !compact && styles.bandNameWide,
             { color: palette.onAccent },
           ]}
           numberOfLines={1}>
@@ -205,7 +219,7 @@ function WideCard({
       <IconChip icon={icon} tone={tone} size={44} />
       <View style={styles.fill}>
         <View style={styles.wideHead}>
-          <Text style={[styles.wideTitle, tablet && styles.wideTitleWide, { color: palette.text }]}>{title}</Text>
+          <Text style={[styles.wideTitle, tablet && !compact && styles.wideTitleWide, { color: palette.text }]}>{title}</Text>
           {right ? <Text style={[styles.wideRight, { color: palette.sub }]}>{right}</Text> : null}
           <Icon name="next" size={16} color={palette.sub} />
         </View>
@@ -223,7 +237,7 @@ function Row({ title, action, onAction }: { title: string; action: string; onAct
   const { compact, tablet } = useLayout();
   return (
     <View style={[styles.rowHead, compact && styles.rowHeadCompact]}>
-      <Text accessibilityRole="header" style={[styles.rowTitle, tablet && styles.rowTitleWide, { color: palette.text }]}>
+      <Text accessibilityRole="header" style={[styles.rowTitle, tablet && !compact && styles.rowTitleWide, { color: palette.text }]}>
         {title}
       </Text>
       <Pressable onPress={onAction} accessibilityRole="button" hitSlop={10} style={styles.rowAction}>
@@ -300,15 +314,15 @@ function EventCards({ events }: { events: SchoolEvent[] }) {
 const EVENT_ROW_H = 62;
 
 /** 넓은 화면의 오른쪽 칸에 쓰는 세로 일정 목록이에요. */
-function EventList({ events }: { events: SchoolEvent[] }) {
+function EventList({ events, fill = true }: { events: SchoolEvent[]; fill?: boolean }) {
   const { palette, now } = useApp();
   const [space, setSpace] = useState(0);
-  const fit = space ? Math.max(1, Math.floor((space - 3) / EVENT_ROW_H)) : events.length;
+  const fit = fill && space ? Math.max(1, Math.floor((space - 3) / EVENT_ROW_H)) : events.length;
   const shown = events.slice(0, fit);
-  const cardHeight = events.length === 0 ? undefined : shown.length * EVENT_ROW_H + 3;
+  const cardHeight = events.length === 0 || !fill ? undefined : shown.length * EVENT_ROW_H + 3;
 
   return (
-    <View style={styles.todayFill} onLayout={(e) => setSpace(e.nativeEvent.layout.height)}>
+    <View style={fill ? styles.todayFill : undefined} onLayout={(e) => setSpace(e.nativeEvent.layout.height)}>
       <View style={[styles.todayCard, { height: cardHeight, borderColor: palette.line, backgroundColor: palette.surface }]}>
         {events.length === 0 ? <Text style={[styles.emptyText, { color: palette.sub }]}>예정된 일정이 없어요</Text> : null}
         {shown.map((e, i) => {
@@ -508,7 +522,7 @@ function buildStudentHero(status: SchoolStatus, day: Weekday | null): Hero {
 
 function StudentHome() {
   const { palette, now, events, threads } = useApp();
-  const { compact, tablet, twoColumn } = useLayout();
+  const { compact, tablet, twoColumn, short } = useLayout();
   const day = weekdayOf(now);
   const hero = buildStudentHero(schoolStatus(now), day);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
@@ -534,7 +548,7 @@ function StudentHome() {
           <BandTop title={`안녕하세요, ${STUDENT.name.slice(1)}님`} />
           <Text style={[styles.heroLine, { color: palette.onAccent }]}>{hero.line}</Text>
           <Text
-            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && styles.heroBigWide]}
+            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && !compact && styles.heroBigWide]}
             numberOfLines={1}>
             {hero.big}
           </Text>
@@ -556,7 +570,7 @@ function StudentHome() {
       />
       {twoColumn ? (
         // 태블릿처럼 넓으면 두 칸으로 나눠서 가로 공간을 채워요.
-        <View style={styles.cols}>
+        <View style={[styles.cols, short && styles.colsAuto]}>
           <View style={styles.col}>
             <WideCard
               icon="meal"
@@ -572,11 +586,12 @@ function StudentHome() {
               empty={day ? '오늘은 수업이 없어요' : '주말이에요'}
               onPress={() => router.push('/timetable')}
               rows={allRows}
+              fill={!short}
             />
           </View>
           <View style={styles.col}>
             <Row title="다가오는 일정" action="달력" onAction={() => router.push('/calendar')} />
-            <EventList events={upcoming} />
+            <EventList events={upcoming} fill={!short} />
           </View>
         </View>
       ) : tablet ? (
@@ -639,7 +654,7 @@ function StudentHome() {
 
 function TeacherHome() {
   const { palette, now, events, threads } = useApp();
-  const { compact, tablet, twoColumn } = useLayout();
+  const { compact, tablet, twoColumn, short } = useLayout();
   const day = weekdayOf(now);
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
@@ -682,7 +697,7 @@ function TeacherHome() {
             {pending.length ? '답변을 기다리는 쪽지가 있어요' : '모든 쪽지에 답했어요'}
           </Text>
           <Text
-            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && styles.heroBigWide]}
+            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && !compact && styles.heroBigWide]}
             numberOfLines={1}>
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
@@ -714,7 +729,7 @@ function TeacherHome() {
         ]}
       />
       {twoColumn ? (
-        <View style={styles.cols}>
+        <View style={[styles.cols, short && styles.colsAuto]}>
           <View style={styles.col}>
             <WideCard
               icon="inbox"
@@ -730,6 +745,7 @@ function TeacherHome() {
               empty="오늘은 수업이 없어요"
               onPress={() => router.push('/timetable')}
               rows={allTeacherRows}
+              fill={!short}
             />
           </View>
           <View style={styles.col}>
@@ -738,7 +754,7 @@ function TeacherHome() {
               action="일정 추가"
               onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
             />
-            <EventList events={upcoming} />
+            <EventList events={upcoming} fill={!short} />
           </View>
         </View>
       ) : tablet ? (
@@ -815,13 +831,13 @@ const styles = StyleSheet.create({
 
   shell: { flex: 1 },
   shellScroll: { flexGrow: 1, paddingBottom: 12 },
-  band: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingBottom: 15 },
-  bandCompact: { paddingBottom: 13, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+  band: {},
   bandInner: { width: '100%', alignSelf: 'center', paddingHorizontal: 20 },
   body: { flex: 1, width: '100%', alignSelf: 'center', paddingHorizontal: 20 },
   bodyCompact: {},
-  bodyAuto: { flex: 0 },
+  bodyAuto: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto' },
   cols: { flex: 1, minHeight: 0, flexDirection: 'row', gap: 16 },
+  colsAuto: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', alignItems: 'flex-start' },
   col: { flex: 1, minHeight: 0 },
 
   bandTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 11 },
