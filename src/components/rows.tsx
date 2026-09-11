@@ -4,7 +4,7 @@ import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Tag } from '@/components/ui';
-import { classLabel, SUBJECT_TEACHERS, type SchoolEvent, type Thread } from '@/data/mock';
+import { classLabel, SUBJECT_TEACHERS, targetLabel, type SchoolEvent, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
 import { dday, fromYmd } from '@/lib/time';
 
@@ -39,7 +39,7 @@ export function EventRow({
             tone="plain"
             subject={event.kind === 'assessment' ? (event.subject ?? '수행평가') : '학사일정'}
           />
-          <Text style={[styles.eventTarget, { color: palette.sub }]}>{event.target}</Text>
+          <Text style={[styles.eventTarget, { color: palette.sub }]}>{targetLabel(event)}</Text>
         </View>
       </View>
       {showDday ? (

@@ -15,7 +15,7 @@ import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 type Filter = 'all' | EventKind;
 
 export default function CalendarScreen() {
-  const { palette, role, now, events, removeEvent, school } = useApp();
+  const { palette, role, now, events, removeEvent, canDelete, school } = useApp();
   const teacher = role === 'teacher';
 
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -40,7 +40,9 @@ export default function CalendarScreen() {
       date: e.date,
       title: e.title,
       kind: 'academic' as const,
-      target: e.grades.length === 3 ? '전체' : `${e.grades.join('·')}학년`,
+      // 전 학년이면 빈 배열로 둬요. '1·2·3학년' 보다 '전체'가 읽기 쉬워요.
+      grades: e.grades.length === 3 ? [] : e.grades,
+      classes: [],
     }));
 
   const all = [...academic, ...events.filter((e) => e.kind === 'assessment')];
@@ -179,13 +181,9 @@ export default function CalendarScreen() {
         {dayEvents.map((e, i) => (
           <View key={e.id}>
             {i > 0 ? <Divider /> : null}
-            {/* NEIS에서 온 학사일정은 우리가 만든 게 아니라 지울 수 없어요.
-                선생님이 직접 등록한 수행평가만 지우기가 나와요. */}
-            <EventRow
-              event={e}
-              showDday={!teacher}
-              onDelete={teacher && e.kind === 'assessment' ? () => setConfirmId(e.id) : undefined}
-            />
+            {/* 지울 수 있는 사람에게만 지우기가 나와요.
+                수행평가는 그 과목 선생님만이에요. 규칙은 app-state의 canDelete에 있어요. */}
+            <EventRow event={e} showDday={!teacher} onDelete={canDelete(e) ? () => setConfirmId(e.id) : undefined} />
             {confirmId === e.id ? (
               <View style={[styles.confirm, { backgroundColor: palette.tint }]}>
                 <Text style={[styles.confirmText, { color: palette.text }]}>

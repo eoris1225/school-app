@@ -4,21 +4,40 @@ import { StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { BackHeader, Button, Chip, ChipRow, Empty, Field, goBack, IconButton, Screen, Segmented } from '@/components/ui';
-import { classLabel, SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
+import { BackHeader, Button, Chip, ChipRow, Empty, ErrorNote, Field, goBack, IconButton, Loading, Screen, Segmented } from '@/components/ui';
+import { SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
+import { getClasses } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { addDays, formatDay, fromYmd, toYmd } from '@/lib/time';
+import { useRemote } from '@/lib/use-remote';
 
-const TARGETS = ['전체', '1학년', '2학년', '3학년', classLabel(TEACHER.homeroom)];
+/** 이미 골라둔 목록에서 하나를 켜고 끄는 걸 반복해요. */
+function toggle<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
 
 export default function AddEventScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
-  const { palette, role, now, addEvent } = useApp();
+  const { palette, role, now, addEvent, school } = useApp();
   const [kind, setKind] = useState<EventKind>('academic');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(() => (params.date ? fromYmd(params.date) : now));
-  const [target, setTarget] = useState('전체');
+  const [grades, setGrades] = useState<number[]>([]);
+  const [classes, setClasses] = useState<string[]>([]);
   const [subject, setSubject] = useState<Subject>(TEACHER.subjects[0]);
+
+  // 학년·반 목록은 그 학교 실제 목록에서 가져와요. 학교마다 반 개수가 달라요.
+  const year = now.getFullYear();
+  const rooms = useRemote(`add-classes:${school?.code}:${year}`, () =>
+    getClasses(year, school ?? undefined),
+  );
+  const allGrades = [...new Set((rooms.data ?? []).map((r) => r.grade))].sort((a, b) => a - b);
+  // 고른 학년들에 실제로 있는 반만 보여줘요.
+  const allClasses = [
+    ...new Set(
+      (rooms.data ?? []).filter((r) => grades.includes(r.grade)).map((r) => r.cls),
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
 
   if (role !== 'teacher') {
     return (
@@ -35,11 +54,12 @@ export default function AddEventScreen() {
     title: title.trim() || '일정 제목',
     kind,
     subject: kind === 'assessment' ? subject : undefined,
-    target,
+    grades,
+    classes,
   };
 
   const save = () => {
-    addEvent({ date: draft.date, title: title.trim(), kind, subject: draft.subject, target });
+    addEvent({ date: draft.date, title: title.trim(), kind, subject: draft.subject, grades, classes });
     goBack();
   };
 
@@ -74,13 +94,54 @@ export default function AddEventScreen() {
       </View>
 
       <Text style={[styles.label, { color: palette.text }]}>누구에게 보일까요</Text>
-      <View style={styles.chips}>
-        <ChipRow>
-          {TARGETS.map((t) => (
-            <Chip key={t} label={t} selected={target === t} onPress={() => setTarget(t)} />
-          ))}
-        </ChipRow>
-      </View>
+      {rooms.loading ? (
+        <Loading text="학년과 반을 불러오는 중이에요" />
+      ) : rooms.error ? (
+        <ErrorNote text={rooms.error} onRetry={rooms.retryable ? rooms.retry : undefined} />
+      ) : (
+        <>
+          <Text style={[styles.sub, { color: palette.sub }]}>
+            학년을 여러 개 고를 수 있어요. 아무것도 안 고르면 전 학년에게 보여요.
+          </Text>
+          <View style={styles.chips}>
+            <ChipRow>
+              {allGrades.map((g) => (
+                <Chip
+                  key={g}
+                  label={`${g}학년`}
+                  selected={grades.includes(g)}
+                  onPress={() => {
+                    const next = toggle(grades, g);
+                    setGrades(next);
+                    // 학년을 빼면 그 학년에만 있던 반도 같이 빼요.
+                    if (next.length === 0) setClasses([]);
+                  }}
+                />
+              ))}
+            </ChipRow>
+          </View>
+
+          {grades.length > 0 ? (
+            <>
+              <Text style={[styles.sub, { color: palette.sub }]}>
+                반도 여러 개 고를 수 있어요. 안 고르면 그 학년 전체에게 보여요.
+              </Text>
+              <View style={styles.chips}>
+                <ChipRow>
+                  {allClasses.map((c) => (
+                    <Chip
+                      key={c}
+                      label={`${c}반`}
+                      selected={classes.includes(c)}
+                      onPress={() => setClasses(toggle(classes, c))}
+                    />
+                  ))}
+                </ChipRow>
+              </View>
+            </>
+          ) : null}
+        </>
+      )}
 
       {kind === 'assessment' ? (
         <>
@@ -107,6 +168,7 @@ export default function AddEventScreen() {
 
 const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '800', marginBottom: 8, marginTop: 4 },
+  sub: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
   dateRow: {
     flexDirection: 'row',
