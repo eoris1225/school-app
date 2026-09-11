@@ -19,7 +19,10 @@ import { useApp } from '@/lib/app-state';
 import { currentPeriod, weekdayOf } from '@/lib/time';
 
 /** 한 주 보기 칸이 좁아서 긴 과목 이름은 줄여요. */
-const SHORT: Record<string, string> = { 자율활동: '자율', 동아리: '동아리' };
+const SHORT: Record<string, string> = { 자율활동: '자율', 동아리: '동아리', 한국사: '한국사' };
+
+/** 지정해둔 줄임말이 없으면 네 글자 이상만 앞 두 글자로 줄여요. */
+const shortSubject = (name: string) => SHORT[name] ?? (name.length > 3 ? name.slice(0, 2) : name);
 
 export default function TimetableScreen() {
   const { palette, role, now } = useApp();
@@ -126,31 +129,38 @@ export default function TimetableScreen() {
             ))}
           </View>
           {BELL.map((bell, i) => (
-            <View key={bell.period} style={styles.weekRow}>
-              <View style={styles.weekPeriodCell}>
-                <Text style={[styles.weekPeriod, { color: palette.sub }]}>{bell.period}</Text>
+            <View key={bell.period}>
+              {bell.period === LUNCH.afterPeriod + 1 ? (
+                <View style={[styles.weekLunch, { borderTopColor: palette.line }]}>
+                  <Text style={[styles.weekLunchText, { color: palette.sub }]}>점심시간</Text>
+                </View>
+              ) : null}
+              <View style={styles.weekRow}>
+                <View style={styles.weekPeriodCell}>
+                  <Text style={[styles.weekPeriod, { color: palette.sub }]}>{bell.period}</Text>
+                </View>
+                {WEEKDAYS.map((d) => {
+                  const subject = week[d][i];
+                  const isNow = d === today && bell.period === nowPeriod;
+                  return (
+                    <View
+                      key={d}
+                      style={[
+                        styles.weekCell,
+                        d === today && { backgroundColor: palette.tint },
+                        isNow && { backgroundColor: palette.accent },
+                      ]}
+                      accessible
+                      accessibilityLabel={`${d}요일 ${bell.period}교시 ${subject}`}>
+                      <Text
+                        style={[styles.weekCellText, { color: isNow ? palette.onAccent : palette.text }]}
+                        numberOfLines={1}>
+                        {shortSubject(subject)}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
-              {WEEKDAYS.map((d) => {
-                const subject = week[d][i];
-                const isNow = d === today && bell.period === nowPeriod;
-                return (
-                  <View
-                    key={d}
-                    style={[
-                      styles.weekCell,
-                      d === today && { backgroundColor: palette.tint },
-                      isNow && { backgroundColor: palette.accent },
-                    ]}
-                    accessible
-                    accessibilityLabel={`${d}요일 ${bell.period}교시 ${subject}`}>
-                    <Text
-                      style={[styles.weekCellText, { color: isNow ? palette.onAccent : palette.text }]}
-                      numberOfLines={1}>
-                      {SHORT[subject] ?? subject}
-                    </Text>
-                  </View>
-                );
-              })}
             </View>
           ))}
         </Card>
@@ -184,4 +194,6 @@ const styles = StyleSheet.create({
   weekHeadText: { fontSize: 15, fontWeight: '800' },
   weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 1, borderRadius: 10 },
   weekCellText: { fontSize: 14, fontWeight: '700' },
+  weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 5, paddingTop: 5 },
+  weekLunchText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
 });

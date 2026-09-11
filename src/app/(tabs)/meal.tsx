@@ -38,6 +38,13 @@ export default function MealScreen() {
               ]}>
               <Text style={[styles.dayName, { color: selected ? palette.onAccent : palette.sub }]}>{d}</Text>
               <Text style={[styles.dayNum, { color: selected ? palette.onAccent : palette.text }]}>{date}</Text>
+              {/* 오늘 표시는 골라도 사라지지 않게 점으로 남겨둬요. */}
+              <View
+                style={[
+                  styles.todayDot,
+                  isToday && { backgroundColor: selected ? palette.onAccent : palette.accent },
+                ]}
+              />
             </Pressable>
           );
         })}
@@ -110,7 +117,7 @@ const styles = StyleSheet.create({
   week: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   dayBtn: {
     flex: 1,
-    height: 68,
+    height: 72,
     borderRadius: 20,
     borderWidth: 1.5,
     alignItems: 'center',
@@ -119,6 +126,7 @@ const styles = StyleSheet.create({
   },
   dayName: { fontSize: 14, fontWeight: '700' },
   dayNum: { fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  todayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 1 },
 
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13 },
   itemName: { fontSize: 18, fontWeight: '700' },

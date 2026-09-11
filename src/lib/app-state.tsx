@@ -1,6 +1,16 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Appearance } from 'react-native';
 
-import { buildPalette, DEFAULT_THEME, THEMES, type Palette, type ThemeKey } from '@/constants/themes';
+import {
+  buildPalette,
+  DEFAULT_SCHEME_PREF,
+  DEFAULT_THEME,
+  THEMES,
+  type Palette,
+  type Scheme,
+  type SchemePref,
+  type ThemeKey,
+} from '@/constants/themes';
 import {
   classLabel,
   DEMO_NOW,
@@ -20,6 +30,11 @@ type AppContextValue = {
   setRole: (role: Role | null) => void;
   themeKey: ThemeKey;
   setThemeKey: (key: ThemeKey) => void;
+  /** 사용자가 고른 밝기 ('system'이면 폰 설정을 따라가요) */
+  schemePref: SchemePref;
+  setSchemePref: (pref: SchemePref) => void;
+  /** 지금 실제로 적용된 밝기 */
+  scheme: Scheme;
   palette: Palette;
   now: Date;
   /** 내 역할에서 보이는 일정 (학생은 내 학년/반 일정만) */
@@ -37,19 +52,32 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+const readSystemScheme = (): Scheme => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+
 export const isPending = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'student';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
+  const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
   const now = DEMO_NOW;
 
+  const [systemScheme, setSystemScheme] = useState<Scheme>(readSystemScheme);
+  // 웹으로 미리 만들어 둔 화면은 첫 그림이 밝은 화면으로 굳어 있어요.
+  // 화면이 뜬 뒤 한 번 더 확인하고, 그 뒤로는 폰 설정이 바뀔 때마다 따라가요.
+  useEffect(() => {
+    setSystemScheme(readSystemScheme());
+    const sub = Appearance.addChangeListener(() => setSystemScheme(readSystemScheme()));
+    return () => sub.remove();
+  }, []);
+  const scheme: Scheme = schemePref === 'system' ? systemScheme : schemePref;
+
   const palette = useMemo(() => {
     const theme = THEMES.find((t) => t.key === themeKey) ?? THEMES[0];
-    return buildPalette(theme.accent);
-  }, [themeKey]);
+    return buildPalette(theme.accent, scheme);
+  }, [themeKey, scheme]);
 
   const addEvent = useCallback((event: Omit<SchoolEvent, 'id'>) => {
     setAllEvents((prev) => [...prev, { ...event, id: `e${Date.now()}` }]);
@@ -127,6 +155,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRole,
       themeKey,
       setThemeKey,
+      schemePref,
+      setSchemePref,
+      scheme,
       palette,
       now,
       events,
@@ -138,7 +169,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markRead,
       badgeCount,
     };
-  }, [role, themeKey, palette, now, allEvents, allThreads, addEvent, removeEvent, askQuestion, sendMessage, markRead]);
+  }, [
+    role,
+    themeKey,
+    schemePref,
+    scheme,
+    palette,
+    now,
+    allEvents,
+    allThreads,
+    addEvent,
+    removeEvent,
+    askQuestion,
+    sendMessage,
+    markRead,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

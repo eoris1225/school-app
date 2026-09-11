@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BackHeader, Empty, IconButton, MAX_WIDTH, Screen } from '@/components/ui';
+import { BackHeader, Empty, Field, IconButton, MAX_WIDTH, Screen } from '@/components/ui';
 import { classLabel, SUBJECT_TEACHERS } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 
@@ -21,7 +21,7 @@ export default function ThreadScreen() {
 
   if (!thread) {
     return (
-      <Screen>
+      <Screen bottomInset>
         <BackHeader title="쪽지" />
         <Empty text="쪽지를 찾을 수 없어요" />
       </Screen>
@@ -82,14 +82,13 @@ export default function ThreadScreen() {
             styles.composer,
             { borderTopColor: palette.line, paddingBottom: Math.max(insets.bottom, 12), backgroundColor: palette.bg },
           ]}>
-          <TextInput
+          <Field
             value={text}
             onChangeText={setText}
             placeholder={teacher ? '답변을 적어주세요' : '더 궁금한 점을 적어주세요'}
-            placeholderTextColor={palette.sub}
             multiline
             accessibilityLabel={teacher ? '답변 내용' : '메시지 내용'}
-            style={[styles.input, { borderColor: palette.line, color: palette.text }]}
+            style={styles.input}
           />
           <IconButton icon="send" label={teacher ? '답변 보내기' : '보내기'} filled disabled={!text.trim()} onPress={send} />
         </View>
@@ -120,13 +119,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    borderWidth: 1.5,
     borderRadius: 22,
     minHeight: 44,
     maxHeight: 120,
     paddingHorizontal: 16,
     paddingTop: 11,
     paddingBottom: 11,
-    fontSize: 16,
   },
 });
