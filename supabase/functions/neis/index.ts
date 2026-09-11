@@ -16,6 +16,12 @@
  */
 
 import {
+  AuthError,
+  promote,
+  requireTeacher as requireTeacherLogin,
+  whoami,
+} from '../_shared/auth.ts';
+import {
   createAssessment,
   DbError,
   deleteAssessment,
@@ -100,7 +106,27 @@ const TEACHER_CODE = Deno.env.get('TEACHER_CODE');
  * 한글로 정하면 아무리 맞게 넣어도 통과가 안 돼요. 왜 안 되는지 알기 어려운
  * 함정이라 아래에서 대놓고 알려줘요.
  */
-function requireTeacher(req: Request) {
+/**
+ * 수행평가를 고칠 수 있는 사람인지 봐요.
+ *
+ * 지금은 두 가지 길을 다 받아요.
+ *   로그인해서 선생님인 계정   (앞으로 쓸 방식)
+ *   선생님 코드를 헤더에 실은 요청  (예전 방식, 곧 없앨 거예요)
+ *
+ * 로그인을 붙이는 동안 기존 앱이 멈추면 안 되니까 둘 다 두었어요.
+ * 앱이 전부 로그인으로 옮겨가면 아래쪽(코드)을 지워요.
+ */
+async function requireWriter(req: Request) {
+  try {
+    await requireTeacherLogin(req);
+    return;
+  } catch {
+    // 로그인이 아니면 예전 방식으로 한 번 더 봐요.
+  }
+  requireTeacherCode(req);
+}
+
+function requireTeacherCode(req: Request) {
   if (!TEACHER_CODE) {
     throw new Forbidden('아직 선생님 코드가 설정되지 않았어요. 관리자에게 말해주세요');
   }
@@ -261,13 +287,13 @@ async function handle(req: Request, url: URL): Promise<Response> {
       }
 
       if (req.method === 'POST') {
-        requireTeacher(req);
+        await requireWriter(req);
         const body = await readBody(req);
         return json({ assessment: await createAssessment(school, body) }, 201);
       }
 
       if (req.method === 'DELETE') {
-        requireTeacher(req);
+        await requireWriter(req);
         const id = q.get('id');
         if (!id) throw new BadRequest('id가 필요해요');
         const gone = await deleteAssessment(school, id);
@@ -276,6 +302,37 @@ async function handle(req: Request, url: URL): Promise<Response> {
       }
 
       throw new BadRequest('수행평가는 GET, POST, DELETE만 돼요');
+    }
+
+    // 내가 누구인지 알려줘요. 로그인 안 했으면 null이에요.
+    case 'me': {
+      return json({ me: await whoami(req) });
+    }
+
+    // 선생님으로 올려요. 코드는 여기서 한 번만 확인해요.
+    // 통과하면 계정에 역할이 붙고, 그 뒤로는 코드가 필요 없어요.
+    case 'promote': {
+      if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+
+      if (!TEACHER_CODE) throw new Forbidden('아직 선생님 코드가 설정되지 않았어요');
+      let body: { code?: unknown; subjects?: unknown };
+      try {
+        body = (await req.json()) as typeof body;
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+      if (typeof body.code !== 'string' || body.code !== TEACHER_CODE) {
+        throw new Forbidden('선생님 코드가 맞지 않아요');
+      }
+
+      const subjects = toList(body.subjects, 'subjects').map((s) => {
+        const v = String(s).trim();
+        if (!v || v.length > 30) throw new BadRequest('과목 이름이 이상해요');
+        return v;
+      });
+      return json({ me: await promote(me.id, subjects) });
     }
 
     case 'school': {
@@ -319,6 +376,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof BadRequest) return json({ error: e.message }, 400);
     if (e instanceof Forbidden) return json({ error: e.message }, 403);
+    if (e instanceof AuthError) return json({ error: e.message }, 401);
     if (e instanceof DbError) {
       console.error('DB 오류', e.message);
       return json({ error: '수행평가를 처리하지 못했어요' }, 502);
