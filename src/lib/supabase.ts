@@ -15,7 +15,7 @@ import 'react-native-url-polyfill/auto';
 const URL = 'https://isxbdvgvzdqpugaxqrzs.supabase.co';
 
 /** Settings > API Keys 에서 'anon' 또는 'publishable' 키예요. */
-const ANON_KEY = '여기에_익명_키';
+const ANON_KEY = 'sb_publishable_GfkqM8siiAriyu2jfYM8kw_erGjWr6n';
 
 export const supabase = createClient(URL, ANON_KEY, {
   auth: {
