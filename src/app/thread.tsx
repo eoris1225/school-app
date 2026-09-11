@@ -111,10 +111,10 @@ const styles = StyleSheet.create({
   msgRow: { maxWidth: '82%', gap: 4 },
   mine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   theirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
-  author: { fontSize: 14, fontWeight: '700' },
+  author: { fontSize: 12, fontWeight: '700' },
   bubble: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
-  bubbleText: { fontSize: 16, lineHeight: 23 },
-  time: { fontSize: 13 },
+  bubbleText: { fontSize: 15, lineHeight: 22 },
+  time: { fontSize: 11 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

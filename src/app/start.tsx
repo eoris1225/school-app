@@ -80,10 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   top: { marginTop: 40 },
-  school: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
-  title: { fontSize: 48, lineHeight: 56, fontWeight: '800', letterSpacing: -2 },
-  desc: { fontSize: 17, lineHeight: 26, marginTop: 16 },
-  swatchLabel: { fontSize: 15, fontWeight: '600', marginTop: 28 },
+  school: { fontSize: 14, fontWeight: '800', marginBottom: 10 },
+  title: { fontSize: 38, lineHeight: 46, fontWeight: '800', letterSpacing: -2 },
+  desc: { fontSize: 15, lineHeight: 23, marginTop: 16 },
+  swatchLabel: { fontSize: 13, fontWeight: '600', marginTop: 28 },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginLeft: -9 },
   swatchWrap: {
     width: 42,
@@ -96,5 +96,5 @@ const styles = StyleSheet.create({
   swatch: { width: 24, height: 24, borderRadius: 12 },
   pressed: { opacity: 0.6 },
   actions: { gap: 12 },
-  note: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 4 },
+  note: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 4 },
 });

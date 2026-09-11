@@ -25,7 +25,9 @@ export function EventRow({
   return (
     <View style={styles.eventRow}>
       <View style={styles.eventDate}>
-        <Text style={[styles.eventDay, { color: palette.text }]}>{date.getDate()}</Text>
+        <Text numeric style={[styles.eventDay, { color: palette.text }]}>
+          {date.getDate()}
+        </Text>
         <Text style={[styles.eventMonth, { color: palette.sub }]}>{date.getMonth() + 1}월</Text>
       </View>
       <View style={styles.eventBody}>
@@ -103,13 +105,13 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
   eventDate: { width: 40, alignItems: 'center' },
-  eventDay: { fontSize: 24, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 28 },
-  eventMonth: { fontSize: 13, fontWeight: '600' },
+  eventDay: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 28 },
+  eventMonth: { fontSize: 11, fontWeight: '600' },
   eventBody: { flex: 1, gap: 6 },
-  eventTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
+  eventTitle: { fontSize: 14, fontWeight: '700', lineHeight: 22 },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  eventTarget: { fontSize: 14, fontWeight: '500' },
-  dday: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  eventTarget: { fontSize: 12, fontWeight: '500' },
+  dday: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
   deleteBtn: {
     width: 40,
     height: 40,
@@ -121,11 +123,11 @@ const styles = StyleSheet.create({
 
   threadRow: { borderWidth: 1.5, borderRadius: 22, padding: 16, marginBottom: 12, gap: 8 },
   threadTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  threadTitle: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
-  threadSub: { fontSize: 14, fontWeight: '500' },
+  threadTitle: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  threadSub: { fontSize: 12, fontWeight: '500' },
   unreadDot: { width: 10, height: 10, borderRadius: 5 },
-  threadPreview: { fontSize: 16, lineHeight: 23 },
+  threadPreview: { fontSize: 14, lineHeight: 21 },
   threadBottom: { flexDirection: 'row', justifyContent: 'space-between' },
-  threadStatus: { fontSize: 14, fontWeight: '700' },
-  threadTime: { fontSize: 14 },
+  threadStatus: { fontSize: 12, fontWeight: '700' },
+  threadTime: { fontSize: 12 },
 });

@@ -119,18 +119,18 @@ function TeacherInbox() {
 }
 
 const styles = StyleSheet.create({
-  cardTitle: { fontSize: 18, fontWeight: '800' },
-  help: { fontSize: 15, lineHeight: 21, marginTop: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '800' },
+  help: { fontSize: 13, lineHeight: 19, marginTop: 4 },
   subjects: { marginTop: 14, marginHorizontal: -18, paddingLeft: 18 },
-  to: { fontSize: 15, fontWeight: '700', marginTop: 12 },
+  to: { fontSize: 13, fontWeight: '700', marginTop: 12 },
   input: {
     borderRadius: 16,
     minHeight: 110,
     padding: 14,
-    lineHeight: 23,
+    lineHeight: 21,
     textAlignVertical: 'top',
     marginTop: 12,
     marginBottom: 12,
   },
-  sent: { fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 12 },
+  sent: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 12 },
 });

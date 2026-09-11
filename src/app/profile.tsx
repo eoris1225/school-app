@@ -116,16 +116,16 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  name: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  name: { fontSize: 21, fontWeight: '800', letterSpacing: -0.5 },
   roleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  school: { fontSize: 15, fontWeight: '600' },
+  school: { fontSize: 13, fontWeight: '600' },
 
   infoCard: { paddingVertical: 6 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  infoKey: { fontSize: 16, fontWeight: '600' },
-  infoValue: { fontSize: 16, fontWeight: '800' },
+  infoKey: { fontSize: 14, fontWeight: '600' },
+  infoValue: { fontSize: 14, fontWeight: '800' },
 
-  help: { fontSize: 15, lineHeight: 21, marginTop: -4, marginBottom: 12 },
+  help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   themeTile: {
     flexGrow: 1,
@@ -135,5 +135,5 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   swatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  themeName: { fontSize: 16 },
+  themeName: { fontSize: 13 },
 });

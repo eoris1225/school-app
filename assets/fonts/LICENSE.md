@@ -1,22 +1,24 @@
-# 나눔스퀘어라운드 (NanumSquareRound)
+# 이 폴더의 글꼴
 
-이 폴더의 글꼴 파일은 네이버가 만들어 무료로 배포하는 **나눔 글꼴**이에요.
+## Pretendard (본문·제목용)
 
-- 글꼴 이름: NanumSquareRound (Regular / Bold / ExtraBold)
-- Copyright (c) 2017 NAVER Corporation. All rights reserved.
-- 디자인: Sandoll Communications Inc.
-- 받은 곳: https://hangeul.naver.com/font
+- 파일: `Pretendard.ttf`, `PretendardMedium.ttf`, `PretendardSemiBold.ttf`, `PretendardBold.ttf`
+- Copyright (c) 2021 Kil Hyung-jin, with Reserved Font Name Pretendard.
+- 라이선스: SIL Open Font License 1.1
+- 원본: https://github.com/orioncactus/pretendard
 
-## 네이버 글꼴 저작권 안내 (원문)
+앱 용량을 줄이려고 KS X 1001 완성형 한글 2,350자와 영문·기호만 남겨
+줄여서(subset) 넣었어요. 여기에 없는 드문 글자는 폰 기본 글꼴로 나와요.
 
-> 네이버에서 제작한 나눔 글꼴과 마루 부리 글꼴, 클로바 나눔손글씨(이하 네이버 글꼴)의
-> 지적 재산권은 네이버와 네이버 문화재단에 있습니다.
-> 네이버 글꼴은 개인 및 기업 사용자를 포함한 모든 사용자에게 무료로 제공되며
-> 글꼴 자체를 유료로 판매하는 것을 제외한 상업적인 사용이 가능합니다.
-> 네이버 글꼴은 본 저작권 안내와 라이선스 전문을 포함해서 다른 소프트웨어와 번들하거나
-> 재배포 또는 판매가 가능하고 자유롭게 수정, 재배포하실 수 있습니다.
-> 네이버 글꼴 라이선스 전문을 포함하기 어려울 경우 출처 표기를 권장합니다.
+## Outfit (숫자·영문 표시용)
 
-라이선스 전문은 https://hangeul.naver.com/font 에서 볼 수 있어요.
+- 파일: `Outfit.ttf`(SemiBold), `OutfitBold.ttf`(Bold)
+- Copyright (c) 2020 The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)
+- 라이선스: SIL Open Font License 1.1
+- 원본: https://fonts.google.com/specimen/Outfit
 
-이 앱에는 네이버에서 제공한 나눔스퀘어라운드 글꼴이 적용되어 있습니다.
+## SIL Open Font License 1.1 요약
+
+두 글꼴 모두 OFL 1.1이에요. 무료로 쓰고, 앱에 넣어 배포하고, 고쳐 쓸 수 있어요.
+글꼴 파일 자체를 따로 팔 수는 없고, 저작권 안내를 함께 두어야 해요.
+전문은 각 원본 저장소에서 볼 수 있어요.
