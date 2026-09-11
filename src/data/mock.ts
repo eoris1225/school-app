@@ -16,11 +16,6 @@ export type Subject = (typeof SUBJECTS)[number];
 /** '2-3' 처럼 "학년-반" 이에요. 학교마다 반 개수가 달라서 목록으로 못 박아둬요. */
 export type ClassId = string;
 
-/** 서일여고는 학년당 8반이에요. 나중에 서버에서 받아온 목록으로 바꿔요. */
-export const CLASSES: ClassId[] = [1, 2, 3].flatMap((g) =>
-  Array.from({ length: 8 }, (_, i) => `${g}-${i + 1}`),
-);
-
 /** '2-3' -> 2 */
 export const gradeOf = (c: ClassId) => Number(c.split('-')[0]);
 /** '2-3' -> '3' */
@@ -96,22 +91,32 @@ export type SchoolEvent = {
   title: string;
   kind: EventKind;
   subject?: Subject;
-  /** '전체', '2학년', '2학년 3반' 처럼 누구에게 보이는 일정인지 */
-  target: string;
+  /** 해당되는 학년들. 비어 있으면 전 학년이에요. */
+  grades: number[];
+  /** 해당되는 반들. 비어 있으면 고른 학년 전체예요. */
+  classes: string[];
 };
 
+/** '전체' / '2·3학년' / '2학년 1·3반' 처럼 누구에게 보이는지 한 줄로 적어요. */
+export function targetLabel(e: Pick<SchoolEvent, 'grades' | 'classes'>): string {
+  if (e.grades.length === 0) return '전체';
+  const grade = `${e.grades.join('·')}학년`;
+  return e.classes.length === 0 ? grade : `${grade} ${e.classes.join('·')}반`;
+}
+
+/** 이 일정이 나에게 보이는 것인지. 학년과 반이 둘 다 맞아야 해요. */
+export function showsTo(e: Pick<SchoolEvent, 'grades' | 'classes'>, grade: number, cls: string): boolean {
+  if (e.grades.length > 0 && !e.grades.includes(grade)) return false;
+  if (e.classes.length > 0 && !e.classes.includes(cls)) return false;
+  return true;
+}
+
 /**
- * 수행평가만 담아요. 학사일정(시험, 체육대회, 방학 같은 것)은 NEIS에서 받아와요.
  * 수행평가는 NEIS에 없어서 선생님이 앱에서 직접 등록해요.
+ * 처음에는 비어 있어요. 아무도 등록하지 않은 걸 등록된 척하면 안 되니까요.
  * 나중에 Supabase 테이블로 옮길 자리예요.
  */
-export const INITIAL_EVENTS: SchoolEvent[] = [
-  { id: 'e2', date: '2026-09-10', title: '영어 말하기 수행평가', kind: 'assessment', subject: '영어', target: '2학년' },
-  { id: 'e4', date: '2026-09-16', title: '이차함수 활용 수행평가', kind: 'assessment', subject: '수학', target: '2학년' },
-  { id: 'e5', date: '2026-09-18', title: '탐구 보고서 제출', kind: 'assessment', subject: '과학', target: '2학년 3반' },
-  { id: 'e7', date: '2026-09-30', title: '서평 쓰기 수행평가', kind: 'assessment', subject: '국어', target: '2학년' },
-];
-
+export const INITIAL_EVENTS: SchoolEvent[] = [];
 export type Message = { id: string; from: Role; author: string; text: string; time: string };
 
 export type Thread = {

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Appearance } from 'react-native';
 
 import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
+import { subjectGroup } from '@/lib/subject';
 
 import {
   buildPalette,
@@ -14,7 +15,7 @@ import {
   type ThemeKey,
 } from '@/constants/themes';
 import {
-  classLabel,
+  showsTo,
   INITIAL_EVENTS,
   INITIAL_THREADS,
   STUDENT,
@@ -47,6 +48,8 @@ type AppContextValue = {
   events: SchoolEvent[];
   addEvent: (event: Omit<SchoolEvent, 'id'>) => void;
   removeEvent: (id: string) => void;
+  /** 이 일정을 내가 지울 수 있는지 */
+  canDelete: (event: SchoolEvent) => boolean;
   /** 내 역할에서 보이는 쪽지 (학생은 내 질문, 선생님은 내 과목 쪽지) */
   threads: Thread[];
   askQuestion: (subject: Subject, text: string) => void;
@@ -179,10 +182,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [role],
   );
 
+  /**
+   * 누가 무엇을 지울 수 있는지 한 곳에서 정해요.
+   *
+   * 수행평가는 그 과목 선생님만 지울 수 있어요. 국어 선생님이 수학 수행평가를
+   * 지우면 안 되니까요. 과목 이름이 '미적분Ⅰ' 처럼 와도 맞도록 교과군으로 봐요.
+   *
+   * NEIS에서 온 학사일정은 우리가 만든 게 아니라 아무도 못 지워요.
+   * 선생님이 직접 올린 학사일정은 선생님이면 지울 수 있어요.
+   */
+  const canDelete = useCallback(
+    (event: SchoolEvent) => {
+      if (role !== 'teacher') return false;
+      if (event.id.startsWith('neis:')) return false;
+      if (event.kind !== 'assessment') return true;
+      if (!event.subject) return false;
+      const mine = new Set(TEACHER.subjects.map((s) => subjectGroup(s)));
+      return mine.has(subjectGroup(event.subject));
+    },
+    [role],
+  );
+
   const value = useMemo<AppContextValue>(() => {
-    const studentTargets = ['전체', classLabel(STUDENT.cls).split(' ')[0], classLabel(STUDENT.cls)];
+    // 학생은 자기 학년·반 일정만 봐요. 선생님은 전부 봐요.
+    const myGrade = school ? school.grade : Number(STUDENT.cls.split('-')[0]);
+    const myClass = school ? school.cls : STUDENT.cls.split('-')[1];
     const events =
-      role === 'teacher' ? allEvents : allEvents.filter((e) => studentTargets.includes(e.target));
+      role === 'teacher' ? allEvents : allEvents.filter((e) => showsTo(e, myGrade, myClass));
     const threads =
       role === 'teacher'
         ? allThreads.filter((t) => TEACHER.subjects.includes(t.subject))
@@ -205,6 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events,
       addEvent,
       removeEvent,
+      canDelete,
       threads,
       askQuestion,
       sendMessage,
@@ -225,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allThreads,
     addEvent,
     removeEvent,
+    canDelete,
     askQuestion,
     sendMessage,
     markRead,

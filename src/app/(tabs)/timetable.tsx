@@ -7,7 +7,6 @@ import { Tap } from '@/components/motion';
 import { Chip, ChipRow, Divider, Empty, ErrorNote, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
-  CLASSES,
   classLabel,
   classOf,
   gradeOf,
@@ -19,7 +18,7 @@ import {
   type ClassId,
   type Weekday,
 } from '@/data/mock';
-import { getLessons } from '@/lib/api';
+import { getClasses, getLessons } from '@/lib/api';
 import { byWeekday } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
 import { subjectTone } from '@/constants/tones';
@@ -45,6 +44,18 @@ export default function TimetableScreen() {
     getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금, school ?? undefined),
   );
 
+  // 반 목록도 그 학교 것으로 받아와요. 학교마다 학년·반 개수가 달라요.
+  const year = now.getFullYear();
+  const rooms = useRemote(`tt-classes:${school?.code}:${year}`, () =>
+    getClasses(year, school ?? undefined),
+  );
+  const pickedGrade = gradeOf(cls);
+  const allGrades = [...new Set((rooms.data ?? []).map((r) => r.grade))].sort((a, b) => a - b);
+  const gradeClasses = (rooms.data ?? [])
+    .filter((r) => r.grade === pickedGrade)
+    .map((r) => r.cls)
+    .sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+
   const week = byWeekday(remote.data ?? [], dates);
   const holiday = holidayName(week[day].filter(Boolean));
 
@@ -52,13 +63,38 @@ export default function TimetableScreen() {
     <Screen>
       <Header subtitle={classLabel(cls)} title="시간표" />
 
-      {teacher ? (
-        <View style={styles.classPicker}>
-          <ChipRow>
-            {CLASSES.map((c) => (
-              <Chip key={c} label={classLabel(c)} selected={c === cls} onPress={() => setCls(c)} />
-            ))}
-          </ChipRow>
+      {/* 다른 반 시간표도 볼 수 있어요. 반이 스물네 개라 한 줄로 늘어놓으면
+          못 찾으니 학년과 반을 나눠서 골라요. */}
+      <View style={styles.classPicker}>
+        <ChipRow>
+          {allGrades.map((g) => (
+            <Chip
+              key={g}
+              label={`${g}학년`}
+              selected={g === pickedGrade}
+              // 학년을 바꾸면 같은 번호 반으로 옮겨요. 없으면 1반이에요.
+              onPress={() => setCls(`${g}-${classOf(cls)}`)}
+            />
+          ))}
+        </ChipRow>
+      </View>
+      <View style={styles.classPicker}>
+        <ChipRow>
+          {gradeClasses.map((c) => (
+            <Chip
+              key={c}
+              label={`${c}반`}
+              selected={c === classOf(cls)}
+              onPress={() => setCls(`${pickedGrade}-${c}`)}
+            />
+          ))}
+        </ChipRow>
+      </View>
+      {cls !== myClass ? (
+        <View style={styles.backRow}>
+          <Tap onPress={() => setCls(myClass)} accessibilityRole="button" hitSlop={10} depth={0.05}>
+            <Text style={[styles.backText, { color: palette.accentDeep }]}>내 반으로 돌아가기</Text>
+          </Tap>
         </View>
       ) : null}
 
@@ -213,7 +249,9 @@ export default function TimetableScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  classPicker: { marginBottom: 12 },
+  classPicker: { marginBottom: 8 },
+  backRow: { alignItems: 'flex-start', marginBottom: 8 },
+  backText: { fontSize: 13, fontWeight: '700', paddingVertical: 8 },
 
   dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   dayTab: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
