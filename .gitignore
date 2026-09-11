@@ -43,3 +43,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Supabase 함수의 로컬 환경변수 (NEIS 키가 들어 있어요)
+supabase/functions/.env
+supabase/.temp/
