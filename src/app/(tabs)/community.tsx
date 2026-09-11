@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
-import { SUBJECT_TEACHERS, SUBJECTS, TEACHER, type Subject, type Thread } from '@/data/mock';
+import { SUBJECT_TEACHERS, SUBJECTS, type Subject, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
 
 export default function CommunityScreen() {
@@ -88,7 +88,7 @@ function StudentCommunity() {
 /* ---------------- 선생님: 쪽지함 ---------------- */
 
 function TeacherInbox() {
-  const { threads } = useApp();
+  const { threads, me } = useApp();
   const [tab, setTab] = useState<'pending' | 'done' | 'all'>('pending');
   const pending = threads.filter(isPending);
   const done = threads.filter((t) => !isPending(t));
@@ -96,7 +96,12 @@ function TeacherInbox() {
 
   return (
     <Screen>
-      <Header subtitle={`${TEACHER.subjects.join(', ')} 과목으로 온 쪽지`} title="쪽지함" />
+      <Header
+        subtitle={
+          me?.subjects.length ? `${me.subjects.join(', ')} 과목으로 온 쪽지` : '담당 과목으로 온 쪽지'
+        }
+        title="쪽지함"
+      />
       <Segmented
         value={tab}
         onChange={setTab}

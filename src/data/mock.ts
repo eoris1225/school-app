@@ -8,8 +8,6 @@ export type Role = 'student' | 'teacher';
 export const WEEKDAYS = ['월', '화', '수', '목', '금'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export const SCHOOL = { name: '한빛고등학교' };
-
 export const SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사', '정보', '체육', '음악', '미술'] as const;
 export type Subject = (typeof SUBJECTS)[number];
 
@@ -25,17 +23,6 @@ export function classLabel(c: ClassId) {
   const [grade, cls] = c.split('-');
   return `${grade}학년 ${cls}반`;
 }
-
-export const STUDENT = { name: '김하은', initial: '하', cls: '2-3' as ClassId, number: 12 };
-
-export const TEACHER = {
-  name: '박지현',
-  initial: '박',
-  subjects: ['수학'] as Subject[],
-  homeroom: '2-3' as ClassId,
-  /** 이 선생님이 수학을 가르치는 반 */
-  classes: ['2-1', '2-3'] as ClassId[],
-};
 
 /** 과목별 선생님. 학생이 과목을 골라 질문하면 이 선생님들께 쪽지가 가요. */
 export const SUBJECT_TEACHERS: Record<Subject, string[]> = {
@@ -63,14 +50,6 @@ export const BELL = [
 
 export const LUNCH = { start: '12:30', end: '13:30', afterPeriod: 4 };
 
-
-export function teacherFor(subject: string, cls: ClassId): string {
-  if (subject === '수학') return TEACHER.classes.includes(cls) ? '박지현 선생님' : '최윤호 선생님';
-  if (subject in SUBJECT_TEACHERS) return `${SUBJECT_TEACHERS[subject as Subject][0]} 선생님`;
-  if (subject === '진로') return '최지원 선생님';
-  if (subject === '자율활동') return '담임 선생님';
-  return '';
-}
 
 /** NEIS 급식 데이터에 쓰이는 알레르기 번호 */
 export const ALLERGENS = [
@@ -128,69 +107,9 @@ export type Thread = {
   unreadTeacher: boolean;
 };
 
-/** 최신 쪽지가 앞에 오도록 정렬돼 있어요. */
-export const INITIAL_THREADS: Thread[] = [
-  {
-    id: 't1',
-    subject: '수학',
-    student: { name: '김하은', cls: '2-3' },
-    messages: [
-      { id: 'm1', from: 'student', author: '김하은', text: '이차함수 실생활 활용 문제 4번 풀이를 잘 모르겠어요.', time: '09:12' },
-      { id: 'm2', from: 'teacher', author: '박지현', text: '꼭짓점 구하는 식부터 다시 확인해볼까요? 점심시간에 교무실로 와도 좋아요.', time: '09:40' },
-    ],
-    unreadStudent: true,
-    unreadTeacher: false,
-  },
-  {
-    id: 't2',
-    subject: '수학',
-    student: { name: '이도윤', cls: '2-1' },
-    messages: [
-      { id: 'm3', from: 'student', author: '이도윤', text: '수행평가 보고서는 분량 제한이 있나요? A4 두 장이 넘어도 괜찮을까요?', time: '08:50' },
-    ],
-    unreadStudent: false,
-    unreadTeacher: true,
-  },
-  {
-    id: 't3',
-    subject: '수학',
-    student: { name: '최서연', cls: '2-3' },
-    messages: [
-      { id: 'm4', from: 'student', author: '최서연', text: '모의고사 21번 해설에서 두 번째 줄부터 이해가 안 돼요.', time: '07:58' },
-    ],
-    unreadStudent: false,
-    unreadTeacher: true,
-  },
-  {
-    id: 't4',
-    subject: '영어',
-    student: { name: '김하은', cls: '2-3' },
-    messages: [
-      { id: 'm5', from: 'student', author: '김하은', text: '단어 시험 범위를 다시 알려주실 수 있나요?', time: '어제' },
-    ],
-    unreadStudent: false,
-    unreadTeacher: true,
-  },
-  {
-    id: 't5',
-    subject: '수학',
-    student: { name: '정우진', cls: '2-1' },
-    messages: [
-      { id: 'm6', from: 'student', author: '정우진', text: '다음 주 보충 수업은 몇 시에 시작하나요?', time: '어제' },
-      { id: 'm7', from: 'teacher', author: '박지현', text: '화요일 7교시 끝나고 바로 시작해요. 3층 수학실로 오세요.', time: '어제' },
-    ],
-    unreadStudent: false,
-    unreadTeacher: false,
-  },
-  {
-    id: 't6',
-    subject: '과학',
-    student: { name: '김하은', cls: '2-3' },
-    messages: [
-      { id: 'm8', from: 'student', author: '김하은', text: '탐구 보고서에 사진을 넣어도 되나요?', time: '월요일' },
-      { id: 'm9', from: 'teacher', author: '정민재', text: '네, 사진 아래에 출처만 적어주면 괜찮아요.', time: '월요일' },
-    ],
-    unreadStudent: false,
-    unreadTeacher: false,
-  },
-];
+/**
+ * 쪽지는 아직 이 기기 안에서만 오가요. 서버에 올리는 건 다음에 만들어요.
+ * 예전에는 화면 확인용으로 가짜 학생(김하은)의 쪽지가 들어 있었는데,
+ * 이제 로그인한 사람 이름으로 걸러내서 아무한테도 안 보여요. 그래서 비웠어요.
+ */
+export const INITIAL_THREADS: Thread[] = [];

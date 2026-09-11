@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fitIcon, Icon, type IconName } from '@/components/icon';
 import { SlidingPill, Tap } from '@/components/motion';
 import { FONT, Text } from '@/components/text';
-import { STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 import { subjectTone, tone as toneColor, type ToneKey } from '@/constants/tones';
@@ -55,8 +54,9 @@ export function Screen({
 }
 
 export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => void }) {
-  const { palette, role } = useApp();
-  const initial = role === 'teacher' ? TEACHER.initial : STUDENT.initial;
+  const { palette, me } = useApp();
+  // 이름 첫 글자예요. 성이 두 글자인 이름도 있어서 잘라내지 않고 그대로 써요.
+  const initial = me?.name.trim().slice(0, 1) || '?';
   const circle = (
     <View
       style={[

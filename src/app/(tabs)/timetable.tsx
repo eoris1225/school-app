@@ -12,9 +12,6 @@ import {
   classOf,
   gradeOf,
   LUNCH,
-  STUDENT,
-  TEACHER,
-  teacherFor,
   WEEKDAYS,
   type ClassId,
   type Weekday,
@@ -29,13 +26,13 @@ import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
-  const { palette, role, now, school, swaps } = useApp();
-  const teacher = role === 'teacher';
+  const { palette, now, school, swaps } = useApp();
   const today = weekdayOf(now);
   const nowPeriod = currentPeriod(now);
 
-  const myClass = school ? `${school.grade}-${school.cls}` : STUDENT.cls;
-  const [cls, setCls] = useState<ClassId>(teacher ? TEACHER.homeroom : myClass);
+  // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
+  const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
+  const [cls, setCls] = useState<ClassId>(myClass);
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
 
@@ -155,7 +152,6 @@ export default function TimetableScreen() {
               const period = i + 1;
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
-              const who = teacherFor(subject.name, cls);
               const st = subjectTone(raw, palette.scheme);
               return (
                 <View key={period}>
@@ -181,7 +177,7 @@ export default function TimetableScreen() {
                     depth={mine ? 0.02 : 0}
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessibilityRole={mine ? 'button' : undefined}
-                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
+                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
                     <IconChip icon={subjectIcon(raw)} subject={raw} size={42} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
@@ -193,7 +189,6 @@ export default function TimetableScreen() {
                         <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
                           {bell.start}–{bell.end}
                         </Text>
-                        {who ? <Text style={[styles.periodMeta, { color: palette.sub }]}>{who}</Text> : null}
                       </View>
                     </View>
                     {swapped ? <Tag label="바꿈" /> : null}

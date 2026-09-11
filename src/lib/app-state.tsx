@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { Appearance } from 'react-native';
 
 import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
@@ -33,8 +42,6 @@ import {
   showsTo,
   INITIAL_EVENTS,
   INITIAL_THREADS,
-  STUDENT,
-  TEACHER,
   type Message,
   type Role,
   type SchoolEvent,
@@ -275,14 +282,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void saveMySchool(next);
   }, []);
 
-  const [systemScheme, setSystemScheme] = useState<Scheme>(readSystemScheme);
-  // 웹으로 미리 만들어 둔 화면은 첫 그림이 밝은 화면으로 굳어 있어요.
-  // 화면이 뜬 뒤 한 번 더 확인하고, 그 뒤로는 폰 설정이 바뀔 때마다 따라가요.
-  useEffect(() => {
-    setSystemScheme(readSystemScheme());
-    const sub = Appearance.addChangeListener(() => setSystemScheme(readSystemScheme()));
-    return () => sub.remove();
-  }, []);
+  /*
+   * 폰 설정의 밝기예요. 이건 React 밖에 있는 값이라 useSyncExternalStore로 읽어요.
+   *
+   * 웹으로 미리 만들어 둔 화면은 첫 그림이 밝은 화면으로 굳어 있어요. 그래서
+   * 세 번째 인자로 '미리 만들 때는 밝게'를 따로 알려줘요. 화면이 뜨면 React가
+   * 진짜 값과 견줘보고 다르면 알아서 다시 그려요.
+   */
+  const systemScheme = useSyncExternalStore(
+    (onChange) => {
+      const sub = Appearance.addChangeListener(onChange);
+      return () => sub.remove();
+    },
+    readSystemScheme,
+    () => 'light' as Scheme,
+  );
   const scheme: Scheme = schemePref === 'system' ? systemScheme : schemePref;
 
   const palette = useMemo(() => {
@@ -338,31 +352,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [school, role],
   );
 
-  const askQuestion = useCallback((subject: Subject, text: string) => {
-    const message: Message = { id: `m${Date.now()}`, from: 'student', author: STUDENT.name, text, time: '방금' };
-    setAllThreads((prev) => [
-      {
-        id: `t${Date.now()}`,
-        subject,
-        student: { name: STUDENT.name, cls: STUDENT.cls },
-        messages: [message],
-        unreadStudent: false,
-        unreadTeacher: true,
-      },
-      ...prev,
-    ]);
-  }, []);
+  const askQuestion = useCallback(
+    (subject: Subject, text: string) => {
+      if (!me || !school) return;
+      const message: Message = { id: `m${Date.now()}`, from: 'student', author: me.name, text, time: '방금' };
+      setAllThreads((prev) => [
+        {
+          id: `t${Date.now()}`,
+          subject,
+          student: { name: me.name, cls: `${school.grade}-${school.cls}` },
+          messages: [message],
+          unreadStudent: false,
+          unreadTeacher: true,
+        },
+        ...prev,
+      ]);
+    },
+    [me, school],
+  );
 
   const sendMessage = useCallback(
     (threadId: string, text: string) => {
-      if (!role) return;
+      if (!role || !me) return;
       setAllThreads((prev) => {
         const thread = prev.find((t) => t.id === threadId);
         if (!thread) return prev;
         const message: Message = {
           id: `m${Date.now()}`,
           from: role,
-          author: role === 'teacher' ? TEACHER.name : thread.student.name,
+          author: role === 'teacher' ? (me?.name ?? '') : thread.student.name,
           text,
           time: '방금',
         };
@@ -375,7 +393,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return [updated, ...prev.filter((t) => t.id !== threadId)];
       });
     },
-    [role],
+    [role, me],
   );
 
   const markRead = useCallback(
@@ -406,22 +424,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (event.id.startsWith('neis:')) return false;
       if (event.kind !== 'assessment') return true;
       if (!event.subject) return false;
-      const mine = new Set(TEACHER.subjects.map((s) => subjectGroup(s)));
+      const mine = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
       return mine.has(subjectGroup(event.subject));
     },
-    [role],
+    [role, me],
   );
 
   const value = useMemo<AppContextValue>(() => {
     // 학생은 자기 학년·반 일정만 봐요. 선생님은 전부 봐요.
-    const myGrade = school ? school.grade : Number(STUDENT.cls.split('-')[0]);
-    const myClass = school ? school.cls : STUDENT.cls.split('-')[1];
+    // 학교를 아직 안 골랐으면 맞는 게 하나도 없어요. 그게 맞아요.
+    const myGrade = school?.grade ?? 0;
+    const myClass = school?.cls ?? '';
     const events =
       role === 'teacher' ? allEvents : allEvents.filter((e) => showsTo(e, myGrade, myClass));
+    // 선생님은 담당 과목으로 온 쪽지만, 학생은 자기가 보낸 쪽지만 봐요.
+    const mySubjects = me?.subjects ?? [];
     const threads =
       role === 'teacher'
-        ? allThreads.filter((t) => TEACHER.subjects.includes(t.subject))
-        : allThreads.filter((t) => t.student.name === STUDENT.name);
+        ? allThreads.filter((t) => mySubjects.includes(t.subject))
+        : allThreads.filter((t) => !!me && t.student.name === me.name);
     const badgeCount =
       role === 'teacher' ? threads.filter(isPending).length : threads.filter((t) => t.unreadStudent).length;
     return {
