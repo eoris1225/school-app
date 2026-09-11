@@ -8,19 +8,23 @@ export type Role = 'student' | 'teacher';
 export const WEEKDAYS = ['월', '화', '수', '목', '금'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-/**
- * 화면 확인용 '지금' 시각이에요. (2026년 9월 10일 목요일 오전 10시 55분, 3교시 수업 중)
- * 실제 서비스에서는 new Date()로 바꿔요.
- */
-export const DEMO_NOW = new Date(2026, 8, 10, 10, 55);
-
 export const SCHOOL = { name: '한빛고등학교' };
 
 export const SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사', '정보', '체육', '음악', '미술'] as const;
 export type Subject = (typeof SUBJECTS)[number];
 
-export type ClassId = '2-1' | '2-2' | '2-3' | '2-4';
-export const CLASSES: ClassId[] = ['2-1', '2-2', '2-3', '2-4'];
+/** '2-3' 처럼 "학년-반" 이에요. 학교마다 반 개수가 달라서 목록으로 못 박아둬요. */
+export type ClassId = string;
+
+/** 서일여고는 학년당 8반이에요. 나중에 서버에서 받아온 목록으로 바꿔요. */
+export const CLASSES: ClassId[] = [1, 2, 3].flatMap((g) =>
+  Array.from({ length: 8 }, (_, i) => `${g}-${i + 1}`),
+);
+
+/** '2-3' -> 2 */
+export const gradeOf = (c: ClassId) => Number(c.split('-')[0]);
+/** '2-3' -> '3' */
+export const classOf = (c: ClassId) => c.split('-')[1];
 
 export function classLabel(c: ClassId) {
   const [grade, cls] = c.split('-');
@@ -64,31 +68,6 @@ export const BELL = [
 
 export const LUNCH = { start: '12:30', end: '13:30', afterPeriod: 4 };
 
-const BASE_WEEK: Record<Weekday, string[]> = {
-  월: ['국어', '수학', '영어', '체육', '과학', '한국사', '자율활동'],
-  화: ['수학', '국어', '사회', '음악', '영어', '과학', '동아리'],
-  수: ['영어', '수학', '국어', '미술', '정보', '체육', '자율활동'],
-  목: ['과학', '사회', '수학', '국어', '영어', '체육', '진로'],
-  금: ['정보', '영어', '국어', '수학', '사회', '미술', '동아리'],
-};
-
-/** 다른 반 시간표를 흉내 내려고 요일과 순서를 섞어요. (임시 데이터 전용) */
-function shuffledWeek(shift: number): Record<Weekday, string[]> {
-  const out = {} as Record<Weekday, string[]>;
-  WEEKDAYS.forEach((day, i) => {
-    const core = BASE_WEEK[WEEKDAYS[(i + shift) % 5]].slice(0, 6);
-    const n = shift % 6;
-    out[day] = [...core.slice(n), ...core.slice(0, n), BASE_WEEK[day][6]];
-  });
-  return out;
-}
-
-export const TIMETABLES: Record<ClassId, Record<Weekday, string[]>> = {
-  '2-1': shuffledWeek(2),
-  '2-2': shuffledWeek(1),
-  '2-3': BASE_WEEK,
-  '2-4': shuffledWeek(3),
-};
 
 export function teacherFor(subject: string, cls: ClassId): string {
   if (subject === '수학') return TEACHER.classes.includes(cls) ? '박지현 선생님' : '최윤호 선생님';
@@ -107,114 +86,6 @@ export const ALLERGENS = [
 export type MealItem = { name: string; allergy: number[] };
 export type Meal = { items: MealItem[]; kcal: number };
 
-export const MEAL_DATES: Record<Weekday, string> = {
-  월: '2026-09-07', 화: '2026-09-08', 수: '2026-09-09', 목: '2026-09-10', 금: '2026-09-11',
-};
-
-export const MEALS: Record<Weekday, { lunch: Meal; dinner: Meal | null }> = {
-  월: {
-    lunch: {
-      kcal: 812,
-      items: [
-        { name: '잡곡밥', allergy: [] },
-        { name: '쇠고기미역국', allergy: [5, 6, 16] },
-        { name: '제육볶음', allergy: [5, 6, 10, 13] },
-        { name: '계란말이', allergy: [1] },
-        { name: '배추김치', allergy: [9] },
-        { name: '요구르트', allergy: [2] },
-      ],
-    },
-    dinner: {
-      kcal: 760,
-      items: [
-        { name: '김치볶음밥', allergy: [1, 5, 6, 10] },
-        { name: '유부장국', allergy: [5, 6] },
-        { name: '떡갈비', allergy: [5, 6, 10, 16] },
-        { name: '오이무침', allergy: [] },
-      ],
-    },
-  },
-  화: {
-    lunch: {
-      kcal: 768,
-      items: [
-        { name: '흑미밥', allergy: [] },
-        { name: '콩나물국', allergy: [5] },
-        { name: '고등어구이', allergy: [7] },
-        { name: '어묵볶음', allergy: [1, 5, 6] },
-        { name: '깍두기', allergy: [9] },
-        { name: '사과', allergy: [] },
-      ],
-    },
-    dinner: {
-      kcal: 802,
-      items: [
-        { name: '짜장덮밥', allergy: [5, 6, 10] },
-        { name: '계란국', allergy: [1, 5] },
-        { name: '군만두', allergy: [5, 6, 10] },
-        { name: '단무지', allergy: [] },
-        { name: '포도', allergy: [] },
-      ],
-    },
-  },
-  수: {
-    lunch: {
-      kcal: 845,
-      items: [
-        { name: '카레라이스', allergy: [2, 5, 6, 10, 12] },
-        { name: '두부된장국', allergy: [5, 6] },
-        { name: '치킨너겟', allergy: [1, 2, 5, 6, 15] },
-        { name: '브로콜리무침', allergy: [] },
-        { name: '배추김치', allergy: [9] },
-      ],
-    },
-    dinner: {
-      kcal: 735,
-      items: [
-        { name: '잔치국수', allergy: [1, 5, 6] },
-        { name: '주먹밥', allergy: [5] },
-        { name: '떡꼬치', allergy: [5, 6, 12] },
-        { name: '배추김치', allergy: [9] },
-      ],
-    },
-  },
-  목: {
-    lunch: {
-      kcal: 830,
-      items: [
-        { name: '흰밥', allergy: [] },
-        { name: '순두부찌개', allergy: [5, 6, 18] },
-        { name: '돈까스', allergy: [1, 2, 5, 6, 10, 12] },
-        { name: '콘샐러드', allergy: [1, 2] },
-        { name: '단무지', allergy: [] },
-        { name: '오렌지', allergy: [] },
-      ],
-    },
-    dinner: {
-      kcal: 790,
-      items: [
-        { name: '참치마요덮밥', allergy: [1, 5, 6] },
-        { name: '미소장국', allergy: [5, 6] },
-        { name: '떡볶이', allergy: [5, 6, 12] },
-        { name: '배추김치', allergy: [9] },
-      ],
-    },
-  },
-  금: {
-    lunch: {
-      kcal: 795,
-      items: [
-        { name: '비빔밥', allergy: [1, 5, 6] },
-        { name: '계란국', allergy: [1, 5] },
-        { name: '잡채', allergy: [5, 6, 10] },
-        { name: '미니핫도그', allergy: [1, 2, 5, 6, 10] },
-        { name: '깍두기', allergy: [9] },
-        { name: '식혜', allergy: [] },
-      ],
-    },
-    dinner: null,
-  },
-};
 
 export type EventKind = 'academic' | 'assessment';
 
@@ -229,16 +100,16 @@ export type SchoolEvent = {
   target: string;
 };
 
+/**
+ * 수행평가만 담아요. 학사일정(시험, 체육대회, 방학 같은 것)은 NEIS에서 받아와요.
+ * 수행평가는 NEIS에 없어서 선생님이 앱에서 직접 등록해요.
+ * 나중에 Supabase 테이블로 옮길 자리예요.
+ */
 export const INITIAL_EVENTS: SchoolEvent[] = [
-  { id: 'e1', date: '2026-09-03', title: '9월 전국연합학력평가', kind: 'academic', target: '전체' },
   { id: 'e2', date: '2026-09-10', title: '영어 말하기 수행평가', kind: 'assessment', subject: '영어', target: '2학년' },
-  { id: 'e3', date: '2026-09-14', title: '학부모 상담주간 시작', kind: 'academic', target: '전체' },
   { id: 'e4', date: '2026-09-16', title: '이차함수 활용 수행평가', kind: 'assessment', subject: '수학', target: '2학년' },
   { id: 'e5', date: '2026-09-18', title: '탐구 보고서 제출', kind: 'assessment', subject: '과학', target: '2학년 3반' },
-  { id: 'e6', date: '2026-09-22', title: '체육대회', kind: 'academic', target: '전체' },
   { id: 'e7', date: '2026-09-30', title: '서평 쓰기 수행평가', kind: 'assessment', subject: '국어', target: '2학년' },
-  { id: 'e8', date: '2026-10-09', title: '한글날', kind: 'academic', target: '전체' },
-  { id: 'e9', date: '2026-10-13', title: '2학기 중간고사 시작', kind: 'academic', target: '전체' },
 ];
 
 export type Message = { id: string; from: Role; author: string; text: string; time: string };

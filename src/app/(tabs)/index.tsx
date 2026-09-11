@@ -10,18 +10,22 @@ import { Tile } from '@/components/tile';
 import { Avatar } from '@/components/ui';
 import { mix } from '@/constants/themes';
 import { subjectTone } from '@/constants/tones';
+import { getLessons, getMeals } from '@/lib/api';
+import { readSubject, subjectGroup } from '@/lib/subject';
+import { byWeekday, type Week } from '@/lib/timetable';
+import { useRemote } from '@/lib/use-remote';
 import {
   BELL,
   classLabel,
-  MEALS,
+  classOf,
+  gradeOf,
   STUDENT,
   TEACHER,
-  TIMETABLES,
   type SchoolEvent,
   type Weekday,
 } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
-import { currentPeriod, dday, formatDay, schoolStatus, toYmd, weekdayOf, type SchoolStatus } from '@/lib/time';
+import { currentPeriod, dday, formatDay, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
 import { useLayout } from '@/lib/layout';
 
 export default function HomeScreen() {
@@ -180,18 +184,28 @@ function EventRow({ event, last }: { event: SchoolEvent; last: boolean }) {
 type DotState = 'done' | 'now' | 'todo';
 type Hero = { label: string; big: string; line: string; states: DotState[] };
 
-function buildHero(status: SchoolStatus, day: Weekday | null): Hero {
-  const week = TIMETABLES[STUDENT.cls];
-  const today = day ? week[day] : [];
+function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready: boolean): Hero {
+  const today = (day ? week[day] : []).map((s) => (s ? readSubject(s).name : ''));
   const dots = (fn: (i: number) => DotState) => today.map((_, i) => fn(i));
+
+  // 시간표가 아직 안 왔으면 과목 이름 없이 시각만 알려줘요.
+  // 빈 자리에 엉뚱한 글자가 잠깐 보이는 것보다 나아요.
+  if (!ready) {
+    return { label: '오늘', big: '불러오는 중', line: '잠시만요', states: [] };
+  }
 
   switch (status.kind) {
     case 'weekend':
-      return { label: '오늘은', big: '쉬는 날', line: `월요일 1교시는 ${week['월'][0]}`, states: [] };
+      return {
+        label: '오늘은',
+        big: '쉬는 날',
+        line: week['월'][0] ? `월요일 1교시는 ${readSubject(week['월'][0]).name}` : '다음 주에 만나요',
+        states: [],
+      };
     case 'before':
       return {
         label: '곧 시작해요',
-        big: `1교시 ${today[0]}`,
+        big: today[0] ? `1교시 ${today[0]}` : '오늘 수업',
         line: `${BELL[0].start}부터`,
         states: dots((i) => (i === 0 ? 'now' : 'todo')),
       };
@@ -200,7 +214,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null): Hero {
       const next = today[p] ? ` · 다음 ${p + 1}교시 ${today[p]}` : '';
       return {
         label: '지금은',
-        big: `${p}교시 ${today[p - 1]}`,
+        big: today[p - 1] ? `${p}교시 ${today[p - 1]}` : `${p}교시`,
         line: `${BELL[p - 1].end}에 끝나요${next}`,
         states: dots((i) => (i < p - 1 ? 'done' : i === p - 1 ? 'now' : 'todo')),
       };
@@ -210,7 +224,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null): Hero {
       const n = status.next;
       return {
         label: status.kind === 'lunch' ? '점심시간이에요' : '쉬는 시간이에요',
-        big: `다음 ${n}교시 ${today[n - 1]}`,
+        big: today[n - 1] ? `다음 ${n}교시 ${today[n - 1]}` : `다음 ${n}교시`,
         line: `${BELL[n - 1].start}부터`,
         states: dots((i) => (i < n - 1 ? 'done' : i === n - 1 ? 'now' : 'todo')),
       };
@@ -224,10 +238,19 @@ function StudentHome() {
   const { palette, now, events, threads } = useApp();
   const { compact } = useLayout();
   const day = weekdayOf(now);
-  const hero = buildHero(schoolStatus(now), day);
+  const dates = weekDates(now);
+  const today = toYmd(now);
+
+  const lessons = useRemote(`home-timetable:${STUDENT.cls}:${dates.월}`, () =>
+    getLessons(gradeOf(STUDENT.cls), classOf(STUDENT.cls), dates.월, dates.금),
+  );
+  const meals = useRemote(`home-meal:${today}`, () => getMeals(today));
+
+  const week = byWeekday(lessons.data ?? [], dates);
+  const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const unread = threads.filter((t) => t.unreadStudent).length;
-  const meal = day ? MEALS[day].lunch : null;
+  const meal = meals.data?.find((m) => m.type === 'lunch') ?? null;
 
   const tiles = (
     <View style={styles.tiles}>
@@ -285,20 +308,29 @@ function StudentHome() {
 function TeacherHome() {
   const { palette, now, events, threads } = useApp();
   const { compact } = useLayout();
-  const day = weekdayOf(now);
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const nowPeriod = currentPeriod(now);
 
-  const myClasses = day
-    ? TEACHER.classes
-        .flatMap((cls) =>
-          TIMETABLES[cls][day]
-            .map((subject, i) => ({ cls, subject, period: i + 1 }))
-            .filter((x) => TEACHER.subjects.some((s) => s === x.subject)),
-        )
-        .sort((a, b) => a.period - b.period)
-    : [];
+  // 내가 가르치는 반들의 시간표를 한 번에 받아와요.
+  const dates = weekDates(now);
+  const lessons = useRemote(`teacher-timetable:${TEACHER.classes.join()}:${dates.월}`, () =>
+    Promise.all(
+      TEACHER.classes.map((cls) =>
+        getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금).then((rows) =>
+          rows.map((r) => ({ ...r, id: cls })),
+        ),
+      ),
+    ).then((lists) => lists.flat()),
+  );
+
+  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 수학 선생님이면 수학 교과군을
+  // 전부 내 수업으로 봐요. 이름을 하나하나 맞춰보면 하나도 안 걸려요.
+  const mine = new Set(TEACHER.subjects.map((s) => subjectGroup(s)));
+  const myClasses = (lessons.data ?? [])
+    .filter((l) => l.date === toYmd(now) && mine.has(subjectGroup(l.subject)))
+    .map((l) => ({ cls: l.id, subject: readSubject(l.subject).name, period: l.period }))
+    .sort((a, b) => a.period - b.period);
   const nextClass = myClasses.find((c) => c.period >= nowPeriod) ?? null;
 
   const tiles = (

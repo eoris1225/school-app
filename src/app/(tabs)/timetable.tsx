@@ -4,24 +4,28 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { subjectIcon } from '@/components/icon';
 import { Tap } from '@/components/motion';
-import { Chip, ChipRow, Divider, Empty, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
+import { Chip, ChipRow, Divider, Empty, ErrorNote, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
   CLASSES,
   classLabel,
+  classOf,
+  gradeOf,
   LUNCH,
   STUDENT,
   TEACHER,
-  TIMETABLES,
   teacherFor,
   WEEKDAYS,
   type ClassId,
   type Weekday,
 } from '@/data/mock';
+import { getLessons } from '@/lib/api';
+import { byWeekday } from '@/lib/timetable';
+import { useRemote } from '@/lib/use-remote';
 import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
 import { holidayName, readSubject } from '@/lib/subject';
-import { currentPeriod, weekdayOf } from '@/lib/time';
+import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
@@ -33,8 +37,15 @@ export default function TimetableScreen() {
   const [cls, setCls] = useState<ClassId>(teacher ? TEACHER.homeroom : STUDENT.cls);
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
-  const week = TIMETABLES[cls];
-  const holiday = holidayName(week[day]);
+
+  // 한 주치를 한 번에 받아둬요. 요일이나 하루/한 주를 눌러도 다시 부르지 않아요.
+  const dates = weekDates(now);
+  const remote = useRemote(`timetable:${cls}:${dates.월}`, () =>
+    getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금),
+  );
+
+  const week = byWeekday(remote.data ?? [], dates);
+  const holiday = holidayName(week[day].filter(Boolean));
 
   return (
     <Screen>
@@ -86,10 +97,17 @@ export default function TimetableScreen() {
           <View>
             {/* 추석 같은 날은 NEIS가 1교시부터 끝까지 같은 말로 채워서 줘요.
                 그대로 그리면 "1교시 추석, 2교시 추석..." 이 되니 한 줄로 보여줘요. */}
-            {holiday ? (
+            {remote.loading ? (
+              <Loading text="시간표를 불러오는 중이에요" />
+            ) : remote.error ? (
+              <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
+            ) : holiday ? (
               <Empty text={`${day}요일은 ${holiday}이라 수업이 없어요`} />
+            ) : week[day].filter(Boolean).length === 0 ? (
+              <Empty text={`${day}요일은 등록된 시간표가 없어요`} />
             ) : (
             week[day].map((raw, i, arr) => {
+              if (!raw) return null;
               const subject = readSubject(raw);
               const period = i + 1;
               const isNow = day === today && period === nowPeriod;
@@ -132,6 +150,10 @@ export default function TimetableScreen() {
             )}
           </View>
         </>
+      ) : remote.loading ? (
+        <Loading text="시간표를 불러오는 중이에요" />
+      ) : remote.error ? (
+        <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
       ) : (
         <View>
           <View style={styles.weekRow}>
@@ -157,6 +179,8 @@ export default function TimetableScreen() {
                 </View>
                 {WEEKDAYS.map((d) => {
                   const subject = week[d][i];
+                  // 그 반에 그 교시가 없으면 빈 칸으로 둬요.
+                  if (!subject) return <View key={d} style={styles.weekCellEmpty} />;
                   const isNow = d === today && bell.period === nowPeriod;
                   const st = subjectTone(subject, palette.scheme);
                   return (
@@ -208,6 +232,7 @@ const styles = StyleSheet.create({
   weekPeriod: { fontSize: 12, fontWeight: '800' },
   weekHead: { flex: 1, alignItems: 'center', paddingVertical: 8, marginHorizontal: 1, borderRadius: 10 },
   weekHeadText: { fontSize: 13, fontWeight: '800' },
+  weekCellEmpty: { flex: 1, height: 50, margin: 2 },
   weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 2, borderRadius: 12 },
   weekCellText: { fontSize: 12, fontWeight: '700' },
   weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 4, paddingTop: 4 },

@@ -4,9 +4,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Chip, Divider, Empty, Header, IconButton, Screen, SectionTitle } from '@/components/ui';
+import { Button, Chip, Divider, Empty, ErrorNote, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
-import type { EventKind, SchoolEvent } from '@/data/mock';
+import { gradeOf, STUDENT, TEACHER, type EventKind, type SchoolEvent } from '@/data/mock';
+import { getEvents } from '@/lib/api';
+import { useRemote } from '@/lib/use-remote';
 import { useApp } from '@/lib/app-state';
 import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 
@@ -21,7 +23,26 @@ export default function CalendarScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const shown = events.filter((e) => filter === 'all' || e.kind === filter);
+  // 학사일정은 NEIS에서 그 달치를 받아와요. 수행평가는 선생님이 등록한 것이라
+  // 앱이 들고 있어요. 둘을 합쳐서 한 달력에 보여줘요.
+  const monthStart = toYmd(new Date(cursor.y, cursor.m, 1));
+  const monthEnd = toYmd(new Date(cursor.y, cursor.m + 1, 0));
+  const remote = useRemote(`schedule:${monthStart}`, () => getEvents(monthStart, monthEnd));
+
+  const myGrade = gradeOf(teacher ? TEACHER.homeroom : STUDENT.cls);
+  const academic: SchoolEvent[] = (remote.data ?? [])
+    // 선생님은 전 학년을 보고, 학생은 자기 학년 것만 봐요.
+    .filter((e) => teacher || e.grades.includes(myGrade))
+    .map((e) => ({
+      id: `neis:${e.date}:${e.title}`,
+      date: e.date,
+      title: e.title,
+      kind: 'academic' as const,
+      target: e.grades.length === 3 ? '전체' : `${e.grades.join('·')}학년`,
+    }));
+
+  const all = [...academic, ...events.filter((e) => e.kind === 'assessment')];
+  const shown = all.filter((e) => filter === 'all' || e.kind === filter);
   const byDate = new Map<string, SchoolEvent[]>();
   shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]));
 
@@ -146,11 +167,23 @@ export default function CalendarScreen() {
 
       <SectionTitle title={formatDay(fromYmd(selected))} />
       <View>
-        {dayEvents.length === 0 ? <Empty text="이날은 일정이 없어요" /> : null}
+        {remote.loading ? <Loading text="학사일정을 불러오는 중이에요" /> : null}
+        {remote.error ? (
+          <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
+        ) : null}
+        {!remote.loading && !remote.error && dayEvents.length === 0 ? (
+          <Empty text="이날은 일정이 없어요" />
+        ) : null}
         {dayEvents.map((e, i) => (
           <View key={e.id}>
             {i > 0 ? <Divider /> : null}
-            <EventRow event={e} showDday={!teacher} onDelete={teacher ? () => setConfirmId(e.id) : undefined} />
+            {/* NEIS에서 온 학사일정은 우리가 만든 게 아니라 지울 수 없어요.
+                선생님이 직접 등록한 수행평가만 지우기가 나와요. */}
+            <EventRow
+              event={e}
+              showDday={!teacher}
+              onDelete={teacher && e.kind === 'assessment' ? () => setConfirmId(e.id) : undefined}
+            />
             {confirmId === e.id ? (
               <View style={[styles.confirm, { backgroundColor: palette.tint }]}>
                 <Text style={[styles.confirmText, { color: palette.text }]}>
