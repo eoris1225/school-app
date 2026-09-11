@@ -64,3 +64,23 @@ export function currentPeriod(now: Date) {
   const s = schoolStatus(now);
   return s.kind === 'class' ? s.period : 0;
 }
+
+/**
+ * 그 주 월요일을 찾아요. 주말이면 다음 주 월요일이에요.
+ * 토요일에 앱을 열면 지난 주가 아니라 다가올 한 주를 보고 싶을 테니까요.
+ */
+export function mondayOf(d: Date): Date {
+  const w = d.getDay(); // 0=일 ... 6=토
+  const shift = w === 0 ? 1 : w === 6 ? 2 : 1 - w;
+  return addDays(d, shift);
+}
+
+/** 그 주 월~금 날짜예요. { 월: '2026-09-07', ... } */
+export function weekDates(now: Date): Record<Weekday, string> {
+  const mon = mondayOf(now);
+  const out = {} as Record<Weekday, string>;
+  WEEKDAYS.forEach((day, i) => {
+    out[day] = toYmd(addDays(mon, i));
+  });
+  return out;
+}

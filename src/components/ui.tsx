@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
@@ -390,6 +390,37 @@ export function Empty({ text }: { text: string }) {
   return <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>;
 }
 
+/** 불러오는 중에 보여줘요. 화면이 텅 비어 보이지 않게요. */
+export function Loading({ text = '불러오는 중이에요' }: { text?: string }) {
+  const { palette } = useApp();
+  return (
+    <View style={styles.center}>
+      <ActivityIndicator color={palette.accent} />
+      <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>
+    </View>
+  );
+}
+
+/**
+ * 못 불러왔을 때 보여줘요.
+ * 무엇이 잘못됐는지 적고, 다시 해볼 수 있으면 버튼도 같이 줘요.
+ * 가짜 데이터로 때우지 않아요. 틀린 급식을 보여주는 것보다 못 불러왔다고
+ * 말하는 게 나으니까요.
+ */
+export function ErrorNote({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  const { palette } = useApp();
+  return (
+    <View style={styles.center}>
+      <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>
+      {onRetry ? (
+        <Tap onPress={onRetry} accessibilityRole="button" hitSlop={10} depth={0.06}>
+          <Text style={[styles.retry, { color: palette.accentDeep }]}>다시 시도</Text>
+        </Tap>
+      ) : null}
+    </View>
+  );
+}
+
 export function Divider() {
   const { palette } = useApp();
   return <View style={[styles.divider, { backgroundColor: palette.line }]} />;
@@ -461,5 +492,7 @@ export const styles = StyleSheet.create({
   iconChip: { alignItems: 'center', justifyContent: 'center' },
   field: { borderWidth: 1.5, fontSize: 15, fontFamily: FONT.regular },
   empty: { fontSize: 13, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
+  center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12 },
+  retry: { fontSize: 15, fontWeight: '700' },
   divider: { height: 1, marginVertical: 2 },
 });

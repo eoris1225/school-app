@@ -13,7 +13,6 @@ import {
 } from '@/constants/themes';
 import {
   classLabel,
-  DEMO_NOW,
   INITIAL_EVENTS,
   INITIAL_THREADS,
   STUDENT,
@@ -56,13 +55,26 @@ const readSystemScheme = (): Scheme => (Appearance.getColorScheme() === 'dark' ?
 
 export const isPending = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'student';
 
+/**
+ * 지금 시각이에요. 앱이 열려 있는 동안 1분마다 새로 봐요.
+ * 쉬는 시간에 앱을 켜두면 다음 교시로 저절로 넘어가요.
+ */
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
   const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
-  const now = DEMO_NOW;
+  const now = useNow();
 
   const [systemScheme, setSystemScheme] = useState<Scheme>(readSystemScheme);
   // 웹으로 미리 만들어 둔 화면은 첫 그림이 밝은 화면으로 굳어 있어요.
