@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local env files (공개 저장소라 키가 실수로 올라가지 않게 넓게 막아요)
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
