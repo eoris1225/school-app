@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Icon, type IconName } from '@/components/icon';
+import { fitIcon, Icon, type IconName } from '@/components/icon';
 import { SlidingPill, Tap } from '@/components/motion';
 import { FONT, Text } from '@/components/text';
 import { STUDENT, TEACHER } from '@/data/mock';
@@ -380,7 +380,7 @@ export function IconChip({
         styles.iconChip,
         { width: size, height: size, borderRadius: size * 0.32, backgroundColor: t.bg },
       ]}>
-      <Icon name={icon} size={Math.round(size * 0.5)} color={t.fg} />
+      <Icon name={icon} size={fitIcon(size, 0.5)} color={t.fg} />
     </View>
   );
 }
