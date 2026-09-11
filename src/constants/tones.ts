@@ -93,6 +93,8 @@ const GROUP_TONES: Record<SubjectGroup, ToneKey> = {
 const LABEL_TONES: Record<string, ToneKey> = {
   학사일정: 'rose',
   수행평가: 'violet',
+  // 내 일정은 학교 일정과 섞이면 안 되니 다른 색으로 구분해요.
+  '내 일정': 'teal',
 };
 
 export function toneKeyFor(name: string): ToneKey {

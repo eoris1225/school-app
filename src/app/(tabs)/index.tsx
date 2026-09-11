@@ -235,7 +235,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
 }
 
 function StudentHome() {
-  const { palette, now, events, threads, school } = useApp();
+  const { palette, now, events, threads, school, swaps } = useApp();
   const { compact } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
@@ -249,7 +249,7 @@ function StudentHome() {
     getMeals(today, today, school ?? undefined),
   );
 
-  const week = byWeekday(lessons.data ?? [], dates);
+  const week = byWeekday(lessons.data ?? [], dates, swaps);
   const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const unread = threads.filter((t) => t.unreadStudent).length;

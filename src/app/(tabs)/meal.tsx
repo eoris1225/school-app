@@ -5,6 +5,7 @@ import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Divider, Empty, ErrorNote, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { ALLERGENS, WEEKDAYS, type Weekday } from '@/data/mock';
+import { allergyHits } from '@/lib/my-settings';
 import { getMeals } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
@@ -21,7 +22,7 @@ function weekLabel(from: string, to: string) {
 }
 
 export default function MealScreen() {
-  const { palette, now, school } = useApp();
+  const { palette, now, school, allergies } = useApp();
   const { tablet } = useLayout();
   const today = weekdayOf(now);
   const [day, setDay] = useState<Weekday>(today ?? '월');
@@ -35,6 +36,8 @@ export default function MealScreen() {
   );
 
   const meal = week.data?.find((m) => m.date === dates[day] && m.type === type) ?? null;
+  // 내가 못 먹는 재료가 든 메뉴들
+  const risky = (meal?.items ?? []).filter((i) => allergyHits(i.allergy, allergies).length > 0);
 
   return (
     <Screen>
@@ -88,23 +91,55 @@ export default function MealScreen() {
             value={meal ? `${meal.items.length}가지${meal.kcal ? ` · ${meal.kcal}kcal` : ''}` : undefined}
           />
 
+          {/* 내가 못 먹는 게 들어 있으면 맨 위에 한 번 모아서 알려줘요.
+              메뉴를 하나하나 훑기 전에 먼저 보이게요. */}
+          {meal && risky.length > 0 ? (
+            <View style={[styles.warn, { backgroundColor: palette.tint }]}>
+              <Text style={[styles.warnTitle, { color: palette.accentDeep }]}>
+                못 먹는 재료가 든 메뉴가 {risky.length}가지 있어요
+              </Text>
+              <Text style={[styles.warnBody, { color: palette.text }]}>
+                {risky.map((r) => r.name).join(', ')}
+              </Text>
+            </View>
+          ) : null}
+
           {meal ? (
-            meal.items.map((item, i, arr) => (
-              <View key={`${item.name}-${i}`}>
-                <View style={styles.itemRow}>
-                  <Text style={[styles.itemName, { color: palette.text }]}>{item.name}</Text>
-                  {item.allergy.length ? (
-                    <Text
-                      numeric
-                      style={[styles.itemAllergy, { color: palette.sub }]}
-                      accessibilityLabel={`알레르기 ${item.allergy.map((n) => ALLERGENS[n - 1]).join(', ')}`}>
-                      {item.allergy.join(' ')}
-                    </Text>
-                  ) : null}
+            meal.items.map((item, i, arr) => {
+              const hits = allergyHits(item.allergy, allergies);
+              return (
+                <View key={`${item.name}-${i}`}>
+                  <View style={styles.itemRow}>
+                    <View style={styles.itemLeft}>
+                      {hits.length ? (
+                        <View style={[styles.dot, { backgroundColor: palette.accent }]} />
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.itemName,
+                          { color: hits.length ? palette.accentDeep : palette.text },
+                        ]}>
+                        {item.name}
+                      </Text>
+                    </View>
+                    {item.allergy.length ? (
+                      <Text
+                        numeric
+                        style={[
+                          styles.itemAllergy,
+                          { color: hits.length ? palette.accentDeep : palette.sub },
+                        ]}
+                        accessibilityLabel={`알레르기 ${item.allergy.map((n) => ALLERGENS[n - 1]).join(', ')}${
+                          hits.length ? `. 내가 못 먹는 ${hits.map((n) => ALLERGENS[n - 1]).join(', ')} 들어 있어요` : ''
+                        }`}>
+                        {item.allergy.join(' ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {i < arr.length - 1 ? <Divider /> : null}
                 </View>
-                {i < arr.length - 1 ? <Divider /> : null}
-              </View>
-            ))
+              );
+            })
           ) : (
             <Empty text={`${day}요일은 ${type === 'lunch' ? '점심' : '저녁'} 급식이 없어요`} />
           )}
@@ -144,7 +179,12 @@ const styles = StyleSheet.create({
   dayName: { fontSize: 12, fontWeight: '700' },
   dayNum: { fontSize: 18, fontWeight: '800' },
 
-  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, gap: 12 },
+  itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  warn: { borderRadius: 18, padding: 16, marginBottom: 8 },
+  warnTitle: { fontSize: 13, fontWeight: '800' },
+  warnBody: { fontSize: 15, lineHeight: 23, marginTop: 4 },
   itemName: { fontSize: 15, fontWeight: '600' },
   itemAllergy: { fontSize: 12, fontWeight: '600' },
 

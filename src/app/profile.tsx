@@ -7,14 +7,14 @@ import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Avatar, BackHeader, Button, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
-import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
+import { ALLERGENS, classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
   const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school } =
     useApp();
-  const { teacherCode, setTeacherCode } = useApp();
+  const { teacherCode, setTeacherCode, allergies, setAllergies } = useApp();
   const [codeDraft, setCodeDraft] = useState(teacherCode);
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
@@ -107,6 +107,50 @@ export default function ProfileScreen() {
       </Text>
       <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
 
+      {!teacher ? (
+        <>
+          <SectionTitle title="알레르기" value={allergies.length ? `${allergies.length}개` : undefined} />
+          <Text style={[styles.help, { color: palette.sub }]}>
+            못 먹는 재료를 골라두면 급식에서 그 메뉴를 눈에 띄게 표시해줘요.
+            이 기기에만 담기고 아무에게도 보이지 않아요.
+          </Text>
+          <View style={styles.allergyGrid}>
+            {ALLERGENS.map((name, i) => {
+              const n = i + 1;
+              const on = allergies.includes(n);
+              return (
+                <Tap
+                  key={name}
+                  onPress={() =>
+                    setAllergies(on ? allergies.filter((x) => x !== n) : [...allergies, n])
+                  }
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  accessibilityLabel={name}
+                  depth={0.04}
+                  style={[
+                    styles.allergyChip,
+                    { backgroundColor: on ? palette.accent : palette.tint },
+                  ]}>
+                  <Text numeric style={[styles.allergyNum, { color: on ? palette.onAccent : palette.sub }]}>
+                    {n}
+                  </Text>
+                  <Text style={[styles.allergyName, { color: on ? palette.onAccent : palette.text }]}>
+                    {name}
+                  </Text>
+                </Tap>
+              );
+            })}
+          </View>
+          {allergies.length ? (
+            <Text style={[styles.help, { color: palette.sub }]}>
+              급식 정보는 학교가 올린 그대로예요. 표시가 없어도 조리 과정에서 섞일 수
+              있으니, 심한 알레르기가 있으면 꼭 직접 확인해주세요.
+            </Text>
+          ) : null}
+        </>
+      ) : null}
+
       {teacher ? (
         <>
           <SectionTitle title="선생님 코드" />
@@ -165,6 +209,17 @@ const styles = StyleSheet.create({
   infoKey: { fontSize: 13, fontWeight: '600' },
   infoValue: { fontSize: 13, fontWeight: '800' },
 
+  allergyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  allergyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  allergyNum: { fontSize: 12, fontWeight: '800' },
+  allergyName: { fontSize: 13, fontWeight: '600' },
   code: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 12 },
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

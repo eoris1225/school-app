@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Chip, Divider, Empty, ErrorNote, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
+import { Button, Chip, Divider, Empty, ErrorNote, Field, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
 import { gradeOf, STUDENT, TEACHER, type EventKind, type SchoolEvent } from '@/data/mock';
 import { getEvents } from '@/lib/api';
@@ -15,7 +15,8 @@ import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 type Filter = 'all' | EventKind;
 
 export default function CalendarScreen() {
-  const { palette, role, now, events, removeEvent, canDelete, school } = useApp();
+  const { palette, role, now, events, removeEvent, canDelete, school, myEvents, addMyEvent, removeMyEvent } =
+    useApp();
   const teacher = role === 'teacher';
 
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -23,6 +24,13 @@ export default function CalendarScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+
+  const addMine = () => {
+    if (!draft.trim()) return;
+    addMyEvent(selected, draft);
+    setDraft('');
+  };
 
   // 학사일정은 NEIS에서 그 달치를 받아와요. 수행평가는 선생님이 등록한 것이라
   // 앱이 들고 있어요. 둘을 합쳐서 한 달력에 보여줘요.
@@ -46,14 +54,31 @@ export default function CalendarScreen() {
       classes: [],
     }));
 
-  const all = [...academic, ...events.filter((e) => e.kind === 'assessment')];
+  // 나만 보는 일정도 같이 보여줘요. 아무에게도 안 올라가고 이 기기에만 있어요.
+  const personal: SchoolEvent[] = myEvents.map((e) => ({
+    id: e.id,
+    date: e.date,
+    title: e.title,
+    kind: 'personal' as const,
+    grades: [],
+    classes: [],
+  }));
+
+  const all = [...academic, ...events.filter((e) => e.kind === 'assessment'), ...personal];
   const shown = all.filter((e) => filter === 'all' || e.kind === filter);
   const byDate = new Map<string, SchoolEvent[]>();
   shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]));
 
-  // 날짜 밑 점은 그 일정의 과목 색으로 찍어요.
-  const markColor = (e: SchoolEvent) =>
-    subjectTone(e.kind === 'assessment' ? (e.subject ?? '수행평가') : '학사일정', palette.scheme).fg;
+  // 날짜 밑 점 색. 수행평가는 과목 색, 내 일정은 따로, 나머지는 학사일정 색이에요.
+  const markColor = (e: SchoolEvent) => {
+    const key =
+      e.kind === 'assessment'
+        ? (e.subject ?? '수행평가')
+        : e.kind === 'personal'
+          ? '내 일정'
+          : '학사일정';
+    return subjectTone(key, palette.scheme).fg;
+  };
   const dayEvents = shown.filter((e) => e.date === selected);
 
   const firstDow = new Date(cursor.y, cursor.m, 1).getDay();
@@ -102,6 +127,7 @@ export default function CalendarScreen() {
         <Chip label="전체" selected={filter === 'all'} onPress={() => setFilter('all')} />
         <Chip label="학사일정" selected={filter === 'academic'} onPress={() => setFilter('academic')} />
         <Chip label="수행평가" selected={filter === 'assessment'} onPress={() => setFilter('assessment')} />
+        <Chip label="내 일정" selected={filter === 'personal'} onPress={() => setFilter('personal')} />
       </View>
 
       <View style={[styles.calendarCard, { backgroundColor: palette.surface }]}>
@@ -184,7 +210,17 @@ export default function CalendarScreen() {
             {i > 0 ? <Divider /> : null}
             {/* 지울 수 있는 사람에게만 지우기가 나와요.
                 수행평가는 그 과목 선생님만이에요. 규칙은 app-state의 canDelete에 있어요. */}
-            <EventRow event={e} showDday={!teacher} onDelete={canDelete(e) ? () => setConfirmId(e.id) : undefined} />
+            <EventRow
+              event={e}
+              showDday={!teacher}
+              onDelete={
+                e.kind === 'personal'
+                  ? () => removeMyEvent(e.id)
+                  : canDelete(e)
+                    ? () => setConfirmId(e.id)
+                    : undefined
+              }
+            />
             {confirmId === e.id ? (
               <View style={[styles.confirm, { backgroundColor: palette.tint }]}>
                 <Text style={[styles.confirmText, { color: palette.text }]}>
@@ -211,6 +247,26 @@ export default function CalendarScreen() {
         ))}
       </View>
       {failed ? <ErrorNote text={failed} /> : null}
+
+      {/* 나만 보는 일정. 학원, 시험공부, 친구 약속 같은 것들요. */}
+      <SectionTitle title="내 일정 추가" />
+      <Text style={[styles.mineHelp, { color: palette.sub }]}>
+        나만 보여요. 다른 학생이나 선생님에게는 안 보여요.
+      </Text>
+      <View style={styles.mineRow}>
+        <View style={styles.fill}>
+          <Field
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={addMine}
+            placeholder={`${formatDay(fromYmd(selected))}에 할 일`}
+            accessibilityLabel="내 일정 제목"
+            style={styles.mineInput}
+          />
+        </View>
+        <IconButton icon="plus" label="내 일정 추가" filled disabled={!draft.trim()} onPress={addMine} />
+      </View>
+
       {teacher ? <Button label="이 날짜에 일정 추가" icon="plus" variant="secondary" onPress={openAdd} /> : null}
     </Screen>
   );
@@ -240,6 +296,9 @@ const styles = StyleSheet.create({
   dayTextBold: { fontWeight: '800' },
   marks: { flexDirection: 'row', gap: 4, marginTop: 4, height: 7 },
   mark: { width: 7, height: 7, borderRadius: 4 },
+  mineHelp: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
+  mineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  mineInput: { borderRadius: 16, height: 48, paddingHorizontal: 16 },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, paddingHorizontal: 8 },
   legendText: { fontSize: 12, fontWeight: '600' },
 

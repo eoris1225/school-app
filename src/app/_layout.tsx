@@ -31,6 +31,7 @@ function RootNavigator() {
         <Stack.Screen name="add-event" />
         <Stack.Screen name="pick-school" />
         <Stack.Screen name="pick-class" />
+        <Stack.Screen name="swap-subject" />
       </Stack>
     </>
   );
