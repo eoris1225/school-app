@@ -144,37 +144,15 @@ export function IconButton({
   );
 }
 
-export function Card({
-  children,
-  style,
-  onPress,
-  label,
-}: {
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-  onPress?: () => void;
-  label?: string;
-}) {
-  const { palette } = useApp();
-  const base = [
-    styles.card,
-    { borderColor: palette.line, backgroundColor: palette.surface, shadowColor: palette.shadow },
-    style,
-  ];
-  if (!onPress) return <View style={base}>{children}</View>;
-  return (
-    <Tap onPress={onPress} accessibilityRole="button" accessibilityLabel={label} depth={0.02} style={base}>
-      {children}
-    </Tap>
-  );
-}
-
 export function SectionTitle({
   title,
+  value,
   action,
   onAction,
 }: {
   title: string;
+  /** 제목 옆에 붙는 작은 값 (가짓수, 열량 등) */
+  value?: string;
   action?: string;
   onAction?: () => void;
 }) {
@@ -184,6 +162,12 @@ export function SectionTitle({
       <Text accessibilityRole="header" style={[styles.sectionText, { color: palette.text }]}>
         {title}
       </Text>
+      {value ? (
+        <Text numeric style={[styles.sectionValue, { color: palette.sub }]}>
+          {value}
+        </Text>
+      ) : null}
+      <View style={styles.fill} />
       {action && onAction ? (
         <Tap onPress={onAction} accessibilityRole="button" hitSlop={10} depth={0.06}>
           <Text style={[styles.sectionAction, { color: palette.accentDeep }]}>{action}</Text>
@@ -421,10 +405,10 @@ export const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 20 },
   headerSub: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   headerTitle: { fontSize: 24, lineHeight: 31, fontWeight: '800', letterSpacing: -0.6 },
-  headerTitleWide: { fontSize: 28, lineHeight: 36 },
+  headerTitleWide: { fontSize: 32, lineHeight: 36 },
 
   backHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8, paddingBottom: 16 },
-  backTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  backTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   backSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
   avatar: { alignItems: 'center', justifyContent: 'center' },
@@ -439,43 +423,27 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  card: {
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
-  },
-
-  sectionTitle: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  sectionText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  sectionTitle: { flexDirection: 'row', alignItems: 'baseline', marginTop: 12, marginBottom: 8 },
+  sectionText: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  sectionValue: { fontSize: 13, fontWeight: '600', marginLeft: 8 },
   sectionAction: { fontSize: 13, fontWeight: '700' },
 
   chipRow: { gap: 8, paddingRight: 20 },
   chip: {
-    height: 40,
+    height: 44,
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipText: { fontSize: 14, fontWeight: '700' },
+  chipText: { fontSize: 13, fontWeight: '700' },
 
   segmented: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 16 },
-  segment: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center' },
-  segmentText: { fontSize: 14 },
+  segment: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
+  segmentText: { fontSize: 13 },
 
-  tag: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
+  tag: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
   tagText: { fontSize: 12, fontWeight: '700' },
 
   button: {
@@ -492,6 +460,6 @@ export const styles = StyleSheet.create({
 
   iconChip: { alignItems: 'center', justifyContent: 'center' },
   field: { borderWidth: 1.5, fontSize: 15, fontFamily: FONT.regular },
-  empty: { fontSize: 14, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
+  empty: { fontSize: 13, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
   divider: { height: 1, marginVertical: 2 },
 });

@@ -107,18 +107,18 @@ export default function ThreadScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  messages: { paddingVertical: 8, gap: 14 },
+  messages: { paddingVertical: 8, gap: 12 },
   msgRow: { maxWidth: '82%', gap: 4 },
   mine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   theirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   author: { fontSize: 12, fontWeight: '700' },
   bubble: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
   bubbleText: { fontSize: 15, lineHeight: 22 },
-  time: { fontSize: 11 },
+  time: { fontSize: 12 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 8,
     paddingTop: 12,
     borderTopWidth: 1.5,
     width: '100%',
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     maxHeight: 120,
     paddingHorizontal: 16,
-    paddingTop: 11,
-    paddingBottom: 11,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
 });

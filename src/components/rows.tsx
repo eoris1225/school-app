@@ -80,8 +80,8 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${thread.subject} 쪽지, ${title}, ${pending ? '답변 대기' : '답변 완료'}${unread ? ', 새 소식' : ''}`}
-      depth={0.02}
-      style={[styles.threadRow, { borderColor: palette.line, backgroundColor: palette.surface }]}>
+      depth={0.015}
+      style={[styles.threadRow, { borderBottomColor: palette.line }]}>
       <View style={styles.threadTop}>
         <Tag label={thread.subject} subject={thread.subject} />
         <Text style={[styles.threadTitle, { color: palette.text }]} numberOfLines={1}>
@@ -106,30 +106,30 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   eventDate: { width: 40, alignItems: 'center' },
-  eventDay: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 28 },
-  eventMonth: { fontSize: 11, fontWeight: '600' },
-  eventBody: { flex: 1, gap: 6 },
-  eventTitle: { fontSize: 14, fontWeight: '700', lineHeight: 22 },
+  eventDay: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 28 },
+  eventMonth: { fontSize: 12, fontWeight: '600' },
+  eventBody: { flex: 1, gap: 4 },
+  eventTitle: { fontSize: 13, fontWeight: '700', lineHeight: 22 },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   eventTarget: { fontSize: 12, fontWeight: '500' },
-  dday: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  dday: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   deleteBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 20,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  threadRow: { borderWidth: 1.5, borderRadius: 22, padding: 16, marginBottom: 12, gap: 8 },
+  threadRow: { borderBottomWidth: 1, paddingVertical: 16, gap: 8 },
   threadTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  threadTitle: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  threadTitle: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
   threadSub: { fontSize: 12, fontWeight: '500' },
   unreadDot: { width: 10, height: 10, borderRadius: 5 },
-  threadPreview: { fontSize: 14, lineHeight: 21 },
+  threadPreview: { fontSize: 13, lineHeight: 21 },
   threadBottom: { flexDirection: 'row', justifyContent: 'space-between' },
   threadStatus: { fontSize: 12, fontWeight: '700' },
   threadTime: { fontSize: 12 },

@@ -68,7 +68,7 @@ export function Tile({
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: 74, alignItems: 'center', gap: 9 },
+  wrap: { width: 74, alignItems: 'center', gap: 8 },
   shadow: { shadowOpacity: 0.34, shadowRadius: 11, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
   tile: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   gloss: {
@@ -87,11 +87,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     backgroundColor: '#E5484D',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  badgeText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   label: { fontSize: 13, fontWeight: '600' },
 });

@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { Avatar, BackHeader, Button, Card, Divider, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
+import { Avatar, BackHeader, Button, Divider, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
 import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <Card style={styles.infoCard}>
+      <View>
         {rows.map(([k, v], i) => (
           <View key={k}>
             {i > 0 ? <Divider /> : null}
@@ -60,7 +61,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         ))}
-      </Card>
+      </View>
 
       <SectionTitle title="테마 색상" />
       <Text style={[styles.help, { color: palette.sub }]}>고른 색이 앱 전체에 바로 적용돼요.</Text>
@@ -70,17 +71,17 @@ export default function ProfileScreen() {
           // 지금 밝기에서 실제로 보이게 될 색으로 미리보기를 만들어요.
           const swatch = buildPalette(t.accent, scheme);
           return (
-            <Pressable
+            <Tap
               key={t.key}
               onPress={() => setThemeKey(t.key)}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
               accessibilityLabel={`${t.name} 테마`}
-              style={({ pressed }) => [
+              depth={0.06}
+              style={[
                 styles.themeTile,
                 { width: tablet ? '14%' : '30%' },
-                { borderColor: selected ? palette.accent : palette.line, borderWidth: selected ? 2.5 : 1.5 },
-                pressed && { opacity: 0.6 },
+                { backgroundColor: selected ? palette.tint : 'transparent' },
               ]}>
               <View style={[styles.swatch, { backgroundColor: swatch.accent }]}>
                 {selected ? <Icon name="check" size={22} color={swatch.onAccent} /> : null}
@@ -88,7 +89,7 @@ export default function ProfileScreen() {
               <Text style={[styles.themeName, { color: palette.text, fontWeight: selected ? '800' : '600' }]}>
                 {t.name}
               </Text>
-            </Pressable>
+            </Tap>
           );
         })}
       </View>
@@ -116,17 +117,16 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   profile: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  name: { fontSize: 21, fontWeight: '800', letterSpacing: -0.5 },
-  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  name: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   school: { fontSize: 13, fontWeight: '600' },
 
-  infoCard: { paddingVertical: 6 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  infoKey: { fontSize: 14, fontWeight: '600' },
-  infoValue: { fontSize: 14, fontWeight: '800' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+  infoKey: { fontSize: 13, fontWeight: '600' },
+  infoValue: { fontSize: 13, fontWeight: '800' },
 
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
-  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   themeTile: {
     flexGrow: 1,
     alignItems: 'center',
