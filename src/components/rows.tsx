@@ -1,6 +1,7 @@
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Tag } from '@/components/ui';
 import { classLabel, SUBJECT_TEACHERS, type SchoolEvent, type Thread } from '@/data/mock';
@@ -45,14 +46,15 @@ export function EventRow({
         <Text style={[styles.dday, { color: d === '오늘' ? palette.accent : palette.accentDeep }]}>{d}</Text>
       ) : null}
       {onDelete ? (
-        <Pressable
+        <Tap
           onPress={onDelete}
           accessibilityRole="button"
           accessibilityLabel={`${event.title} 일정 삭제`}
           hitSlop={8}
-          style={({ pressed }) => [styles.deleteBtn, { borderColor: palette.line }, pressed && { opacity: 0.6 }]}>
+          depth={0.1}
+          style={[styles.deleteBtn, { borderColor: palette.line }]}>
           <Icon name="trash" size={20} color={palette.sub} />
-        </Pressable>
+        </Tap>
       ) : null}
     </View>
   );
@@ -74,11 +76,12 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
   const subTitle = role === 'teacher' ? classLabel(thread.student.cls) : null;
 
   return (
-    <Pressable
+    <Tap
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${thread.subject} 쪽지, ${title}, ${pending ? '답변 대기' : '답변 완료'}${unread ? ', 새 소식' : ''}`}
-      style={({ pressed }) => [styles.threadRow, { borderColor: palette.line }, pressed && { opacity: 0.6 }]}>
+      depth={0.02}
+      style={[styles.threadRow, { borderColor: palette.line, backgroundColor: palette.surface }]}>
       <View style={styles.threadTop}>
         <Tag label={thread.subject} subject={thread.subject} />
         <Text style={[styles.threadTitle, { color: palette.text }]} numberOfLines={1}>
@@ -97,7 +100,7 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
         </Text>
         <Text style={[styles.threadTime, { color: palette.sub }]}>{last.time}</Text>
       </View>
-    </Pressable>
+    </Tap>
   );
 }
 

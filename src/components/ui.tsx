@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
+import { SlidingPill, Tap } from '@/components/motion';
 import { FONT, Text } from '@/components/text';
 import { STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
@@ -67,14 +68,9 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
   );
   if (!onPress) return circle;
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="내 정보와 테마 열기"
-      hitSlop={6}
-      style={({ pressed }) => pressed && styles.pressed}>
+    <Tap onPress={onPress} accessibilityRole="button" accessibilityLabel="내 정보와 테마 열기" hitSlop={6} depth={0.07}>
       {circle}
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -135,19 +131,16 @@ export function IconButton({
   const bg = filled ? (disabled ? palette.tint : palette.accent) : palette.surface;
   const iconColor = filled ? (disabled ? palette.sub : palette.onAccent) : palette.text;
   return (
-    <Pressable
+    <Tap
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        styles.iconButton,
-        { backgroundColor: bg, borderColor: filled && !disabled ? bg : palette.line },
-        pressed && styles.pressed,
-      ]}>
+      depth={0.08}
+      style={[styles.iconButton, { backgroundColor: bg, borderColor: filled && !disabled ? bg : palette.line }]}>
       <Icon name={icon} size={22} color={iconColor} />
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -170,13 +163,9 @@ export function Card({
   ];
   if (!onPress) return <View style={base}>{children}</View>;
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [base, pressed && styles.pressed]}>
+    <Tap onPress={onPress} accessibilityRole="button" accessibilityLabel={label} depth={0.02} style={base}>
       {children}
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -196,9 +185,9 @@ export function SectionTitle({
         {title}
       </Text>
       {action && onAction ? (
-        <Pressable onPress={onAction} accessibilityRole="button" hitSlop={10}>
+        <Tap onPress={onAction} accessibilityRole="button" hitSlop={10} depth={0.06}>
           <Text style={[styles.sectionAction, { color: palette.accentDeep }]}>{action}</Text>
-        </Pressable>
+        </Tap>
       ) : null}
     </View>
   );
@@ -226,13 +215,14 @@ export function Chip({
     : { backgroundColor: palette.accent, borderColor: palette.accent };
   const color = selected ? '#FFFFFF' : t ? t.fg : palette.text;
   return (
-    <Pressable
+    <Tap
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={({ pressed }) => [styles.chip, selected ? on : off, pressed && styles.pressed]}>
+      depth={0.05}
+      style={[styles.chip, selected ? on : off]}>
       <Text style={[styles.chipText, { color }]}>{label}</Text>
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -254,28 +244,47 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
 }) {
   const { palette } = useApp();
+  // 선택 표시가 미끄러지게 하려고 안쪽 너비를 재요. (양옆 여백 4씩 빼요)
+  const [track, setTrack] = useState(0);
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+
   return (
-    <View style={[styles.segmented, { backgroundColor: palette.tint }]} accessibilityRole="tablist">
+    <View
+      style={[styles.segmented, { backgroundColor: palette.tint }]}
+      accessibilityRole="tablist"
+      onLayout={(e) => setTrack(e.nativeEvent.layout.width - 8)}>
+      <SlidingPill
+        index={index}
+        count={options.length}
+        width={track}
+        style={{
+          top: 4,
+          bottom: 4,
+          left: 4,
+          borderRadius: 12,
+          borderWidth: 1.5,
+          backgroundColor: palette.raised,
+          borderColor: palette.line,
+        }}
+      />
       {options.map((o) => {
         const selected = o.value === value;
         return (
-          <Pressable
+          <Tap
             key={o.value}
             onPress={() => onChange(o.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            style={[
-              styles.segment,
-              selected && { backgroundColor: palette.raised, borderColor: palette.line },
-            ]}>
+            depth={0.03}
+            style={styles.segment}>
             <Text
               style={[
                 styles.segmentText,
-                { color: selected ? palette.text : palette.sub, fontWeight: selected ? '700' : '600' },
+                { color: selected ? palette.text : palette.sub, fontWeight: selected ? '700' : '500' },
               ]}>
               {o.label}
             </Text>
-          </Pressable>
+          </Tap>
         );
       })}
     </View>
@@ -334,19 +343,16 @@ export function Button({
   const bg = primary ? (disabled ? palette.tint : palette.accent) : palette.surface;
   const color = primary ? (disabled ? palette.sub : palette.onAccent) : palette.text;
   return (
-    <Pressable
+    <Tap
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: bg, borderColor: primary && !disabled ? bg : palette.line },
-        pressed && styles.pressed,
-      ]}>
+      depth={0.035}
+      style={[styles.button, { backgroundColor: bg, borderColor: primary && !disabled ? bg : palette.line }]}>
       {icon ? <Icon name={icon} size={20} color={color} /> : null}
       <Text style={[styles.buttonText, { color }]}>{label}</Text>
-    </Pressable>
+    </Tap>
   );
 }
 
@@ -466,15 +472,7 @@ export const styles = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: '700' },
 
   segmented: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 16 },
-  segment: {
-    flex: 1,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  segment: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 14 },
 
   tag: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },

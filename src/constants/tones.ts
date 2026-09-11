@@ -20,6 +20,25 @@ export type ToneKey =
 
 export type ToneColor = { bg: string; fg: string };
 
+/**
+ * 앱 아이콘 타일에 쓰는 선명한 색이에요.
+ * bg/fg는 글씨 대비를 위해 차분하게 잡았지만, 아이콘은 눈에 띄어야 해서
+ * 밝기와 상관없이 같은 색을 써요. (실제 앱 아이콘도 테마 따라 안 바뀌죠)
+ */
+export const SOLID: Record<ToneKey, string> = {
+  rose: '#F04E79',
+  blue: '#3B82F6',
+  violet: '#8B5CF6',
+  teal: '#12B0A5',
+  amber: '#F5A524',
+  orange: '#FB7A3C',
+  indigo: '#6366F1',
+  green: '#3BB35F',
+  pink: '#EC4899',
+  lime: '#9CC22F',
+  slate: '#8A93A5',
+};
+
 const TONES: Record<ToneKey, Record<Scheme, ToneColor>> = {
   rose: { light: { bg: '#FAECEF', fg: '#A4506A' }, dark: { bg: '#2C1A20', fg: '#DE97AC' } },
   blue: { light: { bg: '#E9EFF8', fg: '#3A628F' }, dark: { bg: '#161F2C', fg: '#89ADD6' } },
