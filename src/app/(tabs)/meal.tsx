@@ -5,10 +5,12 @@ import { Text } from '@/components/text';
 import { Card, Divider, Empty, Header, Screen, Segmented } from '@/components/ui';
 import { ALLERGENS, MEAL_DATES, MEALS, WEEKDAYS, type Weekday } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 import { fromYmd, weekdayOf } from '@/lib/time';
 
 export default function MealScreen() {
   const { palette, now } = useApp();
+  const { tablet } = useLayout();
   const today = weekdayOf(now);
   const [day, setDay] = useState<Weekday>(today ?? '월');
   const [type, setType] = useState<'lunch' | 'dinner'>('lunch');
@@ -102,7 +104,7 @@ export default function MealScreen() {
         <Card>
           <View style={styles.allergyGrid}>
             {ALLERGENS.map((name, i) => (
-              <Text key={name} style={[styles.allergyItem, { color: palette.text }]}>
+              <Text key={name} style={[styles.allergyItem, { width: tablet ? '20%' : '33.33%' }, { color: palette.text }]}>
                 <Text style={{ color: palette.accentDeep, fontWeight: '800' }}>{i + 1} </Text>
                 {name}
               </Text>
@@ -146,5 +148,5 @@ const styles = StyleSheet.create({
   allergyToggle: { paddingVertical: 8, marginBottom: 8 },
   allergyToggleText: { fontSize: 15, fontWeight: '700' },
   allergyGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10 },
-  allergyItem: { width: '33.33%', fontSize: 15 },
+  allergyItem: { fontSize: 15 },
 });

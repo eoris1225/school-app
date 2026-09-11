@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icon';
@@ -17,10 +17,8 @@ import {
   type Weekday,
 } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
+import { useLayout } from '@/lib/layout';
 import { currentPeriod, dday, formatDay, fromYmd, schoolStatus, toYmd, weekdayOf, type SchoolStatus } from '@/lib/time';
-
-/** 화면이 짧은 폰에서는 글씨와 여백을 한 단계씩 줄여요. */
-const useCompact = () => useWindowDimensions().height < 760;
 
 export default function HomeScreen() {
   const { role } = useApp();
@@ -36,34 +34,54 @@ export default function HomeScreen() {
 function HomeShell({ band, children }: { band: React.ReactNode; children: React.ReactNode }) {
   const { palette } = useApp();
   const insets = useSafeAreaInsets();
-  const compact = useCompact();
+  const { compact, short, home } = useLayout();
 
-  return (
-    <View style={[styles.shell, { backgroundColor: palette.bg }]}>
+  const inner = (
+    <>
       <View
         style={[
           styles.band,
           compact && styles.bandCompact,
           { backgroundColor: palette.accent, paddingTop: insets.top + (compact ? 6 : 10) },
         ]}>
-        <View style={styles.bandInner}>{band}</View>
+        <View style={[styles.bandInner, { maxWidth: home }]}>{band}</View>
       </View>
-      <View style={[styles.body, compact && styles.bodyCompact]}>{children}</View>
-    </View>
+      <View style={[styles.body, compact && styles.bodyCompact, short && styles.bodyAuto, { maxWidth: home }]}>
+        {children}
+      </View>
+    </>
   );
+
+  // 폰을 눕히면 한 화면에 다 담을 수 없어서, 그때만 스크롤을 허용해요.
+  if (short) {
+    return (
+      <ScrollView
+        style={[styles.shell, { backgroundColor: palette.bg }]}
+        contentContainerStyle={styles.shellScroll}
+        showsVerticalScrollIndicator={false}>
+        {inner}
+      </ScrollView>
+    );
+  }
+  return <View style={[styles.shell, { backgroundColor: palette.bg }]}>{inner}</View>;
 }
 
 /** 밴드 맨 위 줄: 날짜와 내 동그라미 */
 function BandTop({ title }: { title: string }) {
   const { palette, now } = useApp();
-  const compact = useCompact();
+  const { compact, tablet } = useLayout();
   return (
     <View style={[styles.bandTop, compact && styles.bandTopCompact]}>
       <View style={styles.fill}>
         <Text style={[styles.bandDate, { color: palette.onAccent }]}>{formatDay(now)}</Text>
         <Text
           accessibilityRole="header"
-          style={[styles.bandName, compact && styles.bandNameCompact, { color: palette.onAccent }]}
+          style={[
+            styles.bandName,
+            compact && styles.bandNameCompact,
+            tablet && styles.bandNameWide,
+            { color: palette.onAccent },
+          ]}
           numberOfLines={1}>
           {title}
         </Text>
@@ -76,7 +94,7 @@ function BandTop({ title }: { title: string }) {
 /** 예시 이미지처럼 밴드 안에 들어가는 3칸 요약 */
 function StatStrip({ items }: { items: { label: string; value: string; sub: string; onPress: () => void }[] }) {
   const { palette } = useApp();
-  const compact = useCompact();
+  const { compact } = useLayout();
   return (
     <View
       style={[
@@ -109,7 +127,7 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
 /** 오늘 교시 진행을 점으로 */
 function PeriodDots({ states }: { states: DotState[] }) {
   const { palette } = useApp();
-  const compact = useCompact();
+  const { compact } = useLayout();
   if (!states.length) return null;
   const done = states.filter((s) => s === 'done').length;
   return (
@@ -147,7 +165,7 @@ function WideCard({
   label: string;
 }) {
   const { palette } = useApp();
-  const compact = useCompact();
+  const { compact, tablet } = useLayout();
   return (
     <Pressable
       onPress={onPress}
@@ -163,7 +181,7 @@ function WideCard({
       </View>
       <View style={styles.fill}>
         <View style={styles.wideHead}>
-          <Text style={[styles.wideTitle, { color: palette.text }]}>{title}</Text>
+          <Text style={[styles.wideTitle, tablet && styles.wideTitleWide, { color: palette.text }]}>{title}</Text>
           {right ? <Text style={[styles.wideRight, { color: palette.sub }]}>{right}</Text> : null}
           <Icon name="next" size={16} color={palette.sub} />
         </View>
@@ -178,10 +196,10 @@ function WideCard({
 /** 섹션 제목 + 오른쪽 바로가기 */
 function Row({ title, action, onAction }: { title: string; action: string; onAction: () => void }) {
   const { palette } = useApp();
-  const compact = useCompact();
+  const { compact, tablet } = useLayout();
   return (
     <View style={[styles.rowHead, compact && styles.rowHeadCompact]}>
-      <Text accessibilityRole="header" style={[styles.rowTitle, { color: palette.text }]}>
+      <Text accessibilityRole="header" style={[styles.rowTitle, tablet && styles.rowTitleWide, { color: palette.text }]}>
         {title}
       </Text>
       <Pressable onPress={onAction} accessibilityRole="button" hitSlop={10} style={styles.rowAction}>
@@ -195,7 +213,7 @@ function Row({ title, action, onAction }: { title: string; action: string; onAct
 /** 가로로 넘겨 보는 일정 카드 */
 function EventCards({ events }: { events: SchoolEvent[] }) {
   const { palette, now } = useApp();
-  const compact = useCompact();
+  const { compact } = useLayout();
 
   if (events.length === 0) {
     return (
@@ -262,6 +280,58 @@ function EventCards({ events }: { events: SchoolEvent[] }) {
  * 큰 화면에서 남는 공간을 채우는 '오늘 수업' 목록이에요.
  * 화면이 짧으면 이 블록은 아예 빠져요.
  */
+const EVENT_ROW_H = 62;
+
+/** 넓은 화면의 오른쪽 칸에 쓰는 세로 일정 목록이에요. */
+function EventList({ events }: { events: SchoolEvent[] }) {
+  const { palette, now } = useApp();
+  const [space, setSpace] = useState(0);
+  const fit = space ? Math.max(1, Math.floor((space - 3) / EVENT_ROW_H)) : events.length;
+  const shown = events.slice(0, fit);
+  const cardHeight = events.length === 0 ? undefined : shown.length * EVENT_ROW_H + 3;
+
+  return (
+    <View style={styles.todayFill} onLayout={(e) => setSpace(e.nativeEvent.layout.height)}>
+      <View style={[styles.todayCard, { height: cardHeight, borderColor: palette.line, backgroundColor: palette.surface }]}>
+        {events.length === 0 ? <Text style={[styles.emptyText, { color: palette.sub }]}>예정된 일정이 없어요</Text> : null}
+        {shown.map((e, i) => {
+          const d = dday(e.date, now);
+          const today = d === '오늘';
+          const date = fromYmd(e.date);
+          return (
+            <Pressable
+              key={e.id}
+              onPress={() => router.push('/calendar')}
+              accessibilityRole="button"
+              accessibilityLabel={`${e.title}, ${d}, 달력 열기`}
+              style={({ pressed }) => [
+                styles.listRow,
+                i > 0 && { borderTopWidth: 1, borderTopColor: palette.line },
+                pressed && styles.pressed,
+              ]}>
+              <View style={styles.listDate}>
+                <Text style={[styles.listDay, { color: palette.text }]}>{date.getDate()}</Text>
+                <Text style={[styles.listMonth, { color: palette.sub }]}>{date.getMonth() + 1}월</Text>
+              </View>
+              <View style={styles.fill}>
+                <Text style={[styles.listTitle, { color: palette.text }]} numberOfLines={1}>
+                  {e.title}
+                </Text>
+                <Text style={[styles.listKind, { color: palette.sub }]} numberOfLines={1}>
+                  {e.kind === 'assessment' ? `수행평가 · ${e.subject ?? ''}` : '학사일정'}
+                </Text>
+              </View>
+              <View style={[styles.ddayPill, { backgroundColor: today ? palette.accent : palette.tint }]}>
+                <Text style={[styles.ddayText, { color: today ? palette.onAccent : palette.accentDeep }]}>{d}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const TODAY_ROW_H = 38;
 
 function TodayClasses({
@@ -269,24 +339,27 @@ function TodayClasses({
   rows,
   empty,
   onPress,
+  /** false면 남은 공간을 재지 않고 모든 칸을 그대로 보여줘요. */
+  fill = true,
 }: {
   title: string;
   rows: { key: string; period: number; name: string; sub: string; state: 'done' | 'now' | 'todo' }[];
   empty: string;
   onPress: () => void;
+  fill?: boolean;
 }) {
   const { palette } = useApp();
   // 남은 공간을 재서 칸이 반쯤 잘리지 않게, 들어갈 수 있는 만큼만 보여주고
   // 카드 높이도 딱 그만큼으로 맞춰요. (카드 안에 빈 공간이 남지 않아요)
   const [space, setSpace] = useState(0);
-  const fit = space ? Math.max(1, Math.floor((space - 3) / TODAY_ROW_H)) : rows.length;
+  const fit = fill && space ? Math.max(1, Math.floor((space - 3) / TODAY_ROW_H)) : rows.length;
   const shown = rows.slice(0, fit);
   const cardHeight = rows.length === 0 ? undefined : shown.length * TODAY_ROW_H + 3;
 
   return (
-    <View style={styles.todayWrap}>
+    <View style={fill ? styles.todayWrap : undefined}>
       <Row title={title} action="시간표" onAction={onPress} />
-      <View style={styles.todayFill} onLayout={(e) => setSpace(e.nativeEvent.layout.height)}>
+      <View style={fill ? styles.todayFill : undefined} onLayout={(e) => setSpace(e.nativeEvent.layout.height)}>
         <View
           style={[styles.todayCard, { height: cardHeight, borderColor: palette.line, backgroundColor: palette.surface }]}>
           {rows.length === 0 ? <Text style={[styles.emptyText, { color: palette.sub }]}>{empty}</Text> : null}
@@ -322,7 +395,7 @@ function TodayClasses({
 /** 맨 아래 3칸 바로가기 */
 function Quick({ items }: { items: { icon: IconName; label: string; onPress: () => void }[] }) {
   const { palette } = useApp();
-  const compact = useCompact();
+  const { compact } = useLayout();
   return (
     <View style={[styles.quickRow, compact && styles.quickRowCompact]}>
       {items.map((it) => (
@@ -420,7 +493,7 @@ function buildStudentHero(status: SchoolStatus, day: Weekday | null): Hero {
 
 function StudentHome() {
   const { palette, now, events, threads } = useApp();
-  const compact = useCompact();
+  const { compact, tablet, twoColumn } = useLayout();
   const day = weekdayOf(now);
   const hero = buildStudentHero(schoolStatus(now), day);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
@@ -445,7 +518,9 @@ function StudentHome() {
         <>
           <BandTop title={`안녕하세요, ${STUDENT.name.slice(1)}님`} />
           <Text style={[styles.heroLine, { color: palette.onAccent }]}>{hero.line}</Text>
-          <Text style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact]} numberOfLines={1}>
+          <Text
+            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && styles.heroBigWide]}
+            numberOfLines={1}>
             {hero.big}
           </Text>
           <PeriodDots states={hero.states} />
@@ -463,23 +538,72 @@ function StudentHome() {
           />
         </>
       }>
-      <WideCard
-        icon="meal"
-        title="오늘 점심"
-        right={meal ? `${meal.kcal}kcal` : undefined}
-        body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
-        onPress={() => router.push('/meal')}
-        label="오늘 점심 메뉴, 급식 화면 열기"
-      />
-      <Row title="다가오는 일정" action="달력" onAction={() => router.push('/calendar')} />
-      <EventCards events={upcoming} />
-      {compact ? null : (
-        <TodayClasses
-          title="오늘 시간표"
-          empty={day ? '오늘은 수업이 없어요' : '주말이에요'}
-          onPress={() => router.push('/timetable')}
-          rows={todayRows}
-        />
+      {twoColumn ? (
+        // 태블릿처럼 넓으면 두 칸으로 나눠서 가로 공간을 채워요.
+        <View style={styles.cols}>
+          <View style={styles.col}>
+            <WideCard
+              icon="meal"
+              title="오늘 점심"
+              right={meal ? `${meal.kcal}kcal` : undefined}
+              body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
+              onPress={() => router.push('/meal')}
+              label="오늘 점심 메뉴, 급식 화면 열기"
+            />
+            <TodayClasses
+              title="오늘 시간표"
+              empty={day ? '오늘은 수업이 없어요' : '주말이에요'}
+              onPress={() => router.push('/timetable')}
+              rows={allRows}
+            />
+          </View>
+          <View style={styles.col}>
+            <Row title="다가오는 일정" action="달력" onAction={() => router.push('/calendar')} />
+            <EventList events={upcoming} />
+          </View>
+        </View>
+      ) : tablet ? (
+        // 세로 태블릿: 한 칸이지만 일정 목록이 남은 높이를 끝까지 채워요.
+        <>
+          <WideCard
+            icon="meal"
+            title="오늘 점심"
+            right={meal ? `${meal.kcal}kcal` : undefined}
+            body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
+            onPress={() => router.push('/meal')}
+            label="오늘 점심 메뉴, 급식 화면 열기"
+          />
+          <TodayClasses
+            title="오늘 시간표"
+            empty={day ? '오늘은 수업이 없어요' : '주말이에요'}
+            onPress={() => router.push('/timetable')}
+            rows={allRows}
+            fill={false}
+          />
+          <Row title="다가오는 일정" action="달력" onAction={() => router.push('/calendar')} />
+          <EventList events={upcoming} />
+        </>
+      ) : (
+        <>
+          <WideCard
+            icon="meal"
+            title="오늘 점심"
+            right={meal ? `${meal.kcal}kcal` : undefined}
+            body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
+            onPress={() => router.push('/meal')}
+            label="오늘 점심 메뉴, 급식 화면 열기"
+          />
+          <Row title="다가오는 일정" action="달력" onAction={() => router.push('/calendar')} />
+          <EventCards events={upcoming} />
+          {compact ? null : (
+            <TodayClasses
+              title="오늘 시간표"
+              empty={day ? '오늘은 수업이 없어요' : '주말이에요'}
+              onPress={() => router.push('/timetable')}
+              rows={todayRows}
+            />
+          )}
+        </>
       )}
       <Quick
         items={[
@@ -496,7 +620,7 @@ function StudentHome() {
 
 function TeacherHome() {
   const { palette, now, events, threads } = useApp();
-  const compact = useCompact();
+  const { compact, tablet, twoColumn } = useLayout();
   const day = weekdayOf(now);
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
@@ -525,6 +649,11 @@ function TeacherHome() {
   const teacherRest = allTeacherRows.filter((r) => r.period >= nowPeriod);
   const teacherRows = teacherRest.length ? teacherRest : allTeacherRows;
 
+  const oldest = pending[pending.length - 1];
+  const oldestText = oldest
+    ? `${oldest.student.name} 학생 · ${oldest.messages[oldest.messages.length - 1].text}`
+    : '새로 온 쪽지가 없어요';
+
   return (
     <HomeShell
       band={
@@ -533,7 +662,9 @@ function TeacherHome() {
           <Text style={[styles.heroLine, { color: palette.onAccent }]}>
             {pending.length ? '답변을 기다리는 쪽지가 있어요' : '모든 쪽지에 답했어요'}
           </Text>
-          <Text style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact]} numberOfLines={1}>
+          <Text
+            style={[styles.heroBig, { color: palette.onAccent }, compact && styles.heroBigCompact, tablet && styles.heroBigWide]}
+            numberOfLines={1}>
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
           <StatStrip
@@ -560,31 +691,82 @@ function TeacherHome() {
           />
         </>
       }>
-      <WideCard
-        icon="inbox"
-        title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
-        right={pending.length ? pending[pending.length - 1].subject : undefined}
-        body={
-          pending.length
-            ? `${pending[pending.length - 1].student.name} 학생 · ${pending[pending.length - 1].messages[pending[pending.length - 1].messages.length - 1].text}`
-            : '새로 온 쪽지가 없어요'
-        }
-        onPress={() => router.push('/community')}
-        label="쪽지함 열기"
-      />
-      <Row
-        title="다가오는 일정"
-        action="일정 추가"
-        onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
-      />
-      <EventCards events={upcoming} />
-      {compact ? null : (
-        <TodayClasses
-          title="오늘 내 수업"
-          empty="오늘은 수업이 없어요"
-          onPress={() => router.push('/timetable')}
-          rows={teacherRows}
-        />
+      {twoColumn ? (
+        <View style={styles.cols}>
+          <View style={styles.col}>
+            <WideCard
+              icon="inbox"
+              title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
+              right={pending.length ? pending[pending.length - 1].subject : undefined}
+              body={oldestText}
+              onPress={() => router.push('/community')}
+              label="쪽지함 열기"
+            />
+            <TodayClasses
+              title="오늘 내 수업"
+              empty="오늘은 수업이 없어요"
+              onPress={() => router.push('/timetable')}
+              rows={allTeacherRows}
+            />
+          </View>
+          <View style={styles.col}>
+            <Row
+              title="다가오는 일정"
+              action="일정 추가"
+              onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
+            />
+            <EventList events={upcoming} />
+          </View>
+        </View>
+      ) : tablet ? (
+        <>
+          <WideCard
+            icon="inbox"
+            title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
+            right={pending.length ? pending[pending.length - 1].subject : undefined}
+            body={oldestText}
+            onPress={() => router.push('/community')}
+            label="쪽지함 열기"
+          />
+          <TodayClasses
+            title="오늘 내 수업"
+            empty="오늘은 수업이 없어요"
+            onPress={() => router.push('/timetable')}
+            rows={allTeacherRows}
+            fill={false}
+          />
+          <Row
+            title="다가오는 일정"
+            action="일정 추가"
+            onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
+          />
+          <EventList events={upcoming} />
+        </>
+      ) : (
+        <>
+          <WideCard
+            icon="inbox"
+            title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
+            right={pending.length ? pending[pending.length - 1].subject : undefined}
+            body={oldestText}
+            onPress={() => router.push('/community')}
+            label="쪽지함 열기"
+          />
+          <Row
+            title="다가오는 일정"
+            action="일정 추가"
+            onAction={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
+          />
+          <EventCards events={upcoming} />
+          {compact ? null : (
+            <TodayClasses
+              title="오늘 내 수업"
+              empty="오늘은 수업이 없어요"
+              onPress={() => router.push('/timetable')}
+              rows={teacherRows}
+            />
+          )}
+        </>
       )}
       <Quick
         items={[
@@ -602,21 +784,27 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
 
   shell: { flex: 1 },
+  shellScroll: { flexGrow: 1, paddingBottom: 12 },
   band: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingBottom: 15 },
   bandCompact: { paddingBottom: 13, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
   bandInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 20 },
   body: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 14 },
   bodyCompact: { paddingTop: 12 },
+  bodyAuto: { flex: 0 },
+  cols: { flex: 1, minHeight: 0, flexDirection: 'row', gap: 16 },
+  col: { flex: 1, minHeight: 0 },
 
   bandTop: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 11 },
   bandTopCompact: { paddingBottom: 9 },
   bandDate: { fontSize: 14, fontWeight: '700', opacity: 0.85 },
   bandName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, marginTop: 2 },
   bandNameCompact: { fontSize: 19 },
+  bandNameWide: { fontSize: 26 },
 
   heroLine: { fontSize: 15, fontWeight: '700', opacity: 0.9 },
   heroBig: { fontSize: 34, lineHeight: 41, fontWeight: '800', letterSpacing: -1, marginTop: 2 },
   heroBigCompact: { fontSize: 26, lineHeight: 33 },
+  heroBigWide: { fontSize: 44, lineHeight: 54 },
 
   dots: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, height: 20 },
   dotsCompact: { marginTop: 7, height: 16, gap: 6 },
@@ -637,12 +825,14 @@ const styles = StyleSheet.create({
   wideIcon: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   wideHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   wideTitle: { fontSize: 16, fontWeight: '800', flex: 1 },
+  wideTitleWide: { fontSize: 18 },
   wideRight: { fontSize: 13, fontWeight: '700' },
   wideBody: { fontSize: 14, lineHeight: 19, marginTop: 3 },
 
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 13, marginBottom: 9 },
   rowHeadCompact: { marginTop: 10, marginBottom: 7 },
   rowTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  rowTitleWide: { fontSize: 20 },
   rowAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   rowActionText: { fontSize: 14, fontWeight: '700' },
 
@@ -667,6 +857,13 @@ const styles = StyleSheet.create({
   todayPeriod: { width: 18, fontSize: 16, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] },
   todayName: { flex: 1, fontSize: 15, fontWeight: '700' },
   todayTime: { fontSize: 13, fontVariant: ['tabular-nums'] },
+
+  listRow: { height: EVENT_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
+  listDate: { width: 34, alignItems: 'center' },
+  listDay: { fontSize: 19, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 23 },
+  listMonth: { fontSize: 11, fontWeight: '700' },
+  listTitle: { fontSize: 15, fontWeight: '700' },
+  listKind: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   quickRow: { flexShrink: 0, flexDirection: 'row', gap: 10, marginTop: 'auto', paddingTop: 12, paddingBottom: 4 },
   quickRowCompact: { paddingTop: 10, paddingBottom: 2 },
