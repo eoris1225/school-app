@@ -49,6 +49,25 @@ export type SchoolEvent = {
 
 export type ClassRoom = { grade: number; cls: string };
 
+/** 학교 검색 결과 한 줄. 여기서 office와 code를 얻어 다른 조회에 써요. */
+export type SchoolInfo = {
+  /** 시도교육청코드. 'G10'(대전) 처럼 영문 한 글자 + 숫자 두 자리 */
+  office: string;
+  officeName: string;
+  /** 표준학교코드. 숫자 일곱 자리 */
+  code: string;
+  name: string;
+  kind: string;
+  address: string;
+  homepage: string;
+};
+
+/** 어느 학교를 물어볼지. 안 주면 서버가 시범운영 학교로 답해요. */
+export type SchoolRef = { office: string; code: string };
+
+const at = (school?: SchoolRef): Record<string, string> =>
+  school ? { office: school.office, school: school.code } : {};
+
 /** 화면에 그대로 보여줄 수 있는 오류예요. 개발자용 문구는 담지 않아요. */
 export class ApiError extends Error {
   constructor(
@@ -95,8 +114,8 @@ async function call<T>(params: Record<string, string | number>): Promise<T> {
 }
 
 /** 급식. `to`를 빼면 하루치만 받아요. */
-export async function getMeals(from: string, to = from): Promise<Meal[]> {
-  const { meals } = await call<{ meals: Meal[] }>({ kind: 'meal', from, to });
+export async function getMeals(from: string, to = from, school?: SchoolRef): Promise<Meal[]> {
+  const { meals } = await call<{ meals: Meal[] }>({ kind: 'meal', from, to, ...at(school) });
   return meals;
 }
 
@@ -106,6 +125,7 @@ export async function getLessons(
   cls: string,
   from: string,
   to = from,
+  school?: SchoolRef,
 ): Promise<Lesson[]> {
   const { lessons } = await call<{ lessons: Lesson[] }>({
     kind: 'timetable',
@@ -113,18 +133,30 @@ export async function getLessons(
     class: cls,
     from,
     to,
+    ...at(school),
   });
   return lessons;
 }
 
 /** 학사일정. */
-export async function getEvents(from: string, to: string): Promise<SchoolEvent[]> {
-  const { events } = await call<{ events: SchoolEvent[] }>({ kind: 'schedule', from, to });
+export async function getEvents(from: string, to: string, school?: SchoolRef): Promise<SchoolEvent[]> {
+  const { events } = await call<{ events: SchoolEvent[] }>({ kind: 'schedule', from, to, ...at(school) });
   return events;
 }
 
 /** 그 해에 있는 학년·반 목록. */
-export async function getClasses(year: number): Promise<ClassRoom[]> {
-  const { classes } = await call<{ classes: ClassRoom[] }>({ kind: 'classes', year });
+export async function getClasses(year: number, school?: SchoolRef): Promise<ClassRoom[]> {
+  const { classes } = await call<{ classes: ClassRoom[] }>({ kind: 'classes', year, ...at(school) });
   return classes;
+}
+
+/**
+ * 학교 이름으로 찾아요. 부분 일치로도 나와요.
+ *
+ * "여자고등학교" 처럼 넓게 찾으면 300곳이 넘어요. 서버가 앞에서 잘라 보내고
+ * `total` 로 전체가 몇 곳인지 알려줘요. 잘렸으면 더 자세히 적으라고 안내해요.
+ */
+export async function findSchools(name: string): Promise<{ schools: SchoolInfo[]; total: number }> {
+  const r = await call<{ schools: SchoolInfo[]; total: number }>({ kind: 'school', name });
+  return { schools: r.schools, total: r.total ?? r.schools.length };
 }

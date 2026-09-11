@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Appearance } from 'react-native';
 
+import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
+
 import {
   buildPalette,
   DEFAULT_SCHEME_PREF,
@@ -36,6 +38,11 @@ type AppContextValue = {
   scheme: Scheme;
   palette: Palette;
   now: Date;
+  /** 내가 고른 학교와 반. 아직 안 골랐으면 null */
+  school: MySchool | null;
+  setSchool: (school: MySchool) => void;
+  /** 저장해둔 학교를 읽어오는 중인지. 다 읽기 전엔 시작 화면을 보여주지 않아요. */
+  schoolLoading: boolean;
   /** 내 역할에서 보이는 일정 (학생은 내 학년/반 일정만) */
   events: SchoolEvent[];
   addEvent: (event: Omit<SchoolEvent, 'id'>) => void;
@@ -75,6 +82,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
   const now = useNow();
+
+  // 저장해둔 학교를 한 번 읽어와요. 읽는 동안엔 schoolLoading이 true예요.
+  const [school, setSchoolState] = useState<MySchool | null>(null);
+  const [schoolLoading, setSchoolLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    loadMySchool().then((saved) => {
+      if (!alive) return;
+      setSchoolState(saved);
+      setSchoolLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const setSchool = useCallback((next: MySchool) => {
+    setSchoolState(next);
+    void saveMySchool(next);
+  }, []);
 
   const [systemScheme, setSystemScheme] = useState<Scheme>(readSystemScheme);
   // 웹으로 미리 만들어 둔 화면은 첫 그림이 밝은 화면으로 굳어 있어요.
@@ -172,6 +199,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       scheme,
       palette,
       now,
+      school,
+      setSchool,
+      schoolLoading,
       events,
       addEvent,
       removeEvent,
@@ -188,6 +218,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scheme,
     palette,
     now,
+    school,
+    setSchool,
+    schoolLoading,
     allEvents,
     allThreads,
     addEvent,

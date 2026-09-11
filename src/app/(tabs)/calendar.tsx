@@ -15,7 +15,7 @@ import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 type Filter = 'all' | EventKind;
 
 export default function CalendarScreen() {
-  const { palette, role, now, events, removeEvent } = useApp();
+  const { palette, role, now, events, removeEvent, school } = useApp();
   const teacher = role === 'teacher';
 
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -27,9 +27,11 @@ export default function CalendarScreen() {
   // 앱이 들고 있어요. 둘을 합쳐서 한 달력에 보여줘요.
   const monthStart = toYmd(new Date(cursor.y, cursor.m, 1));
   const monthEnd = toYmd(new Date(cursor.y, cursor.m + 1, 0));
-  const remote = useRemote(`schedule:${monthStart}`, () => getEvents(monthStart, monthEnd));
+  const remote = useRemote(`schedule:${school?.code}:${monthStart}`, () =>
+    getEvents(monthStart, monthEnd, school ?? undefined),
+  );
 
-  const myGrade = gradeOf(teacher ? TEACHER.homeroom : STUDENT.cls);
+  const myGrade = school ? school.grade : gradeOf(teacher ? TEACHER.homeroom : STUDENT.cls);
   const academic: SchoolEvent[] = (remote.data ?? [])
     // 선생님은 전 학년을 보고, 학생은 자기 학년 것만 봐요.
     .filter((e) => teacher || e.grades.includes(myGrade))

@@ -29,19 +29,20 @@ import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
-  const { palette, role, now } = useApp();
+  const { palette, role, now, school } = useApp();
   const teacher = role === 'teacher';
   const today = weekdayOf(now);
   const nowPeriod = currentPeriod(now);
 
-  const [cls, setCls] = useState<ClassId>(teacher ? TEACHER.homeroom : STUDENT.cls);
+  const myClass = school ? `${school.grade}-${school.cls}` : STUDENT.cls;
+  const [cls, setCls] = useState<ClassId>(teacher ? TEACHER.homeroom : myClass);
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
 
   // 한 주치를 한 번에 받아둬요. 요일이나 하루/한 주를 눌러도 다시 부르지 않아요.
   const dates = weekDates(now);
-  const remote = useRemote(`timetable:${cls}:${dates.월}`, () =>
-    getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금),
+  const remote = useRemote(`timetable:${school?.code}:${cls}:${dates.월}`, () =>
+    getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금, school ?? undefined),
   );
 
   const week = byWeekday(remote.data ?? [], dates);

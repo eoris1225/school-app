@@ -2,15 +2,18 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/icon';
+import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { Button } from '@/components/ui';
+import { Button, Loading } from '@/components/ui';
 import { buildPalette, THEMES } from '@/constants/themes';
-import { SCHOOL, type Role } from '@/data/mock';
+import type { Role } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
+import { classLabelOf } from '@/lib/my-school';
 
 export default function StartScreen() {
-  const { palette, setRole, scheme, themeKey, setThemeKey } = useApp();
+  const { palette, setRole, scheme, themeKey, setThemeKey, school, schoolLoading } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
 
@@ -18,6 +21,16 @@ export default function StartScreen() {
     setRole(role);
     router.replace('/');
   };
+
+  // 저장해둔 학교를 읽는 동안은 아무것도 안 보여줘요.
+  // 학교가 없다고 잠깐 깜빡였다가 있다고 바뀌면 이상하니까요.
+  if (schoolLoading) {
+    return (
+      <View style={[styles.screen, styles.loading, { backgroundColor: palette.bg }]}>
+        <Loading text="" />
+      </View>
+    );
+  }
 
   return (
     // 폰을 눕히면 한 화면에 안 들어와서, 그럴 때만 스크롤되게 했어요.
@@ -27,13 +40,34 @@ export default function StartScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={[styles.column, { maxWidth: Math.min(content, 620) }]}>
         <View style={styles.top}>
-          <Text style={[styles.school, { color: palette.accentDeep }]}>{SCHOOL.name}</Text>
           <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
             학교생활{'\n'}도우미
           </Text>
           <Text style={[styles.desc, { color: palette.sub }]}>
             급식, 시간표, 학교 일정, 선생님께 질문하기까지 한곳에서 확인해요.
           </Text>
+
+          {/* 학교를 골라야 급식도 시간표도 받아올 수 있어요. */}
+          <Tap
+            onPress={() => router.push('/pick-school')}
+            accessibilityRole="button"
+            accessibilityLabel={school ? `${school.name} ${classLabelOf(school)}, 학교 바꾸기` : '학교 고르기'}
+            depth={0.03}
+            style={[styles.pick, { backgroundColor: school ? palette.tint : palette.accent }]}>
+            <View style={styles.fill}>
+              {school ? (
+                <>
+                  <Text style={[styles.pickName, { color: palette.text }]}>{school.name}</Text>
+                  <Text style={[styles.pickMeta, { color: palette.sub }]}>
+                    {classLabelOf(school)} · 눌러서 바꾸기
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.pickName, { color: palette.onAccent }]}>다니는 학교 고르기</Text>
+              )}
+            </View>
+            <Icon name="next" size={20} color={school ? palette.sub : palette.onAccent} />
+          </Tap>
           <Text style={[styles.swatchLabel, { color: palette.sub }]}>마음에 드는 색을 골라보세요</Text>
           <View style={styles.swatches} accessibilityRole="radiogroup">
             {THEMES.map((t) => {
@@ -58,10 +92,17 @@ export default function StartScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button label="학생으로 시작" onPress={() => start('student')} />
-          <Button label="선생님으로 시작" variant="secondary" onPress={() => start('teacher')} />
+          <Button label="학생으로 시작" onPress={() => start('student')} disabled={!school} />
+          <Button
+            label="선생님으로 시작"
+            variant="secondary"
+            onPress={() => start('teacher')}
+            disabled={!school}
+          />
           <Text style={[styles.note, { color: palette.sub }]}>
-            지금은 화면 확인용이에요. 나중에 학교 계정 로그인으로 바뀌어요.
+            {school
+              ? '지금은 화면 확인용이에요. 나중에 학교 계정 로그인으로 바뀌어요.'
+              : '학교를 골라야 급식과 시간표를 받아올 수 있어요.'}
           </Text>
         </View>
       </View>
@@ -79,8 +120,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'space-between',
   },
+  loading: { alignItems: 'center', justifyContent: 'center' },
+  fill: { flex: 1 },
   top: { marginTop: 40 },
-  school: { fontSize: 13, fontWeight: '800', marginBottom: 8 },
+  pick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 64,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 24,
+  },
+  pickName: { fontSize: 15, fontWeight: '700' },
+  pickMeta: { fontSize: 13, marginTop: 2 },
   title: { fontSize: 32, lineHeight: 46, fontWeight: '800', letterSpacing: -2 },
   desc: { fontSize: 15, lineHeight: 23, marginTop: 16 },
   swatchLabel: { fontSize: 13, fontWeight: '600', marginTop: 28 },

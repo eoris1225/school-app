@@ -25,11 +25,37 @@ import {
   type School,
 } from '../_shared/neis.ts';
 
-/** 시범운영 학교. 다른 학교를 쓰려면 이 두 값만 환경변수로 바꿔요. */
-const SCHOOL: School = {
+/**
+ * 앱이 학교를 안 알려줬을 때 쓰는 기본 학교예요. 시범운영 학교인 서일여고예요.
+ * 보통은 앱이 office/school 을 같이 보내니까 이 값은 잘 안 쓰여요.
+ */
+const FALLBACK: School = {
   office: Deno.env.get('NEIS_OFFICE_CODE') ?? 'G10',
   code: Deno.env.get('NEIS_SCHOOL_CODE') ?? '7430062',
 };
+
+/**
+ * 어느 학교를 물어보는지 읽어요.
+ *
+ *   office  시도교육청코드. 'G10'(대전) 처럼 영문 한 글자 + 숫자 두 자리
+ *   school  표준학교코드. 숫자 일곱 자리
+ *
+ * 둘 다 학교 검색(?kind=school)으로 찾은 값을 그대로 보내면 돼요.
+ * 모양이 안 맞으면 NEIS까지 보내지 않고 여기서 막아요.
+ */
+function readSchool(q: URLSearchParams): School {
+  const office = q.get('office');
+  const code = q.get('school');
+  if (!office && !code) return FALLBACK;
+
+  if (!office || !/^[A-Z]\d{2}$/.test(office)) {
+    throw new BadRequest(`office는 'G10' 모양이어야 해요 (받은 값: ${office})`);
+  }
+  if (!code || !/^\d{7}$/.test(code)) {
+    throw new BadRequest(`school은 숫자 일곱 자리여야 해요 (받은 값: ${code})`);
+  }
+  return { office, code };
+}
 
 const KEY = Deno.env.get('NEIS_API_KEY');
 
@@ -45,6 +71,9 @@ const CORS = {
  * NEIS 호출량도 아끼고 화면도 빨라져요.
  */
 const CACHE = 'public, max-age=600, stale-while-revalidate=3600';
+
+/** 학교 검색 결과를 한 번에 보내는 최대 개수 */
+const SCHOOL_LIMIT = 30;
 
 function json(body: unknown, status = 200, cache = false) {
   return new Response(JSON.stringify(body), {
@@ -98,13 +127,15 @@ function checkRange(from: string, to: string) {
 async function handle(url: URL): Promise<Response> {
   const q = url.searchParams;
   const kind = q.get('kind');
+  // 학교 검색만 빼고 전부 "어느 학교"가 필요해요.
+  const school = kind === 'school' ? FALLBACK : readSchool(q);
 
   switch (kind) {
     case 'meal': {
       const from = readDate(q.get('from'), 'from');
       const to = readDate(q.get('to') ?? q.get('from'), 'to');
       checkRange(from, to);
-      return json({ meals: await fetchMeals(SCHOOL, from, to, KEY) }, 200, true);
+      return json({ meals: await fetchMeals(school, from, to, KEY) }, 200, true);
     }
 
     case 'timetable': {
@@ -117,7 +148,7 @@ async function handle(url: URL): Promise<Response> {
       const year = readInt(q.get('year') ?? String(new Date().getFullYear()), 'year', 2000, 2100);
       const term = readInt(q.get('term') ?? '0', 'term', 0, 2) || termOf(from);
       const lessons = await fetchLessons(
-        SCHOOL,
+        school,
         { year, term, grade, cls, from, to },
         KEY,
       );
@@ -128,18 +159,23 @@ async function handle(url: URL): Promise<Response> {
       const from = readDate(q.get('from'), 'from');
       const to = readDate(q.get('to') ?? q.get('from'), 'to');
       checkRange(from, to);
-      return json({ events: await fetchEvents(SCHOOL, from, to, KEY) }, 200, true);
+      return json({ events: await fetchEvents(school, from, to, KEY) }, 200, true);
     }
 
     case 'classes': {
       const year = readInt(q.get('year') ?? String(new Date().getFullYear()), 'year', 2000, 2100);
-      return json({ classes: await fetchClasses(SCHOOL, year, KEY) }, 200, true);
+      return json({ classes: await fetchClasses(school, year, KEY) }, 200, true);
     }
 
     case 'school': {
       const name = q.get('name');
       if (!name) throw new BadRequest('name이 필요해요');
-      return json({ schools: await findSchool(name, KEY) }, 200, true);
+
+      // "여자고등학교" 같은 말로 찾으면 300곳이 넘게 나와요.
+      // 다 보내면 화면에서 고르기가 더 어려워요. 앞에서 잘라 보내고
+      // 몇 곳인지 같이 알려줘서 이름을 더 자세히 적도록 안내해요.
+      const all = await findSchool(name, KEY);
+      return json({ schools: all.slice(0, SCHOOL_LIMIT), total: all.length }, 200, true);
     }
 
     default:

@@ -235,16 +235,19 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
 }
 
 function StudentHome() {
-  const { palette, now, events, threads } = useApp();
+  const { palette, now, events, threads, school } = useApp();
   const { compact } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
   const today = toYmd(now);
 
-  const lessons = useRemote(`home-timetable:${STUDENT.cls}:${dates.월}`, () =>
-    getLessons(gradeOf(STUDENT.cls), classOf(STUDENT.cls), dates.월, dates.금),
+  const myClass = school ? `${school.grade}-${school.cls}` : STUDENT.cls;
+  const lessons = useRemote(`home-timetable:${school?.code}:${myClass}:${dates.월}`, () =>
+    getLessons(gradeOf(myClass), classOf(myClass), dates.월, dates.금, school ?? undefined),
   );
-  const meals = useRemote(`home-meal:${today}`, () => getMeals(today));
+  const meals = useRemote(`home-meal:${school?.code}:${today}`, () =>
+    getMeals(today, today, school ?? undefined),
+  );
 
   const week = byWeekday(lessons.data ?? [], dates);
   const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
@@ -306,7 +309,7 @@ function StudentHome() {
 /* ================= 선생님 ================= */
 
 function TeacherHome() {
-  const { palette, now, events, threads } = useApp();
+  const { palette, now, events, threads, school } = useApp();
   const { compact } = useLayout();
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
@@ -314,10 +317,10 @@ function TeacherHome() {
 
   // 내가 가르치는 반들의 시간표를 한 번에 받아와요.
   const dates = weekDates(now);
-  const lessons = useRemote(`teacher-timetable:${TEACHER.classes.join()}:${dates.월}`, () =>
+  const lessons = useRemote(`teacher-timetable:${school?.code}:${TEACHER.classes.join()}:${dates.월}`, () =>
     Promise.all(
       TEACHER.classes.map((cls) =>
-        getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금).then((rows) =>
+        getLessons(gradeOf(cls), classOf(cls), dates.월, dates.금, school ?? undefined).then((rows) =>
           rows.map((r) => ({ ...r, id: cls })),
         ),
       ),
