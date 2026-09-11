@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -28,7 +29,7 @@ import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
-  const { palette, role, now, school } = useApp();
+  const { palette, role, now, school, swaps } = useApp();
   const teacher = role === 'teacher';
   const today = weekdayOf(now);
   const nowPeriod = currentPeriod(now);
@@ -56,7 +57,10 @@ export default function TimetableScreen() {
     .map((r) => r.cls)
     .sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
 
-  const week = byWeekday(remote.data ?? [], dates);
+  // 내가 듣는 과목으로 바꿔서 보여줘요. 다른 반을 볼 때는 바꾸지 않아요.
+  // 남의 반 시간표까지 내 기준으로 바꾸면 잘못된 정보가 돼요.
+  const mine = cls === myClass;
+  const week = byWeekday(remote.data ?? [], dates, mine ? swaps : {});
   const holiday = holidayName(week[day].filter(Boolean));
 
   return (
@@ -146,6 +150,8 @@ export default function TimetableScreen() {
             week[day].map((raw, i, arr) => {
               if (!raw) return null;
               const subject = readSubject(raw);
+              // 내가 바꾼 과목이면 표시해줘요. 원래 뭐였는지 알 수 있게요.
+              const swapped = mine && Object.values(swaps).includes(subject.name);
               const period = i + 1;
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
@@ -160,10 +166,22 @@ export default function TimetableScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  <View
+                  {/* 내 반일 때만 눌러서 내가 듣는 과목으로 바꿀 수 있어요. */}
+                  <Tap
+                    onPress={
+                      mine
+                        ? () =>
+                            router.push({
+                              pathname: '/swap-subject',
+                              params: { subject: readSubject(raw).name },
+                            })
+                        : undefined
+                    }
+                    disabled={!mine}
+                    depth={mine ? 0.02 : 0}
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
-                    accessible
-                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}`}>
+                    accessibilityRole={mine ? 'button' : undefined}
+                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
                     <IconChip icon={subjectIcon(raw)} subject={raw} size={42} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
@@ -178,8 +196,9 @@ export default function TimetableScreen() {
                         {who ? <Text style={[styles.periodMeta, { color: palette.sub }]}>{who}</Text> : null}
                       </View>
                     </View>
+                    {swapped ? <Tag label="바꿈" /> : null}
                     {isNow ? <Tag label="지금" tone="solid" /> : null}
-                  </View>
+                  </Tap>
                   {i < arr.length - 1 && period !== LUNCH.afterPeriod ? <Divider /> : null}
                 </View>
               );

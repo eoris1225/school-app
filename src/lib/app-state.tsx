@@ -3,6 +3,18 @@ import { Appearance } from 'react-native';
 
 import { loadMySchool, loadTeacherCode, saveMySchool, saveTeacherCode, type MySchool } from '@/lib/my-school';
 import { subjectGroup } from '@/lib/subject';
+import {
+  loadAllergies,
+  loadMyEvents,
+  loadSwaps,
+  newEventId,
+  saveAllergies,
+  saveMyEvents,
+  saveSwaps,
+  type Allergies,
+  type MyEvent,
+  type SubjectSwaps,
+} from '@/lib/my-settings';
 import { addAssessment, ApiError, getAssessments, removeAssessment, type Assessment } from '@/lib/api';
 
 import {
@@ -56,6 +68,17 @@ type AppContextValue = {
   /** 선생님 코드. 없으면 등록·삭제를 못 해요. */
   teacherCode: string;
   setTeacherCode: (code: string) => void;
+
+  /** NEIS 시간표 과목 -> 내가 실제로 듣는 과목 */
+  swaps: SubjectSwaps;
+  setSwap: (from: string, to: string) => void;
+  /** 내가 못 먹는 알레르기 번호들 */
+  allergies: Allergies;
+  setAllergies: (list: Allergies) => void;
+  /** 나만 보는 일정 */
+  myEvents: MyEvent[];
+  addMyEvent: (date: string, title: string) => void;
+  removeMyEvent: (id: string) => void;
   /** 이 일정을 내가 지울 수 있는지 */
   canDelete: (event: SchoolEvent) => boolean;
   /** 내 역할에서 보이는 쪽지 (학생은 내 질문, 선생님은 내 과목 쪽지) */
@@ -105,6 +128,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [teacherCode, setTeacherCodeState] = useState('');
+  const [swaps, setSwapsState] = useState<SubjectSwaps>({});
+  const [allergies, setAllergiesState] = useState<Allergies>([]);
+  const [myEvents, setMyEventsState] = useState<MyEvent[]>([]);
   // 달력을 다시 읽게 만드는 값이에요. 등록·삭제 뒤에 올려요.
   const [eventsNonce, setEventsNonce] = useState(0);
   const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
@@ -155,6 +181,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [school, year, eventsNonce]);
+
+  // 나만의 설정을 한 번에 읽어와요.
+  useEffect(() => {
+    let alive = true;
+    Promise.all([loadSwaps(), loadAllergies(), loadMyEvents()]).then(([s, a, e]) => {
+      if (!alive) return;
+      setSwapsState(s);
+      setAllergiesState(a);
+      setMyEventsState(e);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** 바꿀 과목을 정해요. 원래 이름과 같게 하면 바꾸기를 지워요. */
+  const setSwap = useCallback((from: string, to: string) => {
+    setSwapsState((prev) => {
+      const next = { ...prev };
+      if (!to || to === from) delete next[from];
+      else next[from] = to;
+      void saveSwaps(next);
+      return next;
+    });
+  }, []);
+
+  const setAllergies = useCallback((list: Allergies) => {
+    const sorted = [...new Set(list)].sort((a, b) => a - b);
+    setAllergiesState(sorted);
+    void saveAllergies(sorted);
+  }, []);
+
+  const addMyEvent = useCallback((date: string, title: string) => {
+    setMyEventsState((prev) => {
+      const next = [...prev, { id: newEventId(), date, title: title.trim() }];
+      void saveMyEvents(next);
+      return next;
+    });
+  }, []);
+
+  const removeMyEvent = useCallback((id: string) => {
+    setMyEventsState((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      void saveMyEvents(next);
+      return next;
+    });
+  }, []);
 
   const setTeacherCode = useCallback((code: string) => {
     const trimmed = code.trim();
@@ -336,6 +409,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reloadEvents,
       teacherCode,
       setTeacherCode,
+      swaps,
+      setSwap,
+      allergies,
+      setAllergies,
+      myEvents,
+      addMyEvent,
+      removeMyEvent,
       canDelete,
       threads,
       askQuestion,
@@ -360,6 +440,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reloadEvents,
     teacherCode,
     setTeacherCode,
+    swaps,
+    setSwap,
+    allergies,
+    setAllergies,
+    myEvents,
+    addMyEvent,
+    removeMyEvent,
     canDelete,
     askQuestion,
     sendMessage,

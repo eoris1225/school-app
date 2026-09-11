@@ -21,7 +21,12 @@ export function EventRow({
   const { palette, now } = useApp();
   const date = fromYmd(event.date);
   const d = dday(event.date, now);
-  const kindLabel = event.kind === 'assessment' ? `수행평가 ${event.subject ?? ''}`.trim() : '학사일정';
+  const kindLabel =
+    event.kind === 'assessment'
+      ? `수행평가 ${event.subject ?? ''}`.trim()
+      : event.kind === 'personal'
+        ? '내 일정'
+        : '학사일정';
 
   return (
     <View style={styles.eventRow}>
@@ -37,7 +42,13 @@ export function EventRow({
           <Tag
             label={kindLabel}
             tone="plain"
-            subject={event.kind === 'assessment' ? (event.subject ?? '수행평가') : '학사일정'}
+            subject={
+              event.kind === 'assessment'
+                ? (event.subject ?? '수행평가')
+                : event.kind === 'personal'
+                  ? '내 일정'
+                  : '학사일정'
+            }
           />
           <Text style={[styles.eventTarget, { color: palette.sub }]}>{targetLabel(event)}</Text>
         </View>

@@ -82,7 +82,7 @@ export type MealItem = { name: string; allergy: number[] };
 export type Meal = { items: MealItem[]; kcal: number };
 
 
-export type EventKind = 'academic' | 'assessment';
+export type EventKind = 'academic' | 'assessment' | 'personal';
 
 export type SchoolEvent = {
   id: string;
