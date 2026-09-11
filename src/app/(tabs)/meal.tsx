@@ -21,7 +21,7 @@ function weekLabel(from: string, to: string) {
 }
 
 export default function MealScreen() {
-  const { palette, now } = useApp();
+  const { palette, now, school } = useApp();
   const { tablet } = useLayout();
   const today = weekdayOf(now);
   const [day, setDay] = useState<Weekday>(today ?? '월');
@@ -30,7 +30,9 @@ export default function MealScreen() {
 
   // 한 주치를 한 번에 받아둬요. 요일을 눌러도 다시 부르지 않아 바로 바뀌어요.
   const dates = weekDates(now);
-  const week = useRemote(`meal:${dates.월}`, () => getMeals(dates.월, dates.금));
+  const week = useRemote(`meal:${school?.code}:${dates.월}`, () =>
+    getMeals(dates.월, dates.금, school ?? undefined),
+  );
 
   const meal = week.data?.find((m) => m.date === dates[day] && m.type === type) ?? null;
 

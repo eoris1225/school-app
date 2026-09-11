@@ -29,6 +29,8 @@ function RootNavigator() {
         <Stack.Screen name="thread" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="add-event" />
+        <Stack.Screen name="pick-school" />
+        <Stack.Screen name="pick-class" />
       </Stack>
     </>
   );

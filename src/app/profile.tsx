@@ -11,25 +11,29 @@ import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
-  const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref } = useApp();
+  const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school } =
+    useApp();
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
-  const [grade, cls] = STUDENT.cls.split('-');
+  const [grade, cls] = school ? [String(school.grade), school.cls] : STUDENT.cls.split('-');
+  const schoolName = school?.name ?? SCHOOL.name;
 
   const rows: [string, string][] = teacher
     ? [
-        ['학교', SCHOOL.name],
+        ['학교', schoolName],
         ['담당 과목', TEACHER.subjects.join(', ')],
         ['담임', classLabel(TEACHER.homeroom)],
         ['이름', TEACHER.name],
       ]
     : [
-        ['학교', SCHOOL.name],
+        ['학교', schoolName],
         ['학년', `${grade}학년`],
         ['반', `${cls}반`],
         ['번호', `${STUDENT.number}번`],
         ['이름', STUDENT.name],
       ];
+
+  const changeSchool = () => router.push('/pick-school');
 
   const switchRole = () => {
     setRole(teacher ? 'student' : 'teacher');
@@ -46,7 +50,7 @@ export default function ProfileScreen() {
           <Text style={[styles.name, { color: palette.text }]}>{teacher ? `${TEACHER.name} 선생님` : STUDENT.name}</Text>
           <View style={styles.roleRow}>
             <Tag label={teacher ? '관리자' : '학생'} tone={teacher ? 'solid' : 'soft'} />
-            <Text style={[styles.school, { color: palette.sub }]}>{SCHOOL.name}</Text>
+            <Text style={[styles.school, { color: palette.sub }]}>{schoolName}</Text>
           </View>
         </View>
       </View>
@@ -99,6 +103,12 @@ export default function ProfileScreen() {
         시스템으로 두면 폰 설정을 따라가요. 어두운 곳에서는 어둡게가 눈이 편해요.
       </Text>
       <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
+
+      <SectionTitle title="학교" />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        학교나 반이 바뀌면 여기서 다시 골라요. 급식과 시간표가 그 학교 것으로 바뀌어요.
+      </Text>
+      <Button label="학교·반 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
 
       <SectionTitle title="화면 미리보기" />
       <Text style={[styles.help, { color: palette.sub }]}>
