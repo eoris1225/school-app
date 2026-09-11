@@ -73,8 +73,7 @@ const KEY = Deno.env.get('NEIS_API_KEY');
 
 const CORS = {
   'access-control-allow-origin': '*',
-  'access-control-allow-headers':
-    'authorization, x-client-info, apikey, content-type, x-teacher-code',
+  'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
   'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
 };
 
@@ -89,54 +88,20 @@ const CACHE = 'public, max-age=600, stale-while-revalidate=3600';
 const SCHOOL_LIMIT = 30;
 
 /**
- * 수행평가를 등록하거나 지울 수 있는 사람만 아는 암호예요.
+ * 선생님으로 올라갈 때 쓰는 암호예요.
  *
- * 아직 로그인이 없어서, 이게 없으면 주소만 아는 누구나 전교생 달력에
- * 아무거나 올릴 수 있어요. 그래서 코드가 설정돼 있지 않으면 쓰기를 아예 막아요.
- * 읽기는 누구나 할 수 있어요. 수행평가는 원래 학생이 다 보는 거니까요.
+ * 이 코드는 승급할 때 딱 한 번만 써요. 통과하면 계정에 역할이 붙고,
+ * 그 뒤로는 로그인한 계정 자체가 권한이에요. 매 요청에 암호를 싣지 않아요.
+ *
+ * 영문과 숫자로만 정해주세요. 한글은 아래 승급에서 걸러내요.
  *
  *   supabase secrets set TEACHER_CODE=정한암호
  */
 const TEACHER_CODE = Deno.env.get('TEACHER_CODE');
 
-/**
- * 선생님 코드가 맞는지 봐요. 안 맞으면 여기서 끝내요.
- *
- * 코드는 영문과 숫자로만 정해주세요. HTTP 헤더에는 한글을 실을 수 없어서,
- * 한글로 정하면 아무리 맞게 넣어도 통과가 안 돼요. 왜 안 되는지 알기 어려운
- * 함정이라 아래에서 대놓고 알려줘요.
- */
-/**
- * 수행평가를 고칠 수 있는 사람인지 봐요.
- *
- * 지금은 두 가지 길을 다 받아요.
- *   로그인해서 선생님인 계정   (앞으로 쓸 방식)
- *   선생님 코드를 헤더에 실은 요청  (예전 방식, 곧 없앨 거예요)
- *
- * 로그인을 붙이는 동안 기존 앱이 멈추면 안 되니까 둘 다 두었어요.
- * 앱이 전부 로그인으로 옮겨가면 아래쪽(코드)을 지워요.
- */
+/** 수행평가를 고칠 수 있는 사람인지 봐요. 로그인해서 선생님인 계정만이에요. */
 async function requireWriter(req: Request) {
-  try {
-    await requireTeacherLogin(req);
-    return;
-  } catch {
-    // 로그인이 아니면 예전 방식으로 한 번 더 봐요.
-  }
-  requireTeacherCode(req);
-}
-
-function requireTeacherCode(req: Request) {
-  if (!TEACHER_CODE) {
-    throw new Forbidden('아직 선생님 코드가 설정되지 않았어요. 관리자에게 말해주세요');
-  }
-  if (!/^[\x21-\x7E]+$/.test(TEACHER_CODE)) {
-    console.error('TEACHER_CODE에 영문·숫자가 아닌 글자가 있어요. 한글은 헤더로 못 보내요.');
-    throw new Forbidden('선생님 코드 설정이 잘못됐어요. 영문과 숫자로만 다시 정해주세요');
-  }
-  if (req.headers.get('x-teacher-code') !== TEACHER_CODE) {
-    throw new Forbidden('선생님 코드가 맞지 않아요');
-  }
+  await requireTeacherLogin(req);
 }
 
 class Forbidden extends Error {}

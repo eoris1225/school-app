@@ -5,42 +5,62 @@ import { StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { Avatar, BackHeader, Button, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
+import { Avatar, BackHeader, Button, Chip, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
-import { ALLERGENS, classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
+import { ALLERGENS, classLabel, SCHOOL, STUDENT, SUBJECTS, TEACHER } from '@/data/mock';
+import { ApiError, promoteToTeacher } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
-  const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school } =
+  const { palette, role, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school, me, signOut, reloadMe } =
     useApp();
-  const { teacherCode, setTeacherCode, allergies, setAllergies } = useApp();
-  const [codeDraft, setCodeDraft] = useState(teacherCode);
+  const { allergies, setAllergies } = useApp();
+  const [codeDraft, setCodeDraft] = useState('');
+  const [subjectDraft, setSubjectDraft] = useState<string[]>([]);
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
   const [grade, cls] = school ? [String(school.grade), school.cls] : STUDENT.cls.split('-');
   const schoolName = school?.name ?? SCHOOL.name;
+  const myName = me?.name || (teacher ? TEACHER.name : STUDENT.name);
 
   const rows: [string, string][] = teacher
     ? [
         ['학교', schoolName],
         ['담당 과목', TEACHER.subjects.join(', ')],
         ['담임', classLabel(TEACHER.homeroom)],
-        ['이름', TEACHER.name],
+        ['이름', myName],
       ]
     : [
         ['학교', schoolName],
         ['학년', `${grade}학년`],
         ['반', `${cls}반`],
         ['번호', `${STUDENT.number}번`],
-        ['이름', STUDENT.name],
+        ['이름', myName],
       ];
 
   const changeSchool = () => router.push('/pick-school');
 
-  const switchRole = () => {
-    setRole(teacher ? 'student' : 'teacher');
-    router.replace('/');
+  const [promoting, setPromoting] = useState(false);
+  const [promoteFailed, setPromoteFailed] = useState<string | null>(null);
+
+  /** 선생님 코드를 넣어서 역할을 올려요. 코드는 이때 한 번만 써요. */
+  const promote = async () => {
+    setPromoting(true);
+    setPromoteFailed(null);
+    try {
+      await promoteToTeacher(codeDraft.trim(), subjectDraft);
+      reloadMe();
+    } catch (e) {
+      setPromoteFailed(e instanceof ApiError ? e.message : '선생님으로 바꾸지 못했어요');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  const leave = async () => {
+    await signOut();
+    router.replace('/start');
   };
 
   return (
@@ -50,7 +70,7 @@ export default function ProfileScreen() {
       <View style={styles.profile}>
         <Avatar size={72} />
         <View style={styles.fill}>
-          <Text style={[styles.name, { color: palette.text }]}>{teacher ? `${TEACHER.name} 선생님` : STUDENT.name}</Text>
+          <Text style={[styles.name, { color: palette.text }]}>{teacher ? `${myName} 선생님` : myName}</Text>
           <View style={styles.roleRow}>
             <Tag label={teacher ? '관리자' : '학생'} tone={teacher ? 'solid' : 'soft'} />
             <Text style={[styles.school, { color: palette.sub }]}>{schoolName}</Text>
@@ -151,29 +171,50 @@ export default function ProfileScreen() {
         </>
       ) : null}
 
-      {teacher ? (
+      {!teacher ? (
         <>
-          <SectionTitle title="선생님 코드" />
+          <SectionTitle title="선생님이신가요?" />
           <Text style={[styles.help, { color: palette.sub }]}>
-            수행평가를 등록하거나 지울 때 필요해요. 학교에서 정한 코드를 넣어주세요.
-            이 기기에만 담기고 어디에도 올라가지 않아요.
+            학교에서 받은 코드를 넣으면 선생님으로 바뀌어요. 수행평가를 등록하고
+            쪽지에 답할 수 있게 돼요. 코드는 이때 한 번만 쓰고, 그 뒤로는
+            계정에 역할이 붙어요.
           </Text>
           <Field
             value={codeDraft}
             onChangeText={setCodeDraft}
-            onBlur={() => setTeacherCode(codeDraft)}
-            placeholder="영문과 숫자로 된 코드"
+            placeholder="선생님 코드"
             autoCapitalize="none"
             autoCorrect={false}
             accessibilityLabel="선생님 코드"
             style={styles.code}
           />
+          <Text style={[styles.help, { color: palette.sub }]}>담당 과목을 골라주세요</Text>
+          <View style={styles.subjectRow}>
+            {SUBJECTS.map((s) => (
+              <Chip
+                key={s}
+                label={s}
+                colored
+                selected={subjectDraft.includes(s)}
+                onPress={() =>
+                  setSubjectDraft((prev) =>
+                    prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+                  )
+                }
+              />
+            ))}
+          </View>
+          {promoteFailed ? (
+            <View style={[styles.failed, { backgroundColor: palette.tint }]}>
+              <Text style={[styles.failedText, { color: palette.text }]}>{promoteFailed}</Text>
+            </View>
+          ) : null}
           <Button
-            label={codeDraft.trim() === teacherCode && teacherCode ? '저장됐어요' : '코드 저장'}
+            label={promoting ? '확인하는 중이에요' : '선생님으로 바꾸기'}
             icon="check"
             variant="secondary"
-            disabled={codeDraft.trim() === teacherCode}
-            onPress={() => setTeacherCode(codeDraft)}
+            disabled={!codeDraft.trim() || subjectDraft.length === 0 || promoting}
+            onPress={promote}
           />
         </>
       ) : null}
@@ -184,16 +225,8 @@ export default function ProfileScreen() {
       </Text>
       <Button label="학교·반 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
 
-      <SectionTitle title="화면 미리보기" />
-      <Text style={[styles.help, { color: palette.sub }]}>
-        지금은 화면 확인용이라 역할을 바로 바꿀 수 있어요. 나중에는 로그인한 계정에 따라 정해져요.
-      </Text>
-      <Button
-        label={teacher ? '학생 화면으로 보기' : '선생님 화면으로 보기'}
-        icon="swap"
-        variant="secondary"
-        onPress={switchRole}
-      />
+      <SectionTitle title="계정" />
+      <Button label="로그아웃" icon="swap" variant="secondary" onPress={leave} />
     </Screen>
   );
 }
@@ -220,6 +253,9 @@ const styles = StyleSheet.create({
   },
   allergyNum: { fontSize: 12, fontWeight: '800' },
   allergyName: { fontSize: 13, fontWeight: '600' },
+  subjectRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  failed: { borderRadius: 16, padding: 16, marginBottom: 12 },
+  failedText: { fontSize: 13, lineHeight: 20 },
   code: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 12 },
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },

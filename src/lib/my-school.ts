@@ -83,31 +83,3 @@ export const toMySchool = (found: SchoolInfo, grade: number, cls: string): MySch
 
 /** '2학년 3반' */
 export const classLabelOf = (s: MySchool) => `${s.grade}학년 ${s.cls}반`;
-
-
-// ---------------------------------------------------------------- 선생님 코드
-
-/**
- * 수행평가를 등록·삭제할 수 있는 선생님 코드예요.
- *
- * 아직 로그인이 없어서 이 코드가 열쇠 역할을 해요. 학교마다 하나씩 정해두고
- * 선생님들만 알고 있으면 돼요. 기기에만 담고 어디에도 올리지 않아요.
- */
-const CODE_KEY = 'teacher-code';
-
-export async function loadTeacherCode(): Promise<string> {
-  try {
-    return (await AsyncStorage.getItem(CODE_KEY)) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-export async function saveTeacherCode(code: string): Promise<void> {
-  try {
-    if (code) await AsyncStorage.setItem(CODE_KEY, code);
-    else await AsyncStorage.removeItem(CODE_KEY);
-  } catch {
-    // 저장이 안 돼도 이번 실행 동안은 쓸 수 있어요.
-  }
-}
