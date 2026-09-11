@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { Text } from '@/components/text';
 import { Avatar, BackHeader, Button, Card, Divider, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
 import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';

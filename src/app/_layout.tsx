@@ -1,10 +1,16 @@
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { FONT_ASSETS } from '@/components/text';
 import { AppProvider, useApp } from '@/lib/app-state';
+
+// 글꼴을 다 불러올 때까지 시작 화면을 붙잡아 둬요. (컴포넌트 밖에서 불러야 늦지 않아요)
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
   const { palette } = useApp();
@@ -29,6 +35,15 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+
+  useEffect(() => {
+    // 글꼴을 못 불러와도 화면은 띄워요. (기본 글꼴로 나와요)
+    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <SafeAreaProvider>
       <AppProvider>

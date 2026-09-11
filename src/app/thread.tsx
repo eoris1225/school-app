@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { BackHeader, Empty, Field, IconButton, MAX_WIDTH, Screen } from '@/components/ui';
 import { classLabel, SUBJECT_TEACHERS } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
