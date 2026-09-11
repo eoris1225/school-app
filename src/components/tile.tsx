@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
-import { Icon, type IconName } from '@/components/icon';
+import { fitIcon, Icon, type IconName } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { mix } from '@/constants/themes';
@@ -50,7 +50,7 @@ export function Tile({
           style={[styles.tile, { width: size, height: size, borderRadius: size * 0.3 }]}>
           {/* 위쪽에 살짝 밝은 면을 얹어 유리 같은 광택을 흉내내요. */}
           <View style={[styles.gloss, { borderRadius: size * 0.3, height: size * 0.46 }]} />
-          <Icon name={icon} size={Math.round(size * 0.46)} color="#FFFFFF" />
+          <Icon name={icon} size={fitIcon(size, 0.46)} color="#FFFFFF" />
         </LinearGradient>
         {badge ? (
           <View style={[styles.badge, { borderColor: palette.bg }]}>

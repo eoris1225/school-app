@@ -61,6 +61,18 @@ const GROUP_ICONS: Record<SubjectGroup, IconName> = {
 
 export const subjectIcon = (name: string): IconName => GROUP_ICONS[subjectGroup(name)];
 
+/**
+ * 아이콘이 반 픽셀 밀리지 않게 크기를 골라줘요.
+ *
+ * 담는 상자가 42이고 아이콘이 21이면 양옆 여백이 10.5가 돼요. 화면은 반
+ * 픽셀을 그릴 수 없어서 한쪽으로 밀려요. 눈에 확 띄진 않는데 묘하게
+ * 안 맞아 보여요. 상자와 아이콘의 차이를 짝수로 맞추면 딱 떨어져요.
+ */
+export function fitIcon(box: number, ratio: number): number {
+  const raw = Math.round(box * ratio);
+  return (Math.round(box) - raw) % 2 === 0 ? raw : raw + 1;
+}
+
 export function Icon({ name, size = 22, color }: { name: IconName; size?: number; color: string }) {
   return <SymbolView name={ICONS[name]} size={size} tintColor={color} />;
 }

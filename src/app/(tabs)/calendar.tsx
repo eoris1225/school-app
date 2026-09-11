@@ -79,6 +79,15 @@ export default function CalendarScreen() {
           : '학사일정';
     return subjectTone(key, palette.scheme).fg;
   };
+  /**
+   * 막대를 몇 칸으로 나눌지 정해요.
+   *
+   * 같은 종류가 여러 개여도 칸을 늘리지 않아요. 국어 수행평가가 둘이라고
+   * 막대를 반으로 가르면 "두 종류가 있다"로 잘못 읽혀요.
+   * 종류가 넷 이상이면 세 칸까지만 보여줘요. 더 잘게 자르면 안 보여요.
+   */
+  const markColors = (list: SchoolEvent[]) => [...new Set(list.map(markColor))].slice(0, 3);
+
   const dayEvents = shown.filter((e) => e.date === selected);
 
   const firstDow = new Date(cursor.y, cursor.m, 1).getDay();
@@ -179,10 +188,16 @@ export default function CalendarScreen() {
                       {day}
                     </Text>
                   </View>
+                  {/* 점 세 개를 따로 찍으면 어수선해요. 하나로 이어진 막대가
+                      "이 날 뭔가 있다"를 한눈에 보여주고, 색으로 종류도 알려줘요. */}
                   <View style={styles.marks}>
-                    {marks.slice(0, 3).map((e, i) => (
-                      <View key={i} style={[styles.mark, { backgroundColor: markColor(e) }]} />
-                    ))}
+                    {marks.length > 0 ? (
+                      <View style={[styles.bar, { backgroundColor: palette.line }]}>
+                        {markColors(marks).map((c, i) => (
+                          <View key={i} style={[styles.barPart, { backgroundColor: c }]} />
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -190,9 +205,16 @@ export default function CalendarScreen() {
           </View>
         ))}
         <View style={styles.legend}>
-          <View style={[styles.mark, { backgroundColor: subjectTone('학사일정', palette.scheme).fg }]} />
-          <Text style={[styles.legendText, { color: palette.sub }]}>학사일정</Text>
-          <Text style={[styles.legendText, { color: palette.sub, marginLeft: 12 }]}>수행평가는 과목 색으로 표시돼요</Text>
+          {[
+            ['학사일정', subjectTone('학사일정', palette.scheme).fg],
+            ['수행평가', subjectTone('수행평가', palette.scheme).fg],
+            ['내 일정', subjectTone('내 일정', palette.scheme).fg],
+          ].map(([label, color]) => (
+            <View key={label} style={styles.legendItem}>
+              <View style={[styles.legendBar, { backgroundColor: color }]} />
+              <Text style={[styles.legendText, { color: palette.sub }]}>{label}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -294,12 +316,15 @@ const styles = StyleSheet.create({
   },
   dayText: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
   dayTextBold: { fontWeight: '800' },
-  marks: { flexDirection: 'row', gap: 4, marginTop: 4, height: 7 },
-  mark: { width: 7, height: 7, borderRadius: 4 },
+  marks: { marginTop: 5, height: 4, justifyContent: 'center' },
+  bar: { flexDirection: 'row', width: 22, height: 4, borderRadius: 2, overflow: 'hidden' },
+  barPart: { flex: 1, height: 4 },
   mineHelp: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
   mineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   mineInput: { borderRadius: 16, height: 48, paddingHorizontal: 16 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, paddingHorizontal: 8 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12, paddingHorizontal: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendBar: { width: 14, height: 4, borderRadius: 2 },
   legendText: { fontSize: 12, fontWeight: '600' },
 
   confirm: { borderRadius: 16, padding: 12, marginBottom: 12, gap: 12 },
