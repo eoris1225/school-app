@@ -22,6 +22,7 @@ export default function CalendarScreen() {
   const [selected, setSelected] = useState(toYmd(now));
   const [filter, setFilter] = useState<Filter>('all');
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
 
   // 학사일정은 NEIS에서 그 달치를 받아와요. 수행평가는 선생님이 등록한 것이라
   // 앱이 들고 있어요. 둘을 합쳐서 한 달력에 보여줘요.
@@ -196,9 +197,10 @@ export default function CalendarScreen() {
                   <View style={styles.fill}>
                     <Button
                       label="지우기"
-                      onPress={() => {
-                        removeEvent(e.id);
+                      onPress={async () => {
+                        const problem = await removeEvent(e.id);
                         setConfirmId(null);
+                        setFailed(problem);
                       }}
                     />
                   </View>
@@ -208,6 +210,7 @@ export default function CalendarScreen() {
           </View>
         ))}
       </View>
+      {failed ? <ErrorNote text={failed} /> : null}
       {teacher ? <Button label="이 날짜에 일정 추가" icon="plus" variant="secondary" onPress={openAdd} /> : null}
     </Screen>
   );

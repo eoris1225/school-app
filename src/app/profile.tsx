@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { Avatar, BackHeader, Button, Divider, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
+import { Avatar, BackHeader, Button, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
 import { classLabel, SCHOOL, STUDENT, TEACHER } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
@@ -13,6 +14,8 @@ import { useLayout } from '@/lib/layout';
 export default function ProfileScreen() {
   const { palette, role, setRole, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school } =
     useApp();
+  const { teacherCode, setTeacherCode } = useApp();
+  const [codeDraft, setCodeDraft] = useState(teacherCode);
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
   const [grade, cls] = school ? [String(school.grade), school.cls] : STUDENT.cls.split('-');
@@ -104,6 +107,33 @@ export default function ProfileScreen() {
       </Text>
       <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
 
+      {teacher ? (
+        <>
+          <SectionTitle title="선생님 코드" />
+          <Text style={[styles.help, { color: palette.sub }]}>
+            수행평가를 등록하거나 지울 때 필요해요. 학교에서 정한 코드를 넣어주세요.
+            이 기기에만 담기고 어디에도 올라가지 않아요.
+          </Text>
+          <Field
+            value={codeDraft}
+            onChangeText={setCodeDraft}
+            onBlur={() => setTeacherCode(codeDraft)}
+            placeholder="영문과 숫자로 된 코드"
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="선생님 코드"
+            style={styles.code}
+          />
+          <Button
+            label={codeDraft.trim() === teacherCode && teacherCode ? '저장됐어요' : '코드 저장'}
+            icon="check"
+            variant="secondary"
+            disabled={codeDraft.trim() === teacherCode}
+            onPress={() => setTeacherCode(codeDraft)}
+          />
+        </>
+      ) : null}
+
       <SectionTitle title="학교" />
       <Text style={[styles.help, { color: palette.sub }]}>
         학교나 반이 바뀌면 여기서 다시 골라요. 급식과 시간표가 그 학교 것으로 바뀌어요.
@@ -135,6 +165,7 @@ const styles = StyleSheet.create({
   infoKey: { fontSize: 13, fontWeight: '600' },
   infoValue: { fontSize: 13, fontWeight: '800' },
 
+  code: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 12 },
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   themeTile: {

@@ -80,16 +80,33 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(params: Record<string, string | number>): Promise<T> {
+type CallOptions = {
+  method?: 'GET' | 'POST' | 'DELETE';
+  body?: unknown;
+  /** 선생님만 할 수 있는 일에 붙여요. 서버가 이 값을 확인해요. */
+  teacherCode?: string;
+};
+
+async function call<T>(params: Record<string, string | number>, opts: CallOptions = {}): Promise<T> {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) q.set(k, String(v));
 
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), TIMEOUT);
 
+  const headers: Record<string, string> = {};
+  if (opts.body !== undefined) headers['content-type'] = 'application/json';
+  // 헤더에는 영문만 실을 수 있어요. 한글 코드는 서버가 알려주니 그대로 보내요.
+  if (opts.teacherCode) headers['x-teacher-code'] = opts.teacherCode;
+
   let res: Response;
   try {
-    res = await fetch(`${BASE}?${q}`, { signal: stop.signal });
+    res = await fetch(`${BASE}?${q}`, {
+      method: opts.method ?? 'GET',
+      headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      signal: stop.signal,
+    });
   } catch {
     // 인터넷이 끊겼거나 시간이 다 됐어요. 둘 다 다시 해보면 될 수 있어요.
     throw new ApiError('인터넷 연결을 확인해주세요', true);
@@ -98,12 +115,16 @@ async function call<T>(params: Record<string, string | number>): Promise<T> {
   }
 
   if (!res.ok) {
+    // 서버가 왜 안 되는지 적어 보내면 그대로 보여줘요. 그게 더 도움이 돼요.
+    let said = '';
+    try {
+      said = String(((await res.json()) as { error?: string }).error ?? '');
+    } catch {
+      // 본문이 없거나 JSON이 아니면 아래 기본 문구를 써요.
+    }
     // 400은 우리가 잘못 부른 거라 다시 해도 똑같아요. 나머지는 서버 쪽 문제예요.
     const mine = res.status >= 400 && res.status < 500;
-    throw new ApiError(
-      mine ? '요청이 잘못됐어요' : '학교 정보를 불러오지 못했어요',
-      !mine,
-    );
+    throw new ApiError(said || (mine ? '요청이 잘못됐어요' : '학교 정보를 불러오지 못했어요'), !mine);
   }
 
   try {
@@ -159,4 +180,57 @@ export async function getClasses(year: number, school?: SchoolRef): Promise<Clas
 export async function findSchools(name: string): Promise<{ schools: SchoolInfo[]; total: number }> {
   const r = await call<{ schools: SchoolInfo[]; total: number }>({ kind: 'school', name });
   return { schools: r.schools, total: r.total ?? r.schools.length };
+}
+
+
+// ---------------------------------------------------------------- 수행평가
+
+/**
+ * 수행평가는 NEIS에 없어요. 선생님이 앱에서 등록하고 우리 서버가 담아둬요.
+ * 그래야 등록한 사람 기기 밖에서도 보여요.
+ */
+export type Assessment = {
+  id: string;
+  date: string;
+  title: string;
+  subject: string | null;
+  grades: number[];
+  classes: string[];
+};
+
+export async function getAssessments(
+  from: string,
+  to: string,
+  school?: SchoolRef,
+): Promise<Assessment[]> {
+  const r = await call<{ assessments: Assessment[] }>({
+    kind: 'assessments',
+    from,
+    to,
+    ...at(school),
+  });
+  return r.assessments;
+}
+
+export async function addAssessment(
+  item: Omit<Assessment, 'id'>,
+  teacherCode: string,
+  school?: SchoolRef,
+): Promise<Assessment> {
+  const r = await call<{ assessment: Assessment }>(
+    { kind: 'assessments', ...at(school) },
+    { method: 'POST', body: item, teacherCode },
+  );
+  return r.assessment;
+}
+
+export async function removeAssessment(
+  id: string,
+  teacherCode: string,
+  school?: SchoolRef,
+): Promise<void> {
+  await call<{ deleted: number }>(
+    { kind: 'assessments', id, ...at(school) },
+    { method: 'DELETE', teacherCode },
+  );
 }

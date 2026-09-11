@@ -25,6 +25,8 @@ export default function AddEventScreen() {
   const [grades, setGrades] = useState<number[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [subject, setSubject] = useState<Subject>(TEACHER.subjects[0]);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
 
   // 학년·반 목록은 그 학교 실제 목록에서 가져와요. 학교마다 반 개수가 달라요.
   const year = now.getFullYear();
@@ -58,9 +60,21 @@ export default function AddEventScreen() {
     classes,
   };
 
-  const save = () => {
-    addEvent({ date: draft.date, title: title.trim(), kind, subject: draft.subject, grades, classes });
-    goBack();
+  const save = async () => {
+    setSaving(true);
+    setFailed(null);
+    const problem = await addEvent({
+      date: draft.date,
+      title: title.trim(),
+      kind,
+      subject: draft.subject,
+      grades,
+      classes,
+    });
+    setSaving(false);
+    // 잘 됐을 때만 화면을 닫아요. 안 됐으면 왜 안 됐는지 보여줘야죠.
+    if (problem) setFailed(problem);
+    else goBack();
   };
 
   return (
@@ -161,7 +175,18 @@ export default function AddEventScreen() {
         <EventRow event={draft} />
       </View>
 
-      <Button label="일정 등록" icon="check" disabled={!title.trim()} onPress={save} />
+      {failed ? (
+        <View style={[styles.failed, { backgroundColor: palette.tint }]}>
+          <Text style={[styles.failedText, { color: palette.text }]}>{failed}</Text>
+        </View>
+      ) : null}
+
+      <Button
+        label={saving ? '등록하는 중이에요' : '일정 등록'}
+        icon="check"
+        disabled={!title.trim() || saving}
+        onPress={save}
+      />
     </Screen>
   );
 }
@@ -169,6 +194,8 @@ export default function AddEventScreen() {
 const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '800', marginBottom: 8, marginTop: 4 },
   sub: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
+  failed: { borderRadius: 16, padding: 16, marginBottom: 12 },
+  failedText: { fontSize: 13, lineHeight: 20 },
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
   dateRow: {
     flexDirection: 'row',

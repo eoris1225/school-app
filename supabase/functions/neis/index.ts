@@ -16,6 +16,12 @@
  */
 
 import {
+  createAssessment,
+  DbError,
+  deleteAssessment,
+  listAssessments,
+} from '../_shared/assessments.ts';
+import {
   fetchClasses,
   fetchEvents,
   fetchLessons,
@@ -61,8 +67,9 @@ const KEY = Deno.env.get('NEIS_API_KEY');
 
 const CORS = {
   'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
-  'access-control-allow-methods': 'GET, OPTIONS',
+  'access-control-allow-headers':
+    'authorization, x-client-info, apikey, content-type, x-teacher-code',
+  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
 };
 
 /**
@@ -74,6 +81,39 @@ const CACHE = 'public, max-age=600, stale-while-revalidate=3600';
 
 /** 학교 검색 결과를 한 번에 보내는 최대 개수 */
 const SCHOOL_LIMIT = 30;
+
+/**
+ * 수행평가를 등록하거나 지울 수 있는 사람만 아는 암호예요.
+ *
+ * 아직 로그인이 없어서, 이게 없으면 주소만 아는 누구나 전교생 달력에
+ * 아무거나 올릴 수 있어요. 그래서 코드가 설정돼 있지 않으면 쓰기를 아예 막아요.
+ * 읽기는 누구나 할 수 있어요. 수행평가는 원래 학생이 다 보는 거니까요.
+ *
+ *   supabase secrets set TEACHER_CODE=정한암호
+ */
+const TEACHER_CODE = Deno.env.get('TEACHER_CODE');
+
+/**
+ * 선생님 코드가 맞는지 봐요. 안 맞으면 여기서 끝내요.
+ *
+ * 코드는 영문과 숫자로만 정해주세요. HTTP 헤더에는 한글을 실을 수 없어서,
+ * 한글로 정하면 아무리 맞게 넣어도 통과가 안 돼요. 왜 안 되는지 알기 어려운
+ * 함정이라 아래에서 대놓고 알려줘요.
+ */
+function requireTeacher(req: Request) {
+  if (!TEACHER_CODE) {
+    throw new Forbidden('아직 선생님 코드가 설정되지 않았어요. 관리자에게 말해주세요');
+  }
+  if (!/^[\x21-\x7E]+$/.test(TEACHER_CODE)) {
+    console.error('TEACHER_CODE에 영문·숫자가 아닌 글자가 있어요. 한글은 헤더로 못 보내요.');
+    throw new Forbidden('선생님 코드 설정이 잘못됐어요. 영문과 숫자로만 다시 정해주세요');
+  }
+  if (req.headers.get('x-teacher-code') !== TEACHER_CODE) {
+    throw new Forbidden('선생님 코드가 맞지 않아요');
+  }
+}
+
+class Forbidden extends Error {}
 
 function json(body: unknown, status = 200, cache = false) {
   return new Response(JSON.stringify(body), {
@@ -105,6 +145,48 @@ function readInt(v: string | null, field: string, min: number, max: number): num
 
 class BadRequest extends Error {}
 
+/** 등록할 수행평가 내용을 읽어요. 이상한 값은 표까지 보내지 않아요. */
+async function readBody(req: Request) {
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    throw new BadRequest('보낸 내용을 읽을 수 없어요');
+  }
+  const b = raw as Record<string, unknown>;
+
+  const date = readDate(typeof b.date === 'string' ? b.date : null, 'date');
+
+  const title = typeof b.title === 'string' ? b.title.trim() : '';
+  if (title.length < 1 || title.length > 100) {
+    throw new BadRequest('제목은 1자 이상 100자 이하여야 해요');
+  }
+
+  const subject = typeof b.subject === 'string' && b.subject.trim() ? b.subject.trim() : null;
+  if (subject && subject.length > 30) throw new BadRequest('과목 이름이 너무 길어요');
+
+  // 학년은 1~6, 반은 짧은 글자만. 각각 최대 스무 개까지요.
+  const grades = toList(b.grades, 'grades').map((v) => {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 6) throw new BadRequest('학년은 1~6이어야 해요');
+    return n;
+  });
+  const classes = toList(b.classes, 'classes').map((v) => {
+    const s = String(v).trim();
+    if (!s || s.length > 10) throw new BadRequest('반 이름이 이상해요');
+    return s;
+  });
+
+  return { date, title, subject, grades, classes };
+}
+
+function toList(v: unknown, field: string): unknown[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new BadRequest(`${field}는 목록이어야 해요`);
+  if (v.length > 20) throw new BadRequest(`${field}는 스무 개까지예요`);
+  return v;
+}
+
 /** "2026-09-11" 이든 "20260911" 이든 Date로 바꿔요. */
 function asDate(v: string): Date {
   const ymd = v.replace(/-/g, '');
@@ -124,7 +206,7 @@ function checkRange(from: string, to: string) {
   }
 }
 
-async function handle(url: URL): Promise<Response> {
+async function handle(req: Request, url: URL): Promise<Response> {
   const q = url.searchParams;
   const kind = q.get('kind');
   // 학교 검색만 빼고 전부 "어느 학교"가 필요해요.
@@ -167,6 +249,35 @@ async function handle(url: URL): Promise<Response> {
       return json({ classes: await fetchClasses(school, year, KEY) }, 200, true);
     }
 
+    // 수행평가는 NEIS가 아니라 우리 표에서 와요.
+    // 읽기는 누구나, 등록과 지우기는 선생님 코드가 있어야 해요.
+    case 'assessments': {
+      if (req.method === 'GET') {
+        const from = readDate(q.get('from'), 'from');
+        const to = readDate(q.get('to') ?? q.get('from'), 'to');
+        checkRange(from, to);
+        // 캐시를 걸지 않아요. 선생님이 등록하자마자 학생에게 보여야 하니까요.
+        return json({ assessments: await listAssessments(school, from, to) });
+      }
+
+      if (req.method === 'POST') {
+        requireTeacher(req);
+        const body = await readBody(req);
+        return json({ assessment: await createAssessment(school, body) }, 201);
+      }
+
+      if (req.method === 'DELETE') {
+        requireTeacher(req);
+        const id = q.get('id');
+        if (!id) throw new BadRequest('id가 필요해요');
+        const gone = await deleteAssessment(school, id);
+        if (gone === 0) throw new BadRequest('그런 수행평가가 없어요');
+        return json({ deleted: gone });
+      }
+
+      throw new BadRequest('수행평가는 GET, POST, DELETE만 돼요');
+    }
+
     case 'school': {
       const name = q.get('name');
       if (!name) throw new BadRequest('name이 필요해요');
@@ -193,7 +304,9 @@ function termOf(date: string): number {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (req.method !== 'GET') return json({ error: 'GET만 받아요' }, 405);
+  if (!['GET', 'POST', 'DELETE'].includes(req.method)) {
+    return json({ error: 'GET, POST, DELETE만 받아요' }, 405);
+  }
 
   if (!KEY) {
     // 키가 없어도 NEIS는 답하지만 5행에서 잘려요. 조용히 반쪽 데이터를 주는 것보다
@@ -202,9 +315,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    return await handle(new URL(req.url));
+    return await handle(req, new URL(req.url));
   } catch (e) {
     if (e instanceof BadRequest) return json({ error: e.message }, 400);
+    if (e instanceof Forbidden) return json({ error: e.message }, 403);
+    if (e instanceof DbError) {
+      console.error('DB 오류', e.message);
+      return json({ error: '수행평가를 처리하지 못했어요' }, 502);
+    }
     if (e instanceof NeisError) {
       console.error('NEIS 오류', e.code, e.message);
       // 키 문제는 우리 잘못이니 502로 알려요. 그 외는 NEIS가 거절한 거예요.

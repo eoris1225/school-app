@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Appearance } from 'react-native';
 
-import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
+import { loadMySchool, loadTeacherCode, saveMySchool, saveTeacherCode, type MySchool } from '@/lib/my-school';
 import { subjectGroup } from '@/lib/subject';
+import { addAssessment, ApiError, getAssessments, removeAssessment, type Assessment } from '@/lib/api';
 
 import {
   buildPalette,
@@ -46,8 +47,15 @@ type AppContextValue = {
   schoolLoading: boolean;
   /** 내 역할에서 보이는 일정 (학생은 내 학년/반 일정만) */
   events: SchoolEvent[];
-  addEvent: (event: Omit<SchoolEvent, 'id'>) => void;
-  removeEvent: (id: string) => void;
+  /** 수행평가를 서버에 등록해요. 실패하면 왜 안 됐는지 문구를 돌려줘요. */
+  addEvent: (event: Omit<SchoolEvent, 'id'>) => Promise<string | null>;
+  /** 수행평가를 서버에서 지워요. 실패하면 왜 안 됐는지 문구를 돌려줘요. */
+  removeEvent: (id: string) => Promise<string | null>;
+  /** 서버에 담긴 수행평가를 다시 읽어요. */
+  reloadEvents: () => void;
+  /** 선생님 코드. 없으면 등록·삭제를 못 해요. */
+  teacherCode: string;
+  setTeacherCode: (code: string) => void;
   /** 이 일정을 내가 지울 수 있는지 */
   canDelete: (event: SchoolEvent) => boolean;
   /** 내 역할에서 보이는 쪽지 (학생은 내 질문, 선생님은 내 과목 쪽지) */
@@ -62,6 +70,19 @@ type AppContextValue = {
 const AppContext = createContext<AppContextValue | null>(null);
 
 const readSystemScheme = (): Scheme => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+
+/** 서버가 준 수행평가를 화면이 쓰는 모양으로 바꿔요. */
+function fromAssessment(a: Assessment): SchoolEvent {
+  return {
+    id: a.id,
+    date: a.date,
+    title: a.title,
+    kind: 'assessment',
+    subject: (a.subject ?? undefined) as SchoolEvent['subject'],
+    grades: a.grades,
+    classes: a.classes,
+  };
+}
 
 export const isPending = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'student';
 
@@ -83,6 +104,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
   const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
+  const [teacherCode, setTeacherCodeState] = useState('');
+  // 달력을 다시 읽게 만드는 값이에요. 등록·삭제 뒤에 올려요.
+  const [eventsNonce, setEventsNonce] = useState(0);
   const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
   const now = useNow();
 
@@ -99,6 +123,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    loadTeacherCode().then((code) => {
+      if (alive) setTeacherCodeState(code);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const reloadEvents = useCallback(() => setEventsNonce((n) => n + 1), []);
+
+  // 학교가 정해지면 그 학교 수행평가를 받아와요. 등록·삭제 뒤에도 다시 읽어요.
+  // 한 해치를 한 번에 받아둬요. 달을 넘길 때마다 부르면 느려요.
+  const year = now.getFullYear();
+  useEffect(() => {
+    if (!school) return;
+    let alive = true;
+    getAssessments(`${year}-01-01`, `${year}-12-31`, school)
+      .then((list) => {
+        if (alive) setAllEvents(list.map(fromAssessment));
+      })
+      .catch(() => {
+        // 못 읽어도 앱은 돌아가야 해요. 달력이 비어 보일 뿐이에요.
+        if (alive) setAllEvents([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [school, year, eventsNonce]);
+
+  const setTeacherCode = useCallback((code: string) => {
+    const trimmed = code.trim();
+    setTeacherCodeState(trimmed);
+    void saveTeacherCode(trimmed);
   }, []);
 
   const setSchool = useCallback((next: MySchool) => {
@@ -121,13 +182,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return buildPalette(theme.accent, scheme);
   }, [themeKey, scheme]);
 
-  const addEvent = useCallback((event: Omit<SchoolEvent, 'id'>) => {
-    setAllEvents((prev) => [...prev, { ...event, id: `e${Date.now()}` }]);
-  }, []);
+  /**
+   * 수행평가를 서버에 등록해요.
+   *
+   * 예전에는 앱 안에만 담았어요. 그러면 등록한 선생님 기기에만 남고 학생은
+   * 못 봐요. 이제 서버에 담아서 같은 학교 사람 모두가 봐요.
+   *
+   * 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요.
+   */
+  const addEvent = useCallback(
+    async (event: Omit<SchoolEvent, 'id'>): Promise<string | null> => {
+      if (!school) return '학교를 먼저 골라주세요';
+      if (!teacherCode) return '선생님 코드를 먼저 넣어주세요. 내 정보에서 넣을 수 있어요';
+      try {
+        const saved = await addAssessment(
+          {
+            date: event.date,
+            title: event.title,
+            subject: event.subject ?? null,
+            grades: event.grades,
+            classes: event.classes,
+          },
+          teacherCode,
+          school,
+        );
+        // 서버가 준 id로 바로 화면에 올려요. 다시 받아오지 않아도 돼요.
+        setAllEvents((prev) => [...prev, fromAssessment(saved)]);
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '등록하지 못했어요';
+      }
+    },
+    [school, teacherCode],
+  );
 
-  const removeEvent = useCallback((id: string) => {
-    setAllEvents((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+  const removeEvent = useCallback(
+    async (id: string): Promise<string | null> => {
+      if (!school) return '학교를 먼저 골라주세요';
+      if (!teacherCode) return '선생님 코드를 먼저 넣어주세요. 내 정보에서 넣을 수 있어요';
+      try {
+        await removeAssessment(id, teacherCode, school);
+        setAllEvents((prev) => prev.filter((e) => e.id !== id));
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '지우지 못했어요';
+      }
+    },
+    [school, teacherCode],
+  );
 
   const askQuestion = useCallback((subject: Subject, text: string) => {
     const message: Message = { id: `m${Date.now()}`, from: 'student', author: STUDENT.name, text, time: '방금' };
@@ -231,6 +333,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events,
       addEvent,
       removeEvent,
+      reloadEvents,
+      teacherCode,
+      setTeacherCode,
       canDelete,
       threads,
       askQuestion,
@@ -252,6 +357,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     allThreads,
     addEvent,
     removeEvent,
+    reloadEvents,
+    teacherCode,
+    setTeacherCode,
     canDelete,
     askQuestion,
     sendMessage,
