@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Card, Chip, Divider, Empty, Header, IconButton, Screen, SectionTitle } from '@/components/ui';
+import { Button, Chip, Divider, Empty, Header, IconButton, Screen, SectionTitle } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
 import type { EventKind, SchoolEvent } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
@@ -78,7 +78,7 @@ export default function CalendarScreen() {
         <Chip label="수행평가" selected={filter === 'assessment'} onPress={() => setFilter('assessment')} />
       </View>
 
-      <Card style={styles.calendarCard}>
+      <View style={[styles.calendarCard, { backgroundColor: palette.surface }]}>
         <View style={styles.weekRow}>
           {DOW.map((d, i) => (
             <Text key={d} style={[styles.dow, { color: weekendColor(i, palette.sub) }]}>
@@ -142,10 +142,10 @@ export default function CalendarScreen() {
           <Text style={[styles.legendText, { color: palette.sub }]}>학사일정</Text>
           <Text style={[styles.legendText, { color: palette.sub, marginLeft: 12 }]}>수행평가는 과목 색으로 표시돼요</Text>
         </View>
-      </Card>
+      </View>
 
       <SectionTitle title={formatDay(fromYmd(selected))} />
-      <Card style={styles.listCard}>
+      <View>
         {dayEvents.length === 0 ? <Empty text="이날은 일정이 없어요" /> : null}
         {dayEvents.map((e, i) => (
           <View key={e.id}>
@@ -174,7 +174,7 @@ export default function CalendarScreen() {
             ) : null}
           </View>
         ))}
-      </Card>
+      </View>
       {teacher ? <Button label="이 날짜에 일정 추가" icon="plus" variant="secondary" onPress={openAdd} /> : null}
     </Screen>
   );
@@ -183,13 +183,13 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  monthText: { fontSize: 19, fontWeight: '800' },
+  monthText: { fontSize: 18, fontWeight: '800' },
   monthNav: { flexDirection: 'row', gap: 8 },
-  filters: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  filters: { flexDirection: 'row', gap: 8, marginBottom: 12 },
 
-  calendarCard: { paddingHorizontal: 8, paddingVertical: 12 },
+  calendarCard: { borderRadius: 22, paddingHorizontal: 8, paddingVertical: 12 },
   weekRow: { flexDirection: 'row' },
-  dow: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingBottom: 6 },
+  dow: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', paddingBottom: 4 },
   cell: { flex: 1, height: 54, alignItems: 'center', paddingTop: 2 },
   dayCircle: {
     width: 38,
@@ -200,15 +200,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayText: { fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  dayText: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
   dayTextBold: { fontWeight: '800' },
-  marks: { flexDirection: 'row', gap: 3, marginTop: 3, height: 7 },
+  marks: { flexDirection: 'row', gap: 4, marginTop: 4, height: 7 },
   mark: { width: 7, height: 7, borderRadius: 4 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 10 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, paddingHorizontal: 8 },
   legendText: { fontSize: 12, fontWeight: '600' },
 
-  listCard: { paddingVertical: 6 },
-  confirm: { borderRadius: 16, padding: 14, marginBottom: 12, gap: 12 },
-  confirmText: { fontSize: 14, fontWeight: '600', lineHeight: 21 },
+  confirm: { borderRadius: 16, padding: 12, marginBottom: 12, gap: 12 },
+  confirmText: { fontSize: 13, fontWeight: '600', lineHeight: 21 },
   confirmButtons: { flexDirection: 'row', gap: 8 },
 });

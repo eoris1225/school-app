@@ -73,12 +73,12 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 14, paddingTop: 6 },
+  wrap: { paddingHorizontal: 12, paddingTop: 4 },
   bar: {
     flexDirection: 'row',
     borderWidth: 1.5,
     borderRadius: 30,
-    padding: 6,
+    padding: 4,
     width: '100%',
     alignSelf: 'center',
   },
@@ -86,12 +86,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
     paddingVertical: 8,
     borderRadius: 24,
     minHeight: 58,
   },
-  label: { fontSize: 11 },
+  label: { fontSize: 12 },
   badge: {
     position: 'absolute',
     top: -6,
@@ -104,5 +104,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { fontSize: 11, fontWeight: '800' },
+  badgeText: { fontSize: 12, fontWeight: '800' },
 });

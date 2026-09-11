@@ -368,24 +368,24 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   shell: { flex: 1 },
   shellContent: { paddingBottom: 24 },
-  column: { width: '100%', alignSelf: 'center', paddingHorizontal: 22 },
+  column: { width: '100%', alignSelf: 'center', paddingHorizontal: 20 },
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 20 },
   topDate: { fontSize: 12, fontWeight: '600', opacity: 0.85 },
   topName: { fontSize: 15, fontWeight: '700', marginTop: 1 },
 
-  heroLabel: { fontSize: 14, fontWeight: '600', opacity: 0.9 },
-  heroBig: { fontSize: 33, lineHeight: 42, fontWeight: '700', letterSpacing: -1, marginTop: 3 },
-  heroBigCompact: { fontSize: 27, lineHeight: 35 },
-  heroLine: { fontSize: 14, fontWeight: '500', opacity: 0.9, marginTop: 6 },
+  heroLabel: { fontSize: 13, fontWeight: '600', opacity: 0.9 },
+  heroBig: { fontSize: 32, lineHeight: 42, fontWeight: '700', letterSpacing: -1, marginTop: 4 },
+  heroBigCompact: { fontSize: 24, lineHeight: 35 },
+  heroLine: { fontSize: 13, fontWeight: '500', opacity: 0.9, marginTop: 4 },
 
-  dots: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, height: 10 },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 16, height: 10 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   dotNow: { width: 22, borderRadius: 4 },
 
-  tiles: { flexDirection: 'row', gap: 16, paddingTop: 26, paddingBottom: 8 },
+  tiles: { flexDirection: 'row', gap: 16, paddingTop: 24, paddingBottom: 8 },
 
-  head: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26, marginBottom: 10 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 8 },
   headTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3, flexShrink: 1 },
   headValue: { fontSize: 13, fontWeight: '600', flex: 1 },
   headAction: { flexDirection: 'row', alignItems: 'center', gap: 1 },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, lineHeight: 23, fontWeight: '500' },
   line: { height: 1, opacity: 0.7 },
 
-  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   ddayChip: { minWidth: 48, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center' },
   ddayText: { fontSize: 12, fontWeight: '700' },
   eventTitle: { fontSize: 15, fontWeight: '600' },

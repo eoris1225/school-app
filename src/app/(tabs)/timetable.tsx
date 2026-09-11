@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { subjectIcon } from '@/components/icon';
-import { Card, Chip, ChipRow, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
+import { Tap } from '@/components/motion';
+import { Chip, ChipRow, Divider, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
   CLASSES,
@@ -67,26 +68,26 @@ export default function TimetableScreen() {
             {WEEKDAYS.map((d) => {
               const selected = d === day;
               return (
-                <Pressable
+                <Tap
                   key={d}
                   onPress={() => setDay(d)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected }}
                   accessibilityLabel={`${d}요일${d === today ? ', 오늘' : ''}`}
+                  depth={0.05}
                   style={[
                     styles.dayTab,
-                    selected
-                      ? { backgroundColor: palette.accent, borderColor: palette.accent }
-                      : { borderColor: d === today ? palette.accent : palette.line },
+                    selected && { backgroundColor: palette.accent },
+                    !selected && d === today && { backgroundColor: palette.tint },
                   ]}>
                   <Text style={[styles.dayTabText, { color: selected ? palette.onAccent : palette.text }]}>{d}</Text>
-                </Pressable>
+                </Tap>
               );
             })}
           </View>
 
-          <Card style={styles.dayCard}>
-            {week[day].map((subject, i) => {
+          <View>
+            {week[day].map((subject, i, arr) => {
               const period = i + 1;
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
@@ -120,13 +121,14 @@ export default function TimetableScreen() {
                     </View>
                     {isNow ? <Tag label="지금" tone="solid" /> : null}
                   </View>
+                  {i < arr.length - 1 && period !== LUNCH.afterPeriod ? <Divider /> : null}
                 </View>
               );
             })}
-          </Card>
+          </View>
         </>
       ) : (
-        <Card style={styles.weekCard}>
+        <View>
           <View style={styles.weekRow}>
             <View style={styles.weekPeriodCell} />
             {WEEKDAYS.map((d) => (
@@ -173,7 +175,7 @@ export default function TimetableScreen() {
               </View>
             </View>
           ))}
-        </Card>
+        </View>
       )}
     </Screen>
   );
@@ -181,23 +183,21 @@ export default function TimetableScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  classPicker: { marginBottom: 14 },
+  classPicker: { marginBottom: 12 },
 
-  dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  dayTab: { flex: 1, height: 44, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  dayTab: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   dayTabText: { fontSize: 15, fontWeight: '800' },
 
-  dayCard: { padding: 8 },
-  periodRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 16 },
-  subjectRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
+  periodRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, marginHorizontal: -12, borderRadius: 16 },
+  subjectRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   periodTag: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  subject: { fontSize: 16, fontWeight: '800' },
-  metaRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  subject: { fontSize: 15, fontWeight: '800' },
+  metaRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
   periodMeta: { fontSize: 12, fontVariant: ['tabular-nums'] },
-  lunch: { borderTopWidth: 1.5, borderBottomWidth: 1.5, borderStyle: 'dashed', paddingVertical: 10, marginVertical: 6, marginHorizontal: 12 },
+  lunch: { borderTopWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', paddingVertical: 12, marginVertical: 8 },
   lunchText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
-  weekCard: { padding: 10 },
   weekRow: { flexDirection: 'row' },
   weekPeriodCell: { width: 26, alignItems: 'center', justifyContent: 'center' },
   weekPeriod: { fontSize: 12, fontWeight: '800' },
@@ -205,6 +205,6 @@ const styles = StyleSheet.create({
   weekHeadText: { fontSize: 13, fontWeight: '800' },
   weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 2, borderRadius: 12 },
   weekCellText: { fontSize: 12, fontWeight: '700' },
-  weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 5, paddingTop: 5 },
-  weekLunchText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 4, paddingTop: 4 },
+  weekLunchText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
 });

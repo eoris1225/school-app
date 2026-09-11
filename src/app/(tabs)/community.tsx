@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Card, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
+import { Button, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { SUBJECT_TEACHERS, SUBJECTS, TEACHER, type Subject, type Thread } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
 
@@ -36,9 +36,8 @@ function StudentCommunity() {
     <Screen>
       <Header subtitle="선생님께 묻고 답을 받아요" title="커뮤니티" />
 
-      <Card>
-        <Text style={[styles.cardTitle, { color: palette.text }]}>선생님께 질문하기</Text>
-        <Text style={[styles.help, { color: palette.sub }]}>과목을 고르면 그 과목 선생님들께 쪽지가 전달돼요.</Text>
+      <SectionTitle title="선생님께 질문하기" />
+      <Text style={[styles.help, { color: palette.sub }]}>과목을 고르면 그 과목 선생님들께 쪽지가 전달돼요.</Text>
 
         <View style={styles.subjects}>
           <ChipRow>
@@ -75,8 +74,7 @@ function StudentCommunity() {
           style={styles.input}
         />
         <Button label={subject ? `${subject} 선생님께 보내기` : '과목을 먼저 골라주세요'} icon="send" disabled={!canSend} onPress={send} />
-        {sentTo ? <Text style={[styles.sent, { color: palette.accentDeep }]}>{sentTo}</Text> : null}
-      </Card>
+      {sentTo ? <Text style={[styles.sent, { color: palette.accentDeep }]}>{sentTo}</Text> : null}
 
       <SectionTitle title="내 질문" />
       {threads.length === 0 ? <Empty text="아직 보낸 질문이 없어요" /> : null}
@@ -119,14 +117,13 @@ function TeacherInbox() {
 }
 
 const styles = StyleSheet.create({
-  cardTitle: { fontSize: 16, fontWeight: '800' },
   help: { fontSize: 13, lineHeight: 19, marginTop: 4 },
-  subjects: { marginTop: 14, marginHorizontal: -18, paddingLeft: 18 },
+  subjects: { marginTop: 12, marginHorizontal: -20, paddingLeft: 20 },
   to: { fontSize: 13, fontWeight: '700', marginTop: 12 },
   input: {
     borderRadius: 16,
     minHeight: 110,
-    padding: 14,
+    padding: 12,
     lineHeight: 21,
     textAlignVertical: 'top',
     marginTop: 12,

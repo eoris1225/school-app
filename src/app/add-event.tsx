@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { BackHeader, Button, Card, Chip, ChipRow, Empty, Field, goBack, IconButton, Screen, Segmented } from '@/components/ui';
+import { BackHeader, Button, Chip, ChipRow, Empty, Field, goBack, IconButton, Screen, Segmented } from '@/components/ui';
 import { classLabel, SUBJECTS, TEACHER, type EventKind, type Subject } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { addDays, formatDay, fromYmd, toYmd } from '@/lib/time';
@@ -67,7 +67,7 @@ export default function AddEventScreen() {
       />
 
       <Text style={[styles.label, { color: palette.text }]}>날짜</Text>
-      <View style={[styles.dateRow, { borderColor: palette.line }]}>
+      <View style={[styles.dateRow, { backgroundColor: palette.tint }]}>
         <IconButton icon="back" label="하루 전" onPress={() => setDate((d) => addDays(d, -1))} />
         <Text style={[styles.dateText, { color: palette.text }]}>{formatDay(date)}</Text>
         <IconButton icon="next" label="하루 뒤" onPress={() => setDate((d) => addDays(d, 1))} />
@@ -96,9 +96,9 @@ export default function AddEventScreen() {
       ) : null}
 
       <Text style={[styles.label, { color: palette.text }]}>학생에게는 이렇게 보여요</Text>
-      <Card style={styles.preview}>
+      <View style={[styles.preview, { backgroundColor: palette.tint }]}>
         <EventRow event={draft} />
-      </Card>
+      </View>
 
       <Button label="일정 등록" icon="check" disabled={!title.trim()} onPress={save} />
     </Screen>
@@ -106,18 +106,17 @@ export default function AddEventScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 14, fontWeight: '800', marginBottom: 8, marginTop: 6 },
+  label: { fontSize: 13, fontWeight: '800', marginBottom: 8, marginTop: 4 },
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1.5,
     borderRadius: 20,
-    padding: 6,
+    padding: 4,
     marginBottom: 16,
   },
   dateText: { fontSize: 15, fontWeight: '800' },
   chips: { marginBottom: 16, marginRight: -20 },
-  preview: { paddingVertical: 4 },
+  preview: { borderRadius: 20, paddingHorizontal: 16, marginBottom: 16 },
 });
