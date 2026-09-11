@@ -1,4 +1,5 @@
 import type { Scheme } from '@/constants/themes';
+import { subjectGroup, type SubjectGroup } from '@/lib/subject';
 
 /**
  * 과목과 일정 종류마다 쓰는 포인트 색이에요.
@@ -16,6 +17,7 @@ export type ToneKey =
   | 'green'
   | 'pink'
   | 'lime'
+  | 'clay'
   | 'slate';
 
 export type ToneColor = { bg: string; fg: string };
@@ -36,6 +38,7 @@ export const SOLID: Record<ToneKey, string> = {
   green: '#3BB35F',
   pink: '#EC4899',
   lime: '#9CC22F',
+  clay: '#A97F5F',
   slate: '#8A93A5',
 };
 
@@ -50,35 +53,50 @@ const TONES: Record<ToneKey, Record<Scheme, ToneColor>> = {
   green: { light: { bg: '#E7F1E7', fg: '#3A6B45' }, dark: { bg: '#162217', fg: '#88BC92' } },
   pink: { light: { bg: '#F9EAF2', fg: '#9A4B7B' }, dark: { bg: '#2A1823', fg: '#DB96BC' } },
   lime: { light: { bg: '#EFF2E0', fg: '#5E6C2B' }, dark: { bg: '#1F2213', fg: '#B1C077' } },
+  clay: { light: { bg: '#F1EDE7', fg: '#6B5344' }, dark: { bg: '#221E1A', fg: '#BFAA97' } },
   slate: { light: { bg: '#ECEDF1', fg: '#525762' }, dark: { bg: '#1D1F26', fg: '#A4AAB8' } },
 };
 
-/** 과목마다 고정된 색이에요. 오늘 바뀌고 내일 달라지면 헷갈리니까 표로 박아 뒀어요. */
-const SUBJECT_TONES: Record<string, ToneKey> = {
+/**
+ * 교과군마다 고정된 색이에요. 오늘 바뀌고 내일 달라지면 헷갈리니까 표로 박아 뒀어요.
+ *
+ * 과목 이름이 아니라 교과군으로 정하는 이유는, NEIS가 "국어"가 아니라
+ * "공통국어2" "고전 읽기" "독서와 작문"처럼 선택과목 이름을 주기 때문이에요.
+ * 어떤 이름이 어느 교과군인지는 `src/lib/subject.ts` 가 정해요.
+ *
+ * 색을 같이 쓰는 곳이 두 군데 있어요.
+ *   영어와 외국어  — 둘 다 언어 과목이라 묶었어요 (영어Ⅱ, 일본 문화)
+ *   정보와 기술·가정 — 교육과정에서 원래 한 교과군이에요
+ */
+const GROUP_TONES: Record<SubjectGroup, ToneKey> = {
   국어: 'rose',
   수학: 'blue',
   영어: 'violet',
+  외국어: 'violet',
   과학: 'teal',
   사회: 'amber',
-  한국사: 'orange',
+  역사: 'orange',
   정보: 'indigo',
   체육: 'green',
   음악: 'pink',
   미술: 'lime',
-  자율활동: 'slate',
-  동아리: 'slate',
-  진로: 'slate',
+  교양: 'clay',
+  창체: 'slate',
+  휴일: 'slate',
+  기타: 'slate',
 };
 
-/** 표에 없는 이름은 글자를 더해서 색을 정해요. 같은 이름이면 늘 같은 색이 나와요. */
-const FALLBACK: ToneKey[] = ['rose', 'blue', 'violet', 'teal', 'amber', 'orange', 'indigo', 'green', 'pink', 'lime'];
+/**
+ * 과목이 아닌 라벨이에요. 달력에서 일정 종류를 칠할 때 써요.
+ * 과목 분류를 거치지 않고 여기서 바로 색을 정해요.
+ */
+const LABEL_TONES: Record<string, ToneKey> = {
+  학사일정: 'rose',
+  수행평가: 'violet',
+};
 
 export function toneKeyFor(name: string): ToneKey {
-  const known = SUBJECT_TONES[name];
-  if (known) return known;
-  let sum = 0;
-  for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
-  return FALLBACK[sum % FALLBACK.length];
+  return LABEL_TONES[name] ?? GROUP_TONES[subjectGroup(name)];
 }
 
 export function tone(key: ToneKey, scheme: Scheme): ToneColor {
