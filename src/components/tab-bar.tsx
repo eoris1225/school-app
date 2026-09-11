@@ -1,7 +1,9 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icon';
+import { SlidingPill, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 
 import { useApp } from '@/lib/app-state';
@@ -10,6 +12,7 @@ import { useLayout } from '@/lib/layout';
 export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { palette, role, badgeCount } = useApp();
   const { content } = useLayout();
+  const [track, setTrack] = useState(0);
   const teacher = role === 'teacher';
 
   const meta: Record<string, { label: string; icon: IconName }> = {
@@ -23,7 +26,14 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   return (
     <View style={[styles.wrap, { backgroundColor: palette.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View
+        onLayout={(e) => setTrack(e.nativeEvent.layout.width - 12)}
         style={[styles.bar, { maxWidth: Math.min(content, 640), borderColor: palette.line, backgroundColor: palette.surface }]}>
+        <SlidingPill
+          index={state.index}
+          count={state.routes.length}
+          width={track}
+          style={{ top: 6, bottom: 6, left: 6, borderRadius: 24, backgroundColor: palette.tint }}
+        />
         {state.routes.map((route, index) => {
           const focused = state.index === index;
           const item = meta[route.name];
@@ -37,13 +47,14 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
           };
 
           return (
-            <Pressable
+            <Tap
               key={route.key}
               onPress={onPress}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={showBadge ? `${item.label}, 새 소식 ${badgeCount}개` : item.label}
-              style={[styles.item, focused && { backgroundColor: palette.tint }]}>
+              depth={0.06}
+              style={styles.item}>
               <View>
                 <Icon name={item.icon} size={24} color={color} />
                 {showBadge ? (
@@ -52,8 +63,8 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.label, { color, fontWeight: focused ? '800' : '600' }]}>{item.label}</Text>
-            </Pressable>
+              <Text style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}>{item.label}</Text>
+            </Tap>
           );
         })}
       </View>
