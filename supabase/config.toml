@@ -1,0 +1,9 @@
+# Supabase 프로젝트 설정이에요.
+# supabase CLI가 이 파일을 보고 어떤 함수를 배포할지 알아요.
+
+project_id = "school-app"
+
+[functions.neis]
+# NEIS 데이터는 학생 누구나 봐도 되는 공개 정보라서 로그인을 요구하지 않아요.
+# 대신 이 함수는 읽기만 하고 아무것도 저장하지 않아요.
+verify_jwt = false
