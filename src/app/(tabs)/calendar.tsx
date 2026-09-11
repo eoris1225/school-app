@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Card, Chip, Divider, Empty, Header, IconButton, Screen, SectionTitle } from '@/components/ui';
-import type { EventKind } from '@/data/mock';
+import { subjectTone } from '@/constants/tones';
+import type { EventKind, SchoolEvent } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 
@@ -21,8 +22,12 @@ export default function CalendarScreen() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const shown = events.filter((e) => filter === 'all' || e.kind === filter);
-  const byDate = new Map<string, EventKind[]>();
-  shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e.kind]));
+  const byDate = new Map<string, SchoolEvent[]>();
+  shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]));
+
+  // 날짜 밑 점은 그 일정의 과목 색으로 찍어요.
+  const markColor = (e: SchoolEvent) =>
+    subjectTone(e.kind === 'assessment' ? (e.subject ?? '수행평가') : '학사일정', palette.scheme).fg;
   const dayEvents = shown.filter((e) => e.date === selected);
 
   const firstDow = new Date(cursor.y, cursor.m, 1).getDay();
@@ -88,7 +93,7 @@ export default function CalendarScreen() {
               const ymd = toYmd(new Date(cursor.y, cursor.m, day));
               const isToday = ymd === toYmd(now);
               const isSelected = ymd === selected;
-              const kinds = byDate.get(ymd) ?? [];
+              const marks = byDate.get(ymd) ?? [];
               return (
                 <Pressable
                   key={di}
@@ -98,7 +103,7 @@ export default function CalendarScreen() {
                   }}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={`${cursor.m + 1}월 ${day}일${isToday ? ', 오늘' : ''}${kinds.length ? `, 일정 ${kinds.length}개` : ''}`}
+                  accessibilityLabel={`${cursor.m + 1}월 ${day}일${isToday ? ', 오늘' : ''}${marks.length ? `, 일정 ${marks.length}개` : ''}`}
                   style={styles.cell}>
                   <View
                     style={[
@@ -122,14 +127,8 @@ export default function CalendarScreen() {
                     </Text>
                   </View>
                   <View style={styles.marks}>
-                    {kinds.slice(0, 3).map((k, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.mark,
-                          { backgroundColor: k === 'assessment' ? palette.accent : palette.tintMid },
-                        ]}
-                      />
+                    {marks.slice(0, 3).map((e, i) => (
+                      <View key={i} style={[styles.mark, { backgroundColor: markColor(e) }]} />
                     ))}
                   </View>
                 </Pressable>
@@ -138,10 +137,9 @@ export default function CalendarScreen() {
           </View>
         ))}
         <View style={styles.legend}>
-          <View style={[styles.mark, { backgroundColor: palette.tintMid }]} />
+          <View style={[styles.mark, { backgroundColor: subjectTone('학사일정', palette.scheme).fg }]} />
           <Text style={[styles.legendText, { color: palette.sub }]}>학사일정</Text>
-          <View style={[styles.mark, { backgroundColor: palette.accent, marginLeft: 12 }]} />
-          <Text style={[styles.legendText, { color: palette.sub }]}>수행평가</Text>
+          <Text style={[styles.legendText, { color: palette.sub, marginLeft: 12 }]}>수행평가는 과목 색으로 표시돼요</Text>
         </View>
       </Card>
 

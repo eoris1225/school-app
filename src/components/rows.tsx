@@ -31,7 +31,11 @@ export function EventRow({
       <View style={styles.eventBody}>
         <Text style={[styles.eventTitle, { color: palette.text }]}>{event.title}</Text>
         <View style={styles.eventMeta}>
-          <Tag label={kindLabel} tone={event.kind === 'assessment' ? 'solid' : 'soft'} />
+          <Tag
+            label={kindLabel}
+            tone="plain"
+            subject={event.kind === 'assessment' ? (event.subject ?? '수행평가') : '학사일정'}
+          />
           <Text style={[styles.eventTarget, { color: palette.sub }]}>{event.target}</Text>
         </View>
       </View>
@@ -74,7 +78,7 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
       accessibilityLabel={`${thread.subject} 쪽지, ${title}, ${pending ? '답변 대기' : '답변 완료'}${unread ? ', 새 소식' : ''}`}
       style={({ pressed }) => [styles.threadRow, { borderColor: palette.line }, pressed && { opacity: 0.6 }]}>
       <View style={styles.threadTop}>
-        <Tag label={thread.subject} tone="soft" />
+        <Tag label={thread.subject} subject={thread.subject} />
         <Text style={[styles.threadTitle, { color: palette.text }]} numberOfLines={1}>
           {title}
         </Text>

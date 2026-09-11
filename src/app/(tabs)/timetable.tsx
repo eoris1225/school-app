@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { Card, Chip, ChipRow, Header, Screen, Segmented, Tag } from '@/components/ui';
+import { subjectIcon } from '@/components/icon';
+import { Card, Chip, ChipRow, Header, IconChip, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
   CLASSES,
@@ -16,6 +17,7 @@ import {
   type ClassId,
   type Weekday,
 } from '@/data/mock';
+import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
 import { currentPeriod, weekdayOf } from '@/lib/time';
 
@@ -89,6 +91,7 @@ export default function TimetableScreen() {
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
               const who = teacherFor(subject, cls);
+              const st = subjectTone(subject, palette.scheme);
               return (
                 <View key={period}>
                   {period === LUNCH.afterPeriod + 1 ? (
@@ -99,12 +102,15 @@ export default function TimetableScreen() {
                     </View>
                   ) : null}
                   <View
-                    style={[styles.periodRow, isNow && { backgroundColor: palette.tint }]}
+                    style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessible
                     accessibilityLabel={`${period}교시 ${subject}${who ? `, ${who}` : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}`}>
-                    <Text style={[styles.periodNum, { color: isNow ? palette.accentDeep : palette.sub }]}>{period}</Text>
+                    <IconChip icon={subjectIcon(subject)} subject={subject} size={42} />
                     <View style={styles.fill}>
-                      <Text style={[styles.subject, { color: palette.text }]}>{subject}</Text>
+                      <View style={styles.subjectRow}>
+                        <Text style={[styles.periodTag, { color: st.fg }]}>{period}교시</Text>
+                        <Text style={[styles.subject, { color: palette.text }]}>{subject}</Text>
+                      </View>
                       <View style={styles.metaRow}>
                         <Text style={[styles.periodMeta, { color: palette.sub }]}>
                           {bell.start}–{bell.end}
@@ -143,18 +149,19 @@ export default function TimetableScreen() {
                 {WEEKDAYS.map((d) => {
                   const subject = week[d][i];
                   const isNow = d === today && bell.period === nowPeriod;
+                  const st = subjectTone(subject, palette.scheme);
                   return (
                     <View
                       key={d}
                       style={[
                         styles.weekCell,
-                        d === today && { backgroundColor: palette.tint },
-                        isNow && { backgroundColor: palette.accent },
+                        { backgroundColor: st.bg },
+                        isNow && { backgroundColor: palette.accent, borderColor: palette.accent },
                       ]}
                       accessible
-                      accessibilityLabel={`${d}요일 ${bell.period}교시 ${subject}`}>
+                      accessibilityLabel={`${d}요일 ${bell.period}교시 ${subject}${isNow ? ', 지금 수업 중' : ''}`}>
                       <Text
-                        style={[styles.weekCellText, { color: isNow ? palette.onAccent : palette.text }]}
+                        style={[styles.weekCellText, { color: isNow ? palette.onAccent : st.fg }]}
                         numberOfLines={1}>
                         {shortSubject(subject)}
                       </Text>
@@ -180,7 +187,8 @@ const styles = StyleSheet.create({
 
   dayCard: { padding: 8 },
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 16 },
-  periodNum: { width: 28, fontSize: 24, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  subjectRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
+  periodTag: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   subject: { fontSize: 18, fontWeight: '800' },
   metaRow: { flexDirection: 'row', gap: 10, marginTop: 2 },
   periodMeta: { fontSize: 14, fontVariant: ['tabular-nums'] },
@@ -193,7 +201,7 @@ const styles = StyleSheet.create({
   weekPeriod: { fontSize: 14, fontWeight: '800' },
   weekHead: { flex: 1, alignItems: 'center', paddingVertical: 8, marginHorizontal: 1, borderRadius: 10 },
   weekHeadText: { fontSize: 15, fontWeight: '800' },
-  weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 1, borderRadius: 10 },
+  weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 2, borderRadius: 12 },
   weekCellText: { fontSize: 14, fontWeight: '700' },
   weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 5, paddingTop: 5 },
   weekLunchText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },

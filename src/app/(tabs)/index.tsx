@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Icon, type IconName } from '@/components/icon';
+import { Icon, subjectIcon, type IconName } from '@/components/icon';
 import { Text } from '@/components/text';
-import { Avatar, MAX_WIDTH } from '@/components/ui';
+import { Avatar, IconChip } from '@/components/ui';
 import {
   BELL,
   classLabel,
@@ -16,6 +16,7 @@ import {
   type SchoolEvent,
   type Weekday,
 } from '@/data/mock';
+import { subjectTone, tone as toneColor, type ToneKey } from '@/constants/tones';
 import { isPending, useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 import { currentPeriod, dday, formatDay, fromYmd, schoolStatus, toYmd, weekdayOf, type SchoolStatus } from '@/lib/time';
@@ -31,6 +32,8 @@ export default function HomeScreen() {
  * 스크롤 없이 한 화면에 들어가는 홈이에요.
  * 위쪽은 테마색 밴드, 아래쪽은 카드 영역으로 나뉘어요.
  */
+const OVERLAP = 34;
+
 function HomeShell({ band, children }: { band: React.ReactNode; children: React.ReactNode }) {
   const { palette } = useApp();
   const insets = useSafeAreaInsets();
@@ -42,11 +45,21 @@ function HomeShell({ band, children }: { band: React.ReactNode; children: React.
         style={[
           styles.band,
           compact && styles.bandCompact,
-          { backgroundColor: palette.accent, paddingTop: insets.top + (compact ? 6 : 10) },
+          {
+            backgroundColor: palette.band,
+            paddingTop: insets.top + (compact ? 6 : 10),
+            paddingBottom: OVERLAP + (compact ? 8 : 14),
+          },
         ]}>
         <View style={[styles.bandInner, { maxWidth: home }]}>{band}</View>
       </View>
-      <View style={[styles.body, compact && styles.bodyCompact, short && styles.bodyAuto, { maxWidth: home }]}>
+      <View
+        style={[
+          styles.body,
+          compact && styles.bodyCompact,
+          short && styles.bodyAuto,
+          { maxWidth: home, marginTop: -OVERLAP },
+        ]}>
         {children}
       </View>
     </>
@@ -92,7 +105,10 @@ function BandTop({ title }: { title: string }) {
 }
 
 /** 예시 이미지처럼 밴드 안에 들어가는 3칸 요약 */
-function StatStrip({ items }: { items: { label: string; value: string; sub: string; onPress: () => void }[] }) {
+type StatItem = { label: string; value: string; sub: string; tone: ToneKey; onPress: () => void };
+
+/** 컬러 밴드를 살짝 덮고 올라앉는 흰 요약 카드예요. 항목마다 다른 포인트 색을 써요. */
+function StatStrip({ items }: { items: StatItem[] }) {
   const { palette } = useApp();
   const { compact } = useLayout();
   return (
@@ -100,26 +116,34 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
       style={[
         styles.strip,
         compact && styles.stripCompact,
-        { backgroundColor: palette.onAccent + '26', borderColor: palette.onAccent + '33' },
+        { backgroundColor: palette.surface, borderColor: palette.line, shadowColor: palette.shadow },
       ]}>
-      {items.map((it, i) => (
-        <View key={it.label} style={styles.fill}>
-          {i > 0 ? <View style={[styles.stripLine, { backgroundColor: palette.onAccent + '40' }]} /> : null}
-          <Pressable
-            onPress={it.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={`${it.label} ${it.value} ${it.sub}`}
-            style={({ pressed }) => [styles.stripItem, compact && styles.stripItemCompact, pressed && styles.pressed]}>
-            <Text style={[styles.stripLabel, { color: palette.onAccent }]}>{it.label}</Text>
-            <Text style={[styles.stripValue, { color: palette.onAccent }, compact && styles.stripValueCompact]} numberOfLines={1}>
-              {it.value}
-            </Text>
-            <Text style={[styles.stripSub, { color: palette.onAccent }]} numberOfLines={1}>
-              {it.sub}
-            </Text>
-          </Pressable>
-        </View>
-      ))}
+      {items.map((it, i) => {
+        const t = toneColor(it.tone, palette.scheme);
+        return (
+          <View key={it.label} style={styles.fill}>
+            {i > 0 ? <View style={[styles.stripLine, { backgroundColor: palette.line }]} /> : null}
+            <Pressable
+              onPress={it.onPress}
+              accessibilityRole="button"
+              accessibilityLabel={`${it.label} ${it.value} ${it.sub}`}
+              style={({ pressed }) => [styles.stripItem, compact && styles.stripItemCompact, pressed && styles.pressed]}>
+              <View style={styles.stripLabelRow}>
+                <View style={[styles.stripDot, { backgroundColor: t.fg }]} />
+                <Text style={[styles.stripLabel, { color: palette.sub }]}>{it.label}</Text>
+              </View>
+              <Text
+                style={[styles.stripValue, { color: palette.text }, compact && styles.stripValueCompact]}
+                numberOfLines={1}>
+                {it.value}
+              </Text>
+              <Text style={[styles.stripSub, { color: t.fg }]} numberOfLines={1}>
+                {it.sub}
+              </Text>
+            </Pressable>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -151,6 +175,7 @@ function PeriodDots({ states }: { states: DotState[] }) {
 /** 큰 카드 한 장: 왼쪽 아이콘, 가운데 글, 오른쪽 화살표 */
 function WideCard({
   icon,
+  tone,
   title,
   body,
   right,
@@ -158,6 +183,7 @@ function WideCard({
   label,
 }: {
   icon: IconName;
+  tone: ToneKey;
   title: string;
   body: string;
   right?: string;
@@ -173,12 +199,10 @@ function WideCard({
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.wide,
-        { borderColor: palette.line, backgroundColor: palette.surface },
+        { borderColor: palette.line, backgroundColor: palette.surface, shadowColor: palette.shadow },
         pressed && styles.pressed,
       ]}>
-      <View style={[styles.wideIcon, { backgroundColor: palette.tint }]}>
-        <Icon name={icon} size={22} color={palette.accentDeep} />
-      </View>
+      <IconChip icon={icon} tone={tone} size={44} />
       <View style={styles.fill}>
         <View style={styles.wideHead}>
           <Text style={[styles.wideTitle, tablet && styles.wideTitleWide, { color: palette.text }]}>{title}</Text>
@@ -233,6 +257,7 @@ function EventCards({ events }: { events: SchoolEvent[] }) {
         const d = dday(e.date, now);
         const today = d === '오늘';
         const date = fromYmd(e.date);
+        const t = subjectTone(e.kind === 'assessment' ? (e.subject ?? '수행평가') : '학사일정', palette.scheme);
         return (
           <Pressable
             key={e.id}
@@ -243,30 +268,22 @@ function EventCards({ events }: { events: SchoolEvent[] }) {
               styles.eventCard,
               compact && styles.eventCardCompact,
               today
-                ? { backgroundColor: palette.accent, borderColor: palette.accent }
-                : { backgroundColor: palette.surface, borderColor: palette.line },
+                ? { backgroundColor: t.fg, borderColor: t.fg }
+                : { backgroundColor: t.bg, borderColor: t.bg },
               pressed && styles.pressed,
             ]}>
             <View style={styles.eventTop}>
-              <Text style={[styles.eventDate, { color: today ? palette.onAccent : palette.sub }]}>
+              <Text style={[styles.eventDate, { color: today ? '#FFFFFF' : t.fg }]}>
                 {date.getMonth() + 1}/{date.getDate()}
               </Text>
-              <View
-                style={[
-                  styles.ddayPill,
-                  today
-                    ? { backgroundColor: palette.onAccent + '33' }
-                    : { backgroundColor: e.kind === 'assessment' ? palette.tint : palette.bg },
-                ]}>
-                <Text style={[styles.ddayText, { color: today ? palette.onAccent : palette.accentDeep }]}>{d}</Text>
+              <View style={[styles.ddayPill, { backgroundColor: today ? '#FFFFFF33' : palette.surface }]}>
+                <Text style={[styles.ddayText, { color: today ? '#FFFFFF' : t.fg }]}>{d}</Text>
               </View>
             </View>
-            <Text
-              style={[styles.eventTitle, { color: today ? palette.onAccent : palette.text }]}
-              numberOfLines={2}>
+            <Text style={[styles.eventTitle, { color: today ? '#FFFFFF' : palette.text }]} numberOfLines={2}>
               {e.title}
             </Text>
-            <Text style={[styles.eventKind, { color: today ? palette.onAccent : palette.sub }]} numberOfLines={1}>
+            <Text style={[styles.eventKind, { color: today ? '#FFFFFF' : t.fg }]} numberOfLines={1}>
               {e.kind === 'assessment' ? `수행평가 · ${e.subject ?? ''}` : '학사일정'}
             </Text>
           </Pressable>
@@ -298,6 +315,7 @@ function EventList({ events }: { events: SchoolEvent[] }) {
           const d = dday(e.date, now);
           const today = d === '오늘';
           const date = fromYmd(e.date);
+          const t = subjectTone(e.kind === 'assessment' ? (e.subject ?? '수행평가') : '학사일정', palette.scheme);
           return (
             <Pressable
               key={e.id}
@@ -309,20 +327,20 @@ function EventList({ events }: { events: SchoolEvent[] }) {
                 i > 0 && { borderTopWidth: 1, borderTopColor: palette.line },
                 pressed && styles.pressed,
               ]}>
-              <View style={styles.listDate}>
-                <Text style={[styles.listDay, { color: palette.text }]}>{date.getDate()}</Text>
-                <Text style={[styles.listMonth, { color: palette.sub }]}>{date.getMonth() + 1}월</Text>
+              <View style={[styles.listDate, { backgroundColor: t.bg }]}>
+                <Text style={[styles.listDay, { color: t.fg }]}>{date.getDate()}</Text>
+                <Text style={[styles.listMonth, { color: t.fg }]}>{date.getMonth() + 1}월</Text>
               </View>
               <View style={styles.fill}>
                 <Text style={[styles.listTitle, { color: palette.text }]} numberOfLines={1}>
                   {e.title}
                 </Text>
-                <Text style={[styles.listKind, { color: palette.sub }]} numberOfLines={1}>
+                <Text style={[styles.listKind, { color: t.fg }]} numberOfLines={1}>
                   {e.kind === 'assessment' ? `수행평가 · ${e.subject ?? ''}` : '학사일정'}
                 </Text>
               </View>
-              <View style={[styles.ddayPill, { backgroundColor: today ? palette.accent : palette.tint }]}>
-                <Text style={[styles.ddayText, { color: today ? palette.onAccent : palette.accentDeep }]}>{d}</Text>
+              <View style={[styles.ddayPill, { backgroundColor: today ? t.fg : t.bg }]}>
+                <Text style={[styles.ddayText, { color: today ? '#FFFFFF' : t.fg }]}>{d}</Text>
               </View>
             </Pressable>
           );
@@ -369,15 +387,10 @@ function TodayClasses({
               style={[
                 styles.todayRow,
                 i > 0 && { borderTopWidth: 1, borderTopColor: palette.line },
-                r.state === 'now' && { backgroundColor: palette.tint },
+                r.state === 'now' && { backgroundColor: subjectTone(r.name, palette.scheme).bg },
               ]}>
-              <Text
-                style={[
-                  styles.todayPeriod,
-                  { color: r.state === 'done' ? palette.sub : r.state === 'now' ? palette.accentDeep : palette.text },
-                ]}>
-                {r.period}
-              </Text>
+              <IconChip icon={subjectIcon(r.name)} subject={r.name} size={26} />
+              <Text style={[styles.todayPeriod, { color: subjectTone(r.name, palette.scheme).fg }]}>{r.period}교시</Text>
               <Text
                 style={[styles.todayName, { color: r.state === 'done' ? palette.sub : palette.text }]}
                 numberOfLines={1}>
@@ -393,7 +406,7 @@ function TodayClasses({
 }
 
 /** 맨 아래 3칸 바로가기 */
-function Quick({ items }: { items: { icon: IconName; label: string; onPress: () => void }[] }) {
+function Quick({ items }: { items: { icon: IconName; tone: ToneKey; label: string; onPress: () => void }[] }) {
   const { palette } = useApp();
   const { compact } = useLayout();
   return (
@@ -407,12 +420,10 @@ function Quick({ items }: { items: { icon: IconName; label: string; onPress: () 
           style={({ pressed }) => [
             styles.quick,
             compact && styles.quickCompact,
-            { borderColor: palette.line, backgroundColor: palette.surface },
+            { borderColor: palette.line, backgroundColor: palette.surface, shadowColor: palette.shadow },
             pressed && styles.pressed,
           ]}>
-          <View style={[styles.quickIcon, { backgroundColor: palette.tint }]}>
-            <Icon name={it.icon} size={20} color={palette.accentDeep} />
-          </View>
+          <IconChip icon={it.icon} tone={it.tone} size={38} />
           <Text style={[styles.quickLabel, { color: palette.text }]} numberOfLines={1}>
             {it.label}
           </Text>
@@ -524,26 +535,28 @@ function StudentHome() {
             {hero.big}
           </Text>
           <PeriodDots states={hero.states} />
-          <StatStrip
-            items={[
-              { label: '지금', value: hero.nowLabel, sub: hero.nowSub, onPress: () => router.push('/timetable') },
-              { label: '다음', value: hero.nextLabel, sub: hero.nextSub, onPress: () => router.push('/timetable') },
-              {
-                label: '새 답변',
-                value: `${unread}`,
-                sub: unread ? '확인해보세요' : '모두 읽음',
-                onPress: () => router.push('/community'),
-              },
-            ]}
-          />
         </>
       }>
+      <StatStrip
+        items={[
+          { label: '지금', tone: 'blue', value: hero.nowLabel, sub: hero.nowSub, onPress: () => router.push('/timetable') },
+          { label: '다음', tone: 'teal', value: hero.nextLabel, sub: hero.nextSub, onPress: () => router.push('/timetable') },
+          {
+            label: '새 답변',
+            tone: 'violet',
+            value: `${unread}`,
+            sub: unread ? '확인해보세요' : '모두 읽음',
+            onPress: () => router.push('/community'),
+          },
+        ]}
+      />
       {twoColumn ? (
         // 태블릿처럼 넓으면 두 칸으로 나눠서 가로 공간을 채워요.
         <View style={styles.cols}>
           <View style={styles.col}>
             <WideCard
               icon="meal"
+              tone="orange"
               title="오늘 점심"
               right={meal ? `${meal.kcal}kcal` : undefined}
               body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
@@ -567,6 +580,7 @@ function StudentHome() {
         <>
           <WideCard
             icon="meal"
+            tone="orange"
             title="오늘 점심"
             right={meal ? `${meal.kcal}kcal` : undefined}
             body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
@@ -587,6 +601,7 @@ function StudentHome() {
         <>
           <WideCard
             icon="meal"
+            tone="orange"
             title="오늘 점심"
             right={meal ? `${meal.kcal}kcal` : undefined}
             body={meal ? meal.items.map((m) => m.name).join(', ') : '오늘은 급식이 없어요'}
@@ -607,9 +622,9 @@ function StudentHome() {
       )}
       <Quick
         items={[
-          { icon: 'chat', label: '질문하기', onPress: () => router.push('/community') },
-          { icon: 'timetable', label: '시간표', onPress: () => router.push('/timetable') },
-          { icon: 'meal', label: '이번 주 급식', onPress: () => router.push('/meal') },
+          { icon: 'chat', tone: 'violet', label: '질문하기', onPress: () => router.push('/community') },
+          { icon: 'timetable', tone: 'blue', label: '시간표', onPress: () => router.push('/timetable') },
+          { icon: 'meal', tone: 'orange', label: '이번 주 급식', onPress: () => router.push('/meal') },
         ]}
       />
     </HomeShell>
@@ -667,35 +682,39 @@ function TeacherHome() {
             numberOfLines={1}>
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
-          <StatStrip
-            items={[
-              {
-                label: '오늘 수업',
-                value: `${myClasses.length}`,
-                sub: myClasses.length ? `${myClasses[0].period}교시부터` : '수업 없음',
-                onPress: () => router.push('/timetable'),
-              },
-              {
-                label: nowClass ? '지금' : '다음 수업',
-                value: nextClass ? `${nextClass.period}교시` : '-',
-                sub: nextClass ? classLabel(nextClass.cls) : '오늘 수업 끝',
-                onPress: () => router.push('/timetable'),
-              },
-              {
-                label: '답변 대기',
-                value: `${pending.length}`,
-                sub: pending.length ? '쪽지함 열기' : '모두 답변함',
-                onPress: () => router.push('/community'),
-              },
-            ]}
-          />
         </>
       }>
+      <StatStrip
+        items={[
+          {
+            label: '오늘 수업',
+            tone: 'blue',
+            value: `${myClasses.length}`,
+            sub: myClasses.length ? `${myClasses[0].period}교시부터` : '수업 없음',
+            onPress: () => router.push('/timetable'),
+          },
+          {
+            label: nowClass ? '지금' : '다음 수업',
+            tone: 'teal',
+            value: nextClass ? `${nextClass.period}교시` : '-',
+            sub: nextClass ? classLabel(nextClass.cls) : '오늘 수업 끝',
+            onPress: () => router.push('/timetable'),
+          },
+          {
+            label: '답변 대기',
+            tone: 'violet',
+            value: `${pending.length}`,
+            sub: pending.length ? '쪽지함 열기' : '모두 답변함',
+            onPress: () => router.push('/community'),
+          },
+        ]}
+      />
       {twoColumn ? (
         <View style={styles.cols}>
           <View style={styles.col}>
             <WideCard
               icon="inbox"
+              tone="violet"
               title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
               right={pending.length ? pending[pending.length - 1].subject : undefined}
               body={oldestText}
@@ -722,6 +741,7 @@ function TeacherHome() {
         <>
           <WideCard
             icon="inbox"
+            tone="violet"
             title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
             right={pending.length ? pending[pending.length - 1].subject : undefined}
             body={oldestText}
@@ -746,6 +766,7 @@ function TeacherHome() {
         <>
           <WideCard
             icon="inbox"
+            tone="violet"
             title={pending.length ? '가장 오래 기다린 쪽지' : '쪽지함'}
             right={pending.length ? pending[pending.length - 1].subject : undefined}
             body={oldestText}
@@ -770,9 +791,14 @@ function TeacherHome() {
       )}
       <Quick
         items={[
-          { icon: 'plus', label: '일정 추가', onPress: () => router.push({ pathname: '/add-event', params: { date: toYmd(now) } }) },
-          { icon: 'inbox', label: '쪽지함', onPress: () => router.push('/community') },
-          { icon: 'meal', label: meal ? `급식 ${meal.kcal}kcal` : '급식', onPress: () => router.push('/meal') },
+          {
+            icon: 'plus',
+            tone: 'green',
+            label: '일정 추가',
+            onPress: () => router.push({ pathname: '/add-event', params: { date: toYmd(now) } }),
+          },
+          { icon: 'inbox', tone: 'violet', label: '쪽지함', onPress: () => router.push('/community') },
+          { icon: 'meal', tone: 'orange', label: meal ? `급식 ${meal.kcal}kcal` : '급식', onPress: () => router.push('/meal') },
         ]}
       />
     </HomeShell>
@@ -787,9 +813,9 @@ const styles = StyleSheet.create({
   shellScroll: { flexGrow: 1, paddingBottom: 12 },
   band: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingBottom: 15 },
   bandCompact: { paddingBottom: 13, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  bandInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 20 },
-  body: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 14 },
-  bodyCompact: { paddingTop: 12 },
+  bandInner: { width: '100%', alignSelf: 'center', paddingHorizontal: 20 },
+  body: { flex: 1, width: '100%', alignSelf: 'center', paddingHorizontal: 20 },
+  bodyCompact: {},
   bodyAuto: { flex: 0 },
   cols: { flex: 1, minHeight: 0, flexDirection: 'row', gap: 16 },
   col: { flex: 1, minHeight: 0 },
@@ -811,18 +837,40 @@ const styles = StyleSheet.create({
   dot: { width: 13, height: 13, borderRadius: 7, borderWidth: 2 },
   dotNow: { width: 20, height: 20, borderRadius: 10, borderWidth: 4 },
 
-  strip: { flexDirection: 'row', borderRadius: 20, borderWidth: 1, marginTop: 13, overflow: 'hidden' },
-  stripCompact: { marginTop: 10, borderRadius: 17 },
-  stripLine: { position: 'absolute', left: 0, top: 12, bottom: 12, width: 1, zIndex: 1 },
-  stripItem: { paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', gap: 1 },
-  stripItemCompact: { paddingVertical: 8 },
-  stripLabel: { fontSize: 12, fontWeight: '700', opacity: 0.85 },
-  stripValue: { fontSize: 20, fontWeight: '800' },
+  strip: {
+    flexDirection: 'row',
+    borderRadius: 22,
+    borderWidth: 1,
+    marginBottom: 14,
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
+  stripCompact: { borderRadius: 18, marginBottom: 10 },
+  stripLine: { position: 'absolute', left: 0, top: 14, bottom: 14, width: 1, zIndex: 1 },
+  stripItem: { paddingVertical: 13, paddingHorizontal: 8, alignItems: 'center', gap: 2 },
+  stripItemCompact: { paddingVertical: 9 },
+  stripLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  stripDot: { width: 6, height: 6, borderRadius: 3 },
+  stripLabel: { fontSize: 12, fontWeight: '700' },
+  stripValue: { fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
   stripValueCompact: { fontSize: 18 },
-  stripSub: { fontSize: 12, fontWeight: '600', opacity: 0.8 },
+  stripSub: { fontSize: 12, fontWeight: '700' },
 
-  wide: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 22, padding: 14 },
-  wideIcon: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  wide: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 14,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+  },
   wideHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   wideTitle: { fontSize: 16, fontWeight: '800', flex: 1 },
   wideTitleWide: { fontSize: 18 },
@@ -852,23 +900,33 @@ const styles = StyleSheet.create({
 
   todayWrap: { flex: 1, minHeight: 0 },
   todayFill: { flex: 1, minHeight: 0 },
-  todayCard: { borderWidth: 1.5, borderRadius: 20, overflow: 'hidden' },
-  todayRow: { height: TODAY_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
-  todayPeriod: { width: 18, fontSize: 16, fontWeight: '800', textAlign: 'center', fontVariant: ['tabular-nums'] },
+  todayCard: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
+  todayRow: { height: TODAY_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12 },
+  todayPeriod: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   todayName: { flex: 1, fontSize: 15, fontWeight: '700' },
   todayTime: { fontSize: 13, fontVariant: ['tabular-nums'] },
 
   listRow: { height: EVENT_ROW_H, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
-  listDate: { width: 34, alignItems: 'center' },
-  listDay: { fontSize: 19, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 23 },
+  listDate: { width: 40, paddingVertical: 4, borderRadius: 12, alignItems: 'center' },
+  listDay: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 20 },
   listMonth: { fontSize: 11, fontWeight: '700' },
   listTitle: { fontSize: 15, fontWeight: '700' },
   listKind: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   quickRow: { flexShrink: 0, flexDirection: 'row', gap: 10, marginTop: 'auto', paddingTop: 12, paddingBottom: 4 },
   quickRowCompact: { paddingTop: 10, paddingBottom: 2 },
-  quick: { flex: 1, borderWidth: 1.5, borderRadius: 20, paddingVertical: 14, alignItems: 'center', gap: 8 },
+  quick: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    gap: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
   quickCompact: { paddingVertical: 10, gap: 6 },
-  quickIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   quickLabel: { fontSize: 13, fontWeight: '700' },
 });

@@ -8,13 +8,14 @@ export type ThemeKey = 'tomato' | 'ocean' | 'forest' | 'grape' | 'blossom' | 'in
 
 export type Theme = { key: ThemeKey; name: string; accent: string };
 
+// 쨍한 원색 대신 채도를 한 단계 낮춘 색을 써요. 넓은 면에 깔려도 눈이 편해요.
 export const THEMES: Theme[] = [
-  { key: 'tomato', name: '토마토', accent: '#CF431B' },
-  { key: 'ocean', name: '바다', accent: '#1F62C9' },
-  { key: 'forest', name: '숲', accent: '#1F7A4D' },
-  { key: 'grape', name: '포도', accent: '#6D47C2' },
-  { key: 'blossom', name: '벚꽃', accent: '#C93C6E' },
-  { key: 'ink', name: '먹', accent: '#383838' },
+  { key: 'tomato', name: '토마토', accent: '#C0553C' },
+  { key: 'ocean', name: '바다', accent: '#356497' },
+  { key: 'forest', name: '숲', accent: '#2F7355' },
+  { key: 'grape', name: '포도', accent: '#6A56A6' },
+  { key: 'blossom', name: '벚꽃', accent: '#B25174' },
+  { key: 'ink', name: '먹', accent: '#454750' },
 ];
 
 export const DEFAULT_THEME: ThemeKey = 'tomato';
@@ -53,6 +54,10 @@ export type Palette = {
   surface: string;
   /** 카드보다 한 단계 더 떠 보이는 바탕 (선택된 세그먼트) */
   raised: string;
+  /** 홈 위쪽 컬러 밴드 */
+  band: string;
+  /** 카드 그림자 색 */
+  shadow: string;
   text: string;
   sub: string;
   /** 달력 일요일 / 토요일 글씨 */
@@ -107,25 +112,28 @@ function adjustUntil(color: string, bg: string, min: number, toward: string) {
 const fillForWhiteText = (color: string) => adjustUntil(color, '#FFFFFF', 4.6, '#000000');
 
 function lightPalette(base: string): Palette {
-  const bg = '#FFFFFF';
-  // 흰 바탕에서 버튼이 묻히지 않을 만큼 진하게 맞춰요.
-  const accent = fillForWhiteText(adjustUntil(base, bg, 3.1, '#000000'));
-  const tint = mix(accent, bg, 0.91);
+  // 바탕은 연회색, 카드는 흰색. 이렇게 갈라 놓으면 카드가 떠 보여서 덜 밋밋해요.
+  const bg = '#F4F5F7';
+  const surface = '#FFFFFF';
+  const accent = fillForWhiteText(adjustUntil(base, surface, 3.1, '#000000'));
+  const tint = mix(accent, surface, 0.92);
   return {
     scheme: 'light',
     accent,
     onAccent: '#FFFFFF',
     accentDeep: adjustUntil(base, tint, 4.6, '#000000'),
     tint,
-    tintMid: mix(accent, bg, 0.5),
-    line: mix(accent, '#E4E4E4', 0.86),
+    tintMid: mix(accent, surface, 0.5),
+    line: mix(accent, '#E3E4E8', 0.9),
     bg,
-    surface: '#FFFFFF',
+    surface,
     raised: '#FFFFFF',
-    text: '#1E1E1E',
-    sub: '#616166',
-    sunday: '#C7362F',
-    saturday: '#2A62C9',
+    band: accent,
+    shadow: '#101828',
+    text: '#1B1C1F',
+    sub: '#5F626B',
+    sunday: '#C0473F',
+    saturday: '#3C64A8',
   };
 }
 
@@ -146,9 +154,11 @@ function darkPalette(base: string): Palette {
     bg,
     surface: '#1B1B21',
     raised: '#2E2E37',
+    band: mix(accent, bg, 0.12),
+    shadow: '#000000',
     text: '#F3F3F5',
     sub: '#A6A6AE',
-    sunday: '#FF9089',
+    sunday: '#F59289',
     saturday: '#93B8FF',
   };
 }

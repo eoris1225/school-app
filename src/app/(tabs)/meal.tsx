@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { Card, Divider, Empty, Header, Screen, Segmented } from '@/components/ui';
+import { Card, Divider, Empty, Header, IconChip, Screen, Segmented } from '@/components/ui';
 import { ALLERGENS, MEAL_DATES, MEALS, WEEKDAYS, type Weekday } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
@@ -63,6 +63,17 @@ export default function MealScreen() {
       />
 
       <Card>
+        <View style={styles.mealHead}>
+          <IconChip icon="meal" tone={type === 'lunch' ? 'orange' : 'indigo'} size={38} />
+          <View style={styles.fill}>
+            <Text style={[styles.mealTitle, { color: palette.text }]}>
+              {day}요일 {type === 'lunch' ? '점심' : '저녁'}
+            </Text>
+            <Text style={[styles.mealSub, { color: palette.sub }]}>
+              {meal ? `${meal.items.length}가지 · ${meal.kcal}kcal` : '급식이 없는 날이에요'}
+            </Text>
+          </View>
+        </View>
         {meal ? (
           <>
             {meal.items.map((item, i) => (
@@ -80,10 +91,6 @@ export default function MealScreen() {
                 </View>
               </View>
             ))}
-            <View style={[styles.kcalRow, { backgroundColor: palette.tint }]}>
-              <Text style={[styles.kcalLabel, { color: palette.accentDeep }]}>열량</Text>
-              <Text style={[styles.kcalValue, { color: palette.text }]}>{meal.kcal}kcal</Text>
-            </View>
           </>
         ) : (
           <Empty text={`${day}요일은 저녁 급식이 없어요`} />
@@ -131,6 +138,10 @@ const styles = StyleSheet.create({
   dayNum: { fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'] },
   todayDot: { width: 5, height: 5, borderRadius: 3, marginTop: 1 },
 
+  fill: { flex: 1 },
+  mealHead: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingBottom: 6 },
+  mealTitle: { fontSize: 17, fontWeight: '800' },
+  mealSub: { fontSize: 13, fontWeight: '600', marginTop: 1 },
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13 },
   itemName: { fontSize: 18, fontWeight: '700' },
   itemAllergy: { fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
