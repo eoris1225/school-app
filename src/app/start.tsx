@@ -9,7 +9,7 @@ import { Pop, Tap } from '@/components/motion';
 import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { Button, Field, Loading, Segmented } from '@/components/ui';
-import { ColorPicker } from '@/components/color-picker';
+import { ThemeSwatches } from '@/components/color-picker';
 import { useApp } from '@/lib/app-state';
 import { signIn, signUp } from '@/lib/auth';
 import { useLayout } from '@/lib/layout';
@@ -140,7 +140,7 @@ export default function StartScreen() {
             </Tap>
 
             <Text style={[styles.swatchLabel, { color: palette.sub }]}>마음에 드는 색을 골라보세요</Text>
-            <ColorPicker value={accent} onChange={setAccent} />
+            <ThemeSwatches value={accent} onChange={setAccent} />
           </View>
 
           <View style={styles.actions}>

@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { subjectArt } from '@/components/emoji';
 import { Reveal, Tap } from '@/components/motion';
+import { WeekGrid } from '@/components/week-grid';
 import { Chip, ChipRow, Divider, Empty, ErrorNote, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
@@ -234,56 +235,28 @@ export default function TimetableScreen() {
       ) : remote.error ? (
         <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
       ) : (
-        <View>
-          <View style={styles.weekRow}>
-            <View style={styles.weekPeriodCell} />
-            {WEEKDAYS.map((d) => (
-              <View key={d} style={[styles.weekHead, d === today && { backgroundColor: palette.tint }]}>
-                <Text style={[styles.weekHeadText, { color: d === today ? palette.accentDeep : palette.sub }]}>{d}</Text>
-              </View>
-            ))}
-          </View>
-          {BELL.map((bell, i) => (
-            <View key={bell.period}>
-              {bell.period === LUNCH.afterPeriod + 1 ? (
-                <View style={[styles.weekLunch, { borderTopColor: palette.line }]}>
-                  <Text style={[styles.weekLunchText, { color: palette.sub }]}>점심시간</Text>
-                </View>
-              ) : null}
-              <View style={styles.weekRow}>
-                <View style={styles.weekPeriodCell}>
-                  <Text numeric style={[styles.weekPeriod, { color: palette.sub }]}>
-                    {bell.period}
-                  </Text>
-                </View>
-                {WEEKDAYS.map((d) => {
-                  const subject = week[d][i];
-                  // 그 반에 그 교시가 없으면 빈 칸으로 둬요.
-                  if (!subject) return <View key={d} style={styles.weekCellEmpty} />;
-                  const isNow = d === today && bell.period === nowPeriod;
-                  const st = subjectTone(subject, palette.scheme);
-                  return (
-                    <View
-                      key={d}
-                      style={[
-                        styles.weekCell,
-                        { backgroundColor: st.bg },
-                        isNow && { backgroundColor: palette.accent, borderColor: palette.accent },
-                      ]}
-                      accessible
-                      accessibilityLabel={`${d}요일 ${bell.period}교시 ${subject}${isNow ? ', 지금 수업 중' : ''}`}>
-                      <Text
-                        style={[styles.weekCellText, { color: isNow ? palette.onAccent : st.fg }]}
-                        numberOfLines={1}>
-                        {readSubject(subject).short}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-        </View>
+        <WeekGrid
+          week={week}
+          today={today}
+          nowPeriod={nowPeriod}
+          swaps={mine ? swaps : undefined}
+          // 다른 반 시간표에서는 못 바꿔요. 남의 반까지 내 기준으로 바꾸면
+          // 잘못된 정보가 돼요.
+          onPick={
+            mine
+              ? (d, period) =>
+                  router.push({
+                    pathname: '/swap-subject',
+                    params: {
+                      day: d,
+                      period: String(period),
+                      subject: raw[d][period - 1],
+                      same: sameNameSlots(raw, d, period, raw[d][period - 1]).join(','),
+                    },
+                  })
+              : undefined
+          }
+        />
       )}
     </Screen>
   );
@@ -308,14 +281,4 @@ const styles = StyleSheet.create({
   lunch: { borderTopWidth: 1, borderBottomWidth: 1, borderStyle: 'dashed', paddingVertical: 12, marginVertical: 8 },
   lunchText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
-  weekRow: { flexDirection: 'row' },
-  weekPeriodCell: { width: 26, alignItems: 'center', justifyContent: 'center' },
-  weekPeriod: { fontSize: 12, fontWeight: '800' },
-  weekHead: { flex: 1, alignItems: 'center', paddingVertical: 8, marginHorizontal: 1, borderRadius: 10 },
-  weekHeadText: { fontSize: 13, fontWeight: '800' },
-  weekCellEmpty: { flex: 1, height: 50, margin: 2 },
-  weekCell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', margin: 2, borderRadius: 12 },
-  weekCellText: { fontSize: 12, fontWeight: '700' },
-  weekLunch: { borderTopWidth: 1.5, borderStyle: 'dashed', marginTop: 4, paddingTop: 4 },
-  weekLunchText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
 });
