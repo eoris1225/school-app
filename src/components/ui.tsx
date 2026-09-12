@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,6 +10,7 @@ import { Pop, Shimmer, SlidingPill, Tap } from '@/components/motion';
 import { FONT, Text } from '@/components/text';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
+import { mix } from '@/constants/themes';
 import { subjectTone, tone as toneColor, type ToneKey } from '@/constants/tones';
 
 /** 폰에서 쓰는 기본 기둥 너비. 태블릿에서는 useLayout().content가 더 넓은 값을 줘요. */
@@ -58,12 +60,22 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
   const { palette, me } = useApp();
   // 이름 첫 글자예요. 성이 두 글자인 이름도 있어서 잘라내지 않고 그대로 써요.
   const initial = me?.name.trim().slice(0, 1) || '?';
+  // 아바타도 누르는 것이라 살짝 솟아 보이게 해요. 버튼과 같은 규칙이에요.
   const circle = (
     <View
       style={[
         styles.avatar,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: palette.accent },
+        styles.raised,
+        { width: size, height: size, borderRadius: size / 2, shadowColor: palette.accent },
       ]}>
+      <LinearGradient
+        colors={[mix(palette.accent, '#FFFFFF', 0.2), palette.accent, mix(palette.accent, '#000000', 0.12)]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: size / 2 }]}
+      />
+      <View style={[styles.gloss, { borderRadius: size / 2 }]} />
       <Text style={[styles.avatarText, { color: palette.onAccent, fontSize: size * 0.4 }]}>{initial}</Text>
     </View>
   );
@@ -309,6 +321,22 @@ export function Tag({
   );
 }
 
+/*
+ * 버튼에는 입체감을 줘요.
+ *
+ * 아이콘 상자에서는 걷어냈지만 버튼은 달라요. 아이콘 상자는 "보는 것"이라
+ * 번들거리면 안의 그림을 방해하지만, 버튼은 "누르는 것"이에요. 살짝 솟아
+ * 보이면 눌러도 된다는 게 손에 먼저 읽혀요.
+ *
+ * 세 겹을 겹쳐요.
+ *   1. 위에서 아래로 옅은 그라데이션 (빛이 위에서 온다는 뜻)
+ *   2. 맨 윗줄에 머리카락 굵기의 흰 선 (모서리가 깎인 느낌)
+ *   3. 버튼 색과 같은 계열의 그림자 (검정 그림자는 탁해 보여요)
+ *
+ * 처음에는 윗면 절반에 흰 광택을 깔았는데, 가로로 긴 버튼에서는 광택이
+ * 끝나는 자리가 가로줄로 딱 보여서 두 색이 겹친 것처럼 됐어요.
+ * 색이 위에서 아래로 부드럽게 변하기만 하면 충분해요.
+ */
 export function Button({
   label,
   onPress,
@@ -327,6 +355,8 @@ export function Button({
   // 누를 수 없는 버튼도 글씨는 또렷하게 읽히도록 연한 배경에 회색 글씨를 써요.
   const bg = primary ? (disabled ? palette.tint : palette.accent) : palette.surface;
   const color = primary ? (disabled ? palette.sub : palette.onAccent) : palette.text;
+  const raised = primary && !disabled;
+
   return (
     <Tap
       onPress={onPress}
@@ -334,7 +364,23 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       depth={0.035}
-      style={[styles.button, { backgroundColor: bg, borderColor: primary && !disabled ? bg : palette.line }]}>
+      style={[
+        styles.button,
+        { backgroundColor: bg, borderColor: primary && !disabled ? bg : palette.line },
+        raised && { shadowColor: palette.accent, ...styles.raised },
+      ]}>
+      {raised ? (
+        <>
+          <LinearGradient
+            colors={[mix(bg, '#FFFFFF', 0.13), bg, mix(bg, '#000000', 0.09)]}
+            locations={[0, 0.5, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={[StyleSheet.absoluteFill, styles.buttonFill]}
+          />
+          <View style={styles.topLine} />
+        </>
+      ) : null}
       {icon ? <Icon name={icon} size={20} color={color} /> : null}
       <Text style={[styles.buttonText, { color }]}>{label}</Text>
     </Tap>
@@ -496,7 +542,7 @@ export const styles = StyleSheet.create({
   backTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   backSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
-  avatar: { alignItems: 'center', justifyContent: 'center' },
+  avatar: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarText: { fontWeight: '800' },
 
   iconButton: {
@@ -544,6 +590,12 @@ export const styles = StyleSheet.create({
   buttonText: { fontSize: 15, fontWeight: '800' },
 
   iconChip: { alignItems: 'center', justifyContent: 'center' },
+  raised: { shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  buttonFill: { borderRadius: 18 },
+  // 맨 윗줄 한 겹만 밝혀요. 면으로 깔면 끝나는 자리가 줄로 보여요.
+  topLine: { position: 'absolute', top: 0, left: 14, right: 14, height: 1, backgroundColor: '#FFFFFF', opacity: 0.3 },
+  // 동그란 것에는 면으로 얹어도 돼요. 경계가 곡선이라 줄로 안 보여요.
+  gloss: { position: 'absolute', top: 0, left: 0, right: 0, height: '48%', backgroundColor: '#FFFFFF', opacity: 0.13 },
   emptyWrap: { alignItems: 'center', gap: 12, paddingVertical: 32 },
   emptyArt: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   emptyHint: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: -4 },

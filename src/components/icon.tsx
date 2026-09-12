@@ -17,6 +17,7 @@ const ICONS = {
   back: { ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' },
   next: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   check: { ios: 'checkmark', android: 'check', web: 'check' },
+  close: { ios: 'xmark', android: 'close', web: 'close' },
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
   swap: { ios: 'arrow.left.arrow.right', android: 'swap_horiz', web: 'swap_horiz' },
 
