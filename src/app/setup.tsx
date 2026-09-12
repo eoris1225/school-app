@@ -6,13 +6,13 @@ import { Emoji } from '@/components/emoji';
 import { Pop, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Button, Empty, Field, Loading, Screen } from '@/components/ui';
-import { ALLERGENS, BELL } from '@/data/mock';
+import { WeekGrid } from '@/components/week-grid';
+import { ALLERGENS, WEEKDAYS } from '@/data/mock';
 import { getLessons } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
-import { saveSetupSeen, slotKey } from '@/lib/my-settings';
-import { readSubject } from '@/lib/subject';
-import { weekDates, weekdayOf } from '@/lib/time';
-import { byWeekday, withSwaps } from '@/lib/timetable';
+import { saveSetupSeen } from '@/lib/my-settings';
+import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
+import { byWeekday, sameNameSlots, withSwaps } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
 
 /*
@@ -202,15 +202,16 @@ function AllergyStep({ onNext }: { onNext: () => void }) {
 }
 
 /**
- * 오늘 시간표를 보여주고 다른 과목을 듣는 교시가 있는지 물어봐요.
+ * 한 주 시간표를 컬러표로 보여주고 다른 과목을 듣는 칸이 있는지 물어봐요.
  *
- * 한 주를 다 보여주면 서른 줄이 넘어서 아무도 안 봐요. 오늘 하루만
- * 보여주고, 고치는 방법을 여기서 한 번 알려주는 게 나아요.
- * 나머지 요일은 시간표에서 똑같이 하면 돼요.
+ * 예전에는 오늘 하루만 목록으로 보여줬어요. 그런데 선택과목은 요일마다
+ * 다른 교시에 흩어져 있어서, 오늘만 봐서는 고칠 게 있는지 알 수가 없어요.
+ * 표로 한 주를 다 보여주면 눈으로 훑고 바꿀 칸만 누르면 돼요.
+ * 목록 서른 줄은 아무도 안 읽지만, 표 한 장은 봐요.
  */
 function SubjectStep({ onNext }: { onNext: () => void }) {
   const { palette, school, now, swaps } = useApp();
-  const day = weekdayOf(now);
+  const today = weekdayOf(now);
   const dates = weekDates(now);
 
   const cls = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
@@ -220,57 +221,43 @@ function SubjectStep({ onNext }: { onNext: () => void }) {
 
   const raw = byWeekday(remote.data ?? [], dates);
   const week = withSwaps(raw, swaps);
-  const today = day ? week[day] : [];
-  const rows = today
-    .map((subject, i) => ({ subject, period: i + 1 }))
-    .filter((r) => !!r.subject);
+  const any = WEEKDAYS.some((d) => week[d].some(Boolean));
 
   return (
     <Card
       art="timetable"
       title="이 과목들 맞아요?"
-      body={
-        day
-          ? '선택과목은 반마다 대표 과목 하나만 올라와요. 실제로 다른 과목을 듣는 교시가 있으면 눌러서 바꿔주세요.'
-          : '오늘은 수업이 없어요. 시간표에서 교시를 누르면 언제든 바꿀 수 있어요.'
-      }
+      body="선택과목은 반마다 대표 과목 하나만 올라와요. 실제로 다른 과목을 듣는 칸이 있으면 눌러서 바꿔주세요."
       nextLabel="다 맞아요"
       onNext={onNext}
       onSkip={onNext}>
-      {remote.loading ? <Loading text="시간표를 불러오는 중이에요" rows={3} /> : null}
-      {!remote.loading && rows.length === 0 ? (
-        <Empty art="timetable" text="오늘은 등록된 시간표가 없어요" />
+      {remote.loading ? <Loading text="시간표를 불러오는 중이에요" rows={4} /> : null}
+      {!remote.loading && !any ? (
+        <Empty art="timetable" text="이번 주는 등록된 시간표가 없어요" hint="시간표에서 언제든 바꿀 수 있어요." />
       ) : null}
-      {rows.map((r) => {
-        const original = raw[day!][r.period - 1];
-        const changed = swaps[slotKey(day!, r.period)] !== undefined;
-        return (
-          <Tap
-            key={r.period}
-            onPress={() =>
+      {!remote.loading && any ? (
+        <>
+          <WeekGrid
+            week={week}
+            today={today}
+            nowPeriod={currentPeriod(now)}
+            swaps={swaps}
+            onPick={(d, period) =>
               router.push({
                 pathname: '/swap-subject',
-                params: { day: day!, period: String(r.period), subject: original, same: '' },
+                params: {
+                  day: d,
+                  period: String(period),
+                  subject: raw[d][period - 1],
+                  same: sameNameSlots(raw, d, period, raw[d][period - 1]).join(','),
+                },
               })
             }
-            accessibilityRole="button"
-            accessibilityLabel={`${r.period}교시 ${readSubject(r.subject).name}, 눌러서 바꾸기`}
-            depth={0.03}
-            style={[styles.row, { borderBottomColor: palette.line }]}>
-            <Text style={[styles.period, { color: palette.sub }]}>{r.period}교시</Text>
-            <Text style={[styles.subject, { color: palette.text }]} numberOfLines={1}>
-              {readSubject(r.subject).name}
-            </Text>
-            <Text style={[styles.hint, { color: changed ? palette.accentDeep : palette.sub }]}>
-              {changed ? '바꿈' : '바꾸기'}
-            </Text>
-          </Tap>
-        );
-      })}
-      {rows.length && BELL.length ? (
-        <Text style={[styles.note, { color: palette.sub }]}>
-          다른 요일도 시간표에서 똑같이 바꿀 수 있어요.
-        </Text>
+          />
+          <Text style={[styles.note, { color: palette.sub }]}>
+            바꾼 칸에는 점이 찍혀요. 나중에 시간표에서 똑같이 바꿀 수 있어요.
+          </Text>
+        </>
       ) : null}
     </Card>
   );
@@ -293,10 +280,6 @@ const styles = StyleSheet.create({
   allergyChip: { minHeight: 44, paddingHorizontal: 16, borderRadius: 16, justifyContent: 'center' },
   allergyName: { fontSize: 13, fontWeight: '600' },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1 },
-  period: { fontSize: 13, fontWeight: '700', width: 48 },
-  subject: { flex: 1, fontSize: 15, fontWeight: '600' },
-  hint: { fontSize: 13, fontWeight: '700' },
   note: { fontSize: 13, lineHeight: 20, marginTop: 16 },
 
   actions: { marginTop: 32 },

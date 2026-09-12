@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Avatar, BackHeader, Button, Chip, Divider, ErrorNote, Field, Loading, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
-import { ColorPicker } from '@/components/color-picker';
+import { ThemeSwatches } from '@/components/color-picker';
 import { SCHEME_OPTIONS } from '@/constants/themes';
 import { ALLERGENS } from '@/data/mock';
 import { subjectGroup, TEACHABLE } from '@/lib/subject';
@@ -94,8 +94,10 @@ export default function ProfileScreen() {
       </View>
 
       <SectionTitle title="테마 색" />
-      <Text style={[styles.help, { color: palette.sub }]}>고른 색이 앱 전체에 바로 적용돼요.</Text>
-      <ColorPicker value={accent} onChange={setAccent} />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        고른 색이 앱 전체에 바로 적용돼요. 원하는 색이 없으면 커스텀 컬러에서 직접 골라요.
+      </Text>
+      <ThemeSwatches value={accent} onChange={setAccent} custom />
 
       <SectionTitle title="화면 밝기" />
       <Text style={[styles.help, { color: palette.sub }]}>

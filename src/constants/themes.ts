@@ -8,44 +8,30 @@
  * 테마는 색 그 자체예요. '토마토' 같은 이름표를 두지 않아요.
  *
  * 이름을 붙이면 목록에 있는 색만 쓸 수 있어요. 색 자체를 담으면 아래 목록에
- * 없는 색을 직접 골라도 똑같이 다뤄져요. 특별 취급이 없어요.
+ * 없는 색을 직접 골라도 똑같이 다뤄져요. 커스텀 컬러도 특별 취급이 없어요.
  *
- * 아래는 Tailwind CSS 팔레트의 500단계예요. 여러 사람이 오래 다듬은 색이라
- * 우리가 눈대중으로 고르는 것보다 나아요. 색상환을 한 바퀴 돌도록 골랐어요.
- * 전부 그대로 쓸 수 있는지 확인했어요 (scripts/pick-palette.ts).
+ * 쨍한 원색 대신 채도를 한 단계 낮춘 색이에요. 넓은 면에 깔려도 눈이 편해요.
+ * 여섯 개면 충분해요. 더 넓게 고르고 싶으면 커스텀 컬러로 색상환을 열어요.
  */
 export const THEMES = [
-  '#ef4444', // 빨강
-  '#f97316', // 주황
-  '#f59e0b', // 호박
-  '#eab308', // 노랑
-  '#84cc16', // 라임
-  '#22c55e', // 초록
-  '#10b981', // 에메랄드
-  '#14b8a6', // 청록
-  '#06b6d4', // 하늘청록
-  '#0ea5e9', // 하늘
-  '#3b82f6', // 파랑
-  '#6366f1', // 남색
-  '#8b5cf6', // 보라
-  '#a855f7', // 자주
-  '#d946ef', // 진분홍
-  '#ec4899', // 분홍
-  '#f43f5e', // 장미
-  '#64748b', // 회청
-  '#78716c', // 회갈
+  '#D97757', // 주황
+  '#356497', // 바다
+  '#2F7355', // 숲
+  '#6A56A6', // 포도
+  '#B25174', // 벚꽃
+  '#454750', // 먹
 ] as const;
 
-export const DEFAULT_THEME = '#f97316';
+export const DEFAULT_THEME = '#D97757';
 
 /** 예전에 이름으로 저장해둔 것을 색으로 바꿔요. */
 const OLD_NAMES: Record<string, string> = {
-  tomato: '#ef4444',
-  ocean: '#0ea5e9',
-  forest: '#22c55e',
-  grape: '#8b5cf6',
-  blossom: '#ec4899',
-  ink: '#64748b',
+  tomato: '#D97757',
+  ocean: '#356497',
+  forest: '#2F7355',
+  grape: '#6A56A6',
+  blossom: '#B25174',
+  ink: '#454750',
 };
 
 /** 저장해둔 값을 쓸 수 있는 색으로 바꿔요. 이상하면 기본색이에요. */
@@ -91,6 +77,10 @@ export type Palette = {
   raised: string;
   /** 홈 위쪽 컬러 밴드 */
   band: string;
+  /** 컬러 밴드 위에 올라가는 동그라미(아바타). 밴드와 톤이 달라요. */
+  avatar: string;
+  /** avatar 위에 올리는 글씨 */
+  onAvatar: string;
   /** 카드 그림자 색 */
   shadow: string;
   text: string;
@@ -168,6 +158,19 @@ function fillAndInk(color: string): { fill: string; ink: string } {
     : { fill: adjustUntil(color, '#FFFFFF', 4.6, '#000000'), ink: '#FFFFFF' };
 }
 
+/**
+ * 색 띠 위에 올릴 같은 계열의 다른 톤을 만들어요.
+ *
+ * 홈 맨 위 색 띠 위에 아바타가 앉는데, 둘 다 테마색이라 어디까지가
+ * 아바타인지 안 보였어요. 예전에는 두꺼운 테두리로 잘라냈지만 그게 촌스러워요.
+ * 색을 한 톤 옮기면 테두리 없이도 경계가 보여요. 띠가 밝으면 어둡게,
+ * 어두우면 밝게 — 어느 색을 골라도 같은 계열 안에서 갈라져요.
+ */
+function toneOn(accent: string, band: string): { fill: string; ink: string } {
+  const toward = luminance(band) > 0.22 ? INK : '#FFFFFF';
+  return fillAndInk(adjustUntil(accent, band, 1.7, toward));
+}
+
 function lightPalette(base: string): Palette {
   // 바탕은 연회색, 카드는 흰색. 이렇게 갈라 놓으면 카드가 떠 보여서 덜 밋밋해요.
   const bg = '#F4F5F7';
@@ -175,6 +178,7 @@ function lightPalette(base: string): Palette {
   // 흰 카드 위에서 색 덩어리가 보여야 하니 최소한의 진하기는 지켜요.
   const { fill: accent, ink } = fillAndInk(adjustUntil(base, surface, 1.9, '#000000'));
   const tint = mix(accent, surface, 0.92);
+  const avatar = toneOn(accent, accent);
   return {
     scheme: 'light',
     accent,
@@ -187,6 +191,8 @@ function lightPalette(base: string): Palette {
     surface,
     raised: '#FFFFFF',
     band: accent,
+    avatar: avatar.fill,
+    onAvatar: avatar.ink,
     shadow: '#101828',
     text: '#1B1C1F',
     sub: '#5F626B',
@@ -201,6 +207,8 @@ function darkPalette(base: string): Palette {
   // 너무 밝히면 위에 올린 흰 글씨가 흐려져서, 두 조건을 함께 맞춰요.
   const { fill: accent, ink } = fillAndInk(adjustUntil(base, bg, 3.05, '#FFFFFF'));
   const tint = mix(accent, bg, 0.86);
+  const band = mix(accent, bg, 0.12);
+  const avatar = toneOn(accent, band);
   return {
     scheme: 'dark',
     accent,
@@ -212,7 +220,9 @@ function darkPalette(base: string): Palette {
     bg,
     surface: '#1B1B21',
     raised: '#2E2E37',
-    band: mix(accent, bg, 0.12),
+    band,
+    avatar: avatar.fill,
+    onAvatar: avatar.ink,
     shadow: '#000000',
     text: '#F3F3F5',
     sub: '#A6A6AE',

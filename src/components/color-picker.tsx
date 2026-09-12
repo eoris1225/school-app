@@ -6,6 +6,7 @@ import { runOnJS } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
+import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { buildPalette, THEMES } from '@/constants/themes';
 import { useApp } from '@/lib/app-state';
@@ -13,9 +14,12 @@ import { useApp } from '@/lib/app-state';
 /*
  * 테마 색을 고르는 곳이에요.
  *
- * 미리 고른 색을 동그라미로 늘어놓고, 그 아래에서 색상환으로 직접 고를 수도
- * 있어요. 이름표는 안 붙여요. '토마토' 같은 이름을 붙이면 목록에 있는 색만
- * 쓸 수 있는데, 색 자체를 담으면 직접 고른 색도 똑같이 다뤄져요.
+ * 평소에는 골라둔 여섯 색만 동그라미로 보여줘요. 색상환은 화면에 박아두지
+ * 않아요. 늘 펼쳐져 있으면 설정 화면이 그것만으로 꽉 차고, 색을 안 바꿀
+ * 사람에게는 방해예요. '커스텀 컬러'를 누른 사람에게만 팝업으로 띄워요.
+ *
+ * 이름표는 안 붙여요. '토마토' 같은 이름을 붙이면 목록에 있는 색만 쓸 수
+ * 있는데, 색 자체를 담으면 직접 고른 색도 똑같이 다뤄져요.
  */
 
 /** 색상환 한 바퀴를 몇 조각으로 그릴지. 많을수록 매끄럽고 무거워요. */
@@ -40,15 +44,123 @@ function fromWheel(hue: number, depth: number): string {
   return `#${hex(r)}${hex(g)}${hex(b)}`.toUpperCase();
 }
 
-export function ColorPicker({ value, onChange }: { value: string; onChange: (hex: string) => void }) {
+/**
+ * 색에서 색상환 위치를 거꾸로 찾아요.
+ *
+ * 팝업을 열었을 때 지금 쓰는 색 자리에 손잡이가 있어야 해요. 늘 같은 데서
+ * 시작하면 "내 색이 어디였지"를 매번 다시 찾아야 해요.
+ */
+function toWheel(hex: string): { hue: number; depth: number } {
+  const h = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const hue =
+    d === 0 ? 0
+    : max === r ? (((g - b) / d) % 6) * 60
+    : max === g ? ((b - r) / d + 2) * 60
+    : ((r - g) / d + 4) * 60;
+  const light = (max + min) / 2;
+  return {
+    hue: (hue + 360) % 360,
+    depth: Math.min(1, Math.max(0, (0.92 - light) / 0.62)),
+  };
+}
+
+/**
+ * 색 동그라미 줄.
+ *
+ * custom을 켜면 끝에 '커스텀 컬러' 버튼이 붙어요. 시작 화면에는 안 켜요.
+ * 처음 보는 화면에서 색상환까지 내놓을 일은 아니에요.
+ */
+export function ThemeSwatches({
+  value,
+  onChange,
+  custom = false,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+  custom?: boolean;
+}) {
   const { palette, scheme } = useApp();
   const [open, setOpen] = useState(false);
-  const [hue, setHue] = useState(20);
-  const [depth, setDepth] = useState(0.5);
+  const mine = !(THEMES as readonly string[]).some((t) => t.toLowerCase() === value.toLowerCase());
+
+  return (
+    <>
+      <View style={styles.grid} accessibilityRole="radiogroup">
+        {THEMES.map((hex) => {
+          const on = hex.toLowerCase() === value.toLowerCase();
+          const look = buildPalette(hex, scheme);
+          return (
+            <Tap
+              key={hex}
+              onPress={() => onChange(hex)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: on }}
+              accessibilityLabel={`${hex} 색`}
+              depth={0.08}
+              style={[styles.swatchWrap, { borderColor: on ? palette.accentDeep : 'transparent' }]}>
+              <View style={[styles.swatch, { backgroundColor: look.accent }]}>
+                {on ? <Icon name="check" size={18} color={look.onAccent} /> : null}
+              </View>
+            </Tap>
+          );
+        })}
+
+        {/* 직접 고른 색은 목록에 없으니 끝에 같이 보여줘요. */}
+        {custom && mine ? (
+          <Tap
+            onPress={() => setOpen(true)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: true }}
+            accessibilityLabel="직접 고른 색, 눌러서 바꾸기"
+            depth={0.08}
+            style={[styles.swatchWrap, { borderColor: palette.accentDeep }]}>
+            <View style={[styles.swatch, { backgroundColor: palette.accent }]}>
+              <Icon name="check" size={18} color={palette.onAccent} />
+            </View>
+          </Tap>
+        ) : null}
+      </View>
+
+      {custom ? (
+        <Tap
+          onPress={() => setOpen(true)}
+          accessibilityRole="button"
+          depth={0.04}
+          style={[styles.customButton, { backgroundColor: palette.tint }]}>
+          <Icon name="palette" size={18} color={palette.accentDeep} />
+          <Text style={[styles.customText, { color: palette.accentDeep }]}>커스텀 컬러</Text>
+        </Tap>
+      ) : null}
+
+      {custom ? (
+        <Sheet visible={open} onClose={() => setOpen(false)} title="커스텀 컬러">
+          <ColorWheel
+            value={value}
+            onPick={(hex) => {
+              onChange(hex);
+              setOpen(false);
+            }}
+          />
+        </Sheet>
+      ) : null}
+    </>
+  );
+}
+
+/** 색상환 + 진하기 막대 + 미리보기. 팝업 안에 들어가요. */
+function ColorWheel({ value, onPick }: { value: string; onPick: (hex: string) => void }) {
+  const { palette, scheme } = useApp();
+  const start = toWheel(value);
+  const [hue, setHue] = useState(start.hue);
+  const [depth, setDepth] = useState(start.depth);
   const [barWidth, setBarWidth] = useState(0);
 
-  const custom = fromWheel(hue, depth);
-  const mine = !(THEMES as readonly string[]).includes(value.toLowerCase());
+  const picked = fromWheel(hue, depth);
+  const look = buildPalette(picked, scheme);
 
   /** 색상환에서 누른 자리의 각도를 재요. */
   const onWheel = (x: number, y: number, size: number) => {
@@ -59,90 +171,33 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (hex
   };
 
   return (
-    <>
-      <View style={styles.grid}>
-        {THEMES.map((hex) => {
-          const on = hex.toLowerCase() === value.toLowerCase();
-          return (
-            <Tap
-              key={hex}
-              onPress={() => onChange(hex)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: on }}
-              accessibilityLabel={`${hex} 색`}
-              depth={0.08}
-              style={[styles.swatchWrap, { borderColor: on ? palette.accentDeep : 'transparent' }]}>
-              <View style={[styles.swatch, { backgroundColor: buildPalette(hex, scheme).accent }]}>
-                {on ? <Icon name="check" size={18} color={buildPalette(hex, scheme).onAccent} /> : null}
-              </View>
-            </Tap>
-          );
-        })}
+    <View style={styles.picker}>
+      <Wheel hue={hue} depth={depth} onPick={onWheel} />
 
-        {/* 직접 고른 색도 목록 끝에 같이 보여줘요. */}
-        {mine ? (
-          <Tap
-            onPress={() => setOpen(true)}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: true }}
-            accessibilityLabel="직접 고른 색"
-            depth={0.08}
-            style={[styles.swatchWrap, { borderColor: palette.accentDeep }]}>
-            <View style={[styles.swatch, { backgroundColor: palette.accent }]}>
-              <Icon name="check" size={18} color={palette.onAccent} />
-            </View>
-          </Tap>
-        ) : null}
+      <Text style={[styles.label, { color: palette.sub }]}>진하기</Text>
+      <View onLayout={(e: LayoutChangeEvent) => setBarWidth(e.nativeEvent.layout.width)} style={styles.barWrap}>
+        <DepthBar
+          hue={hue}
+          depth={depth}
+          width={barWidth}
+          onPick={(v) => setDepth(Math.min(1, Math.max(0, v)))}
+        />
       </View>
 
-      <Tap
-        onPress={() => setOpen((v) => !v)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        depth={0.04}
-        style={styles.more}>
-        <Text style={[styles.moreText, { color: palette.accentDeep }]}>
-          {open ? '색 직접 고르기 닫기' : '원하는 색이 없나요? 직접 고르기'}
-        </Text>
-      </Tap>
-
-      {open ? (
-        <View style={styles.picker}>
-          <Wheel hue={hue} depth={depth} onPick={onWheel} />
-
-          <Text style={[styles.label, { color: palette.sub }]}>진하기</Text>
-          <View
-            onLayout={(e: LayoutChangeEvent) => setBarWidth(e.nativeEvent.layout.width)}
-            style={styles.barWrap}>
-            <DepthBar
-              hue={hue}
-              depth={depth}
-              width={barWidth}
-              onPick={(v) => setDepth(Math.min(1, Math.max(0, v)))}
-            />
-          </View>
-
-          <View style={styles.previewRow}>
-            <View style={[styles.preview, { backgroundColor: buildPalette(custom, scheme).accent }]}>
-              <Text style={[styles.previewText, { color: buildPalette(custom, scheme).onAccent }]}>
-                이 색으로
-              </Text>
-            </View>
-            <Tap
-              onPress={() => {
-                onChange(custom);
-                setOpen(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`${custom} 색으로 바꾸기`}
-              depth={0.05}
-              style={[styles.apply, { backgroundColor: palette.accent }]}>
-              <Text style={[styles.applyText, { color: palette.onAccent }]}>고르기</Text>
-            </Tap>
-          </View>
+      <View style={styles.previewRow}>
+        <View style={[styles.preview, { backgroundColor: look.accent }]}>
+          <Text style={[styles.previewText, { color: look.onAccent }]}>이 색으로</Text>
         </View>
-      ) : null}
-    </>
+        <Tap
+          onPress={() => onPick(picked)}
+          accessibilityRole="button"
+          accessibilityLabel={`${picked} 색으로 바꾸기`}
+          depth={0.05}
+          style={[styles.apply, { backgroundColor: palette.accent }]}>
+          <Text style={[styles.applyText, { color: palette.onAccent }]}>고르기</Text>
+        </Tap>
+      </View>
+    </View>
   );
 }
 
@@ -182,11 +237,7 @@ function Wheel({
             <View
               key={i}
               pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                styles.slice,
-                { transform: [{ rotate: `${a}deg` }] },
-              ]}>
+              style={[StyleSheet.absoluteFill, styles.slice, { transform: [{ rotate: `${a}deg` }] }]}>
               <View style={[styles.sliceInk, { backgroundColor: fromWheel(a, depth) }]} />
             </View>
           );
@@ -257,7 +308,7 @@ function DepthBar({
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   swatchWrap: {
     width: 48,
     height: 48,
@@ -268,10 +319,19 @@ const styles = StyleSheet.create({
   },
   swatch: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
-  more: { minHeight: 44, justifyContent: 'center' },
-  moreText: { fontSize: 13, fontWeight: '700' },
+  customButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  customText: { fontSize: 13, fontWeight: '700' },
 
-  picker: { alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 12 },
+  picker: { alignItems: 'center', gap: 12 },
   wheel: { width: 220, height: 220, borderRadius: 110, overflow: 'hidden' },
   // 조각 하나. 가운데를 축으로 돌려서 부채꼴처럼 둘러요.
   slice: { alignItems: 'center' },

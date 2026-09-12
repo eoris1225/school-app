@@ -20,6 +20,9 @@ const ICONS = {
   close: { ios: 'xmark', android: 'close', web: 'close' },
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
   swap: { ios: 'arrow.left.arrow.right', android: 'swap_horiz', web: 'swap_horiz' },
+  palette: { ios: 'paintpalette', android: 'palette', web: 'palette' },
+  person: { ios: 'person', android: 'person', web: 'person' },
+  people: { ios: 'person.2', android: 'group', web: 'group' },
 
   // 과목 아이콘
   book: { ios: 'book', android: 'menu_book', web: 'menu_book' },

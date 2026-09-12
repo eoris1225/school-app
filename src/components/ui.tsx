@@ -63,12 +63,16 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
   /*
    * 아바타도 누르는 것이라 살짝 솟아 보이게 해요. 버튼과 같은 규칙이에요.
    *
-   * 테두리를 바탕색으로 둘러요. 홈 맨 위 색 상자 위에 아바타가 올라가는데
-   * 둘 다 테마색이라 어디까지가 아바타인지 안 보였어요. 바탕색 테두리를
-   * 두르면 색 상자 위에서는 또렷하게 잘리고, 평범한 화면에서는 바탕과
-   * 같은 색이라 아예 안 보여요. 필요한 데서만 보이는 거예요.
+   * 홈 맨 위 색 띠 위에 아바타가 앉는데, 둘 다 테마색이라 어디까지가
+   * 아바타인지 안 보였어요. 예전에는 바탕색 테두리를 두껍게 둘러서 잘라냈는데
+   * 그게 촌스러웠어요. 이제 색을 한 톤 옮겨요(palette.avatar). 띠가 밝으면
+   * 어둡게, 어두우면 밝게라서 어느 테마색을 골라도 갈라져요.
+   *
+   * 테두리는 1픽셀만 남겨요. 경계를 만드는 건 이제 톤이고, 이 선은 가장자리를
+   * 또렷하게 맺어주는 역할만 해요. 그래서 바탕색이 아니라 아바타보다 살짝 밝은
+   * 색이에요. 뒤에 뭐가 있든 어울려요.
    */
-  const ring = Math.max(2, Math.round(size * 0.045));
+  const ring = 1;
   const circle = (
     <View
       style={[
@@ -78,20 +82,20 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
           width: size,
           height: size,
           borderRadius: size / 2,
-          shadowColor: palette.accent,
+          shadowColor: palette.avatar,
           borderWidth: ring,
-          borderColor: palette.bg,
+          borderColor: mix(palette.avatar, '#FFFFFF', 0.28),
         },
       ]}>
       <LinearGradient
-        colors={[mix(palette.accent, '#FFFFFF', 0.2), palette.accent, mix(palette.accent, '#000000', 0.12)]}
+        colors={[mix(palette.avatar, '#FFFFFF', 0.2), palette.avatar, mix(palette.avatar, '#000000', 0.12)]}
         locations={[0, 0.55, 1]}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
         style={[StyleSheet.absoluteFill, { borderRadius: size / 2 }]}
       />
       <View style={[styles.gloss, { borderRadius: size / 2 }]} />
-      <Text style={[styles.avatarText, { color: palette.onAccent, fontSize: size * 0.4 }]}>{initial}</Text>
+      <Text style={[styles.avatarText, { color: palette.onAvatar, fontSize: size * 0.4 }]}>{initial}</Text>
     </View>
   );
   if (!onPress) return circle;
