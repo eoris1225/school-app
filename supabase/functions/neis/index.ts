@@ -25,6 +25,7 @@ import {
 } from '../_shared/auth.ts';
 import {
   listThreads,
+  putImage,
   readThread,
   removeThread,
   reply,
@@ -413,6 +414,24 @@ async function handle(req: Request, url: URL): Promise<Response> {
         return json(found);
       }
       if (req.method === 'POST') {
+        /*
+         * 사진이 붙은 쪽지는 통째로 보내요 (multipart).
+         * 글만 보낼 때는 예전처럼 JSON 이에요. 사진 하나 때문에 글만 보내는
+         * 흔한 경우까지 무겁게 만들 이유가 없어요.
+         */
+        const kind = req.headers.get('content-type') ?? '';
+        if (kind.startsWith('multipart/form-data')) {
+          const form = await req.formData();
+          const text = String(form.get('text') ?? '').trim();
+          const file = form.get('image');
+
+          if (!(file instanceof File)) throw new BadRequest('사진이 없어요');
+          if (text.length > 2000) throw new BadRequest('내용은 2000자까지예요');
+
+          const path = await putImage(me, id, await file.arrayBuffer(), file.type);
+          return json({ message: await reply(me, id, text, path) }, 201);
+        }
+
         const body = await readMessage(req, false);
         return json({ message: await reply(me, id, body.text) }, 201);
       }

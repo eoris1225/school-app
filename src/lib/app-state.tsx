@@ -112,7 +112,7 @@ type AppContextValue = {
   /** 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요. */
   /** 교과군 이름이에요. subject.ts 의 TEACHABLE 에서 골라요. */
   askQuestion: (subject: string, text: string) => Promise<string | null>;
-  sendMessage: (threadId: string, text: string) => Promise<string | null>;
+  sendMessage: (threadId: string, text: string, photo?: { uri: string }) => Promise<string | null>;
   /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
   dropThread: (threadId: string) => Promise<string | null>;
   /** 탭 배지 숫자 (학생: 새 답변, 선생님: 답변 대기) */
@@ -448,10 +448,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const sendMessage = useCallback(
-    async (threadId: string, text: string): Promise<string | null> => {
+    async (threadId: string, text: string, photo?: { uri: string }): Promise<string | null> => {
       if (!me) return '로그인이 필요해요';
       try {
-        await replyTo(threadId, text);
+        await replyTo(threadId, text, photo);
         reloadThreads();
         return null;
       } catch (e) {
