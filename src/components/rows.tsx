@@ -5,9 +5,10 @@ import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Tag } from '@/components/ui';
-import { classLabel, SUBJECT_TEACHERS, targetLabel, type SchoolEvent, type Thread } from '@/data/mock';
+import { classLabel, targetLabel, type SchoolEvent } from '@/data/mock';
+import { type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
-import { dday, fromYmd } from '@/lib/time';
+import { dday, fromYmd, shortTime } from '@/lib/time';
 
 /** 일정 한 줄: 왼쪽 날짜, 가운데 제목, 오른쪽 D-day */
 export function EventRow({
@@ -90,17 +91,24 @@ export function EventRow({
 /** 쪽지 목록 한 줄 */
 export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => void }) {
   const { palette, role } = useApp();
-  const last = thread.messages[thread.messages.length - 1];
+  const last = thread.last;
   const pending = isPending(thread);
-  const unread = role === 'teacher' ? thread.unreadTeacher : thread.unreadStudent;
-  const answeredBy = [...thread.messages].reverse().find((m) => m.from === 'teacher')?.author;
+  const unread = thread.unread;
+  /*
+   * 예전에는 "박지현 선생님" 처럼 이름을 보여줬는데 지어낸 이름이었어요.
+   * 보내는 시점에는 누가 답할지 아무도 몰라요. 그 과목 선생님 여럿이
+   * 받거든요. 답이 오면 그때 실제로 답한 분 이름을 보여줘요.
+   */
   const title =
     role === 'teacher'
       ? `${thread.student.name} 학생`
-      : answeredBy
-        ? `${answeredBy} 선생님`
-        : `${SUBJECT_TEACHERS[thread.subject].join(', ')} 선생님`;
-  const subTitle = role === 'teacher' ? classLabel(thread.student.cls) : null;
+      : last?.from === 'teacher'
+        ? `${last.author} 선생님`
+        : `${thread.subject} 선생님께`;
+  const subTitle =
+    role === 'teacher'
+      ? `${classLabel(thread.student.cls)}${thread.student.no ? ` ${thread.student.no}번` : ''}`
+      : null;
 
   return (
     <Tap
@@ -119,13 +127,13 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
         {unread ? <View style={[styles.unreadDot, { backgroundColor: palette.accent }]} /> : null}
       </View>
       <Text style={[styles.threadPreview, { color: palette.text }]} numberOfLines={2}>
-        {last.from !== role && role === 'student' ? `답변: ${last.text}` : last.text}
+        {!last ? '' : last.from === 'teacher' && role === 'student' ? `답변: ${last.text}` : last.text}
       </Text>
       <View style={styles.threadBottom}>
         <Text style={[styles.threadStatus, { color: pending ? palette.sub : palette.accentDeep }]}>
           {pending ? '답변 대기' : '답변 완료'}
         </Text>
-        <Text style={[styles.threadTime, { color: palette.sub }]}>{last.time}</Text>
+        <Text style={[styles.threadTime, { color: palette.sub }]}>{shortTime(thread.at)}</Text>
       </View>
     </Tap>
   );

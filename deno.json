@@ -1,0 +1,6 @@
+{
+  "//": "scripts/ 안의 검사 스크립트를 deno로 돌리려고 둔 파일이에요. 앱 빌드와는 상관없어요.",
+  "imports": { "@/": "./src/" },
+  "lock": false,
+  "exclude": ["node_modules", "dist", "supabase"]
+}

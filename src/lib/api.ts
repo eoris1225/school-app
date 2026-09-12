@@ -236,6 +236,11 @@ export type Me = {
   role: 'student' | 'teacher';
   name: string;
   subjects: string[];
+  /** 계정에 붙은 학교. 쪽지가 누구에게 갈지 이걸로 정해요. */
+  school: { office: string; code: string } | null;
+  /** '2-3' 처럼 학년-반. 아직 안 골랐으면 null이에요. */
+  cls: string | null;
+  no: number | null;
 };
 
 /** 서버가 보는 나. 로그인 안 했으면 null이에요. */
@@ -254,4 +259,79 @@ export async function promoteToTeacher(code: string, subjects: string[]): Promis
     body: { code, subjects },
   });
   return me;
+}
+
+
+/**
+ * 내 학교와 반을 계정에 적어요.
+ *
+ * 기기에만 두면 안 돼요. 쪽지가 이 값을 보고 누구에게 갈지 정하거든요.
+ * 학교를 고를 때마다 불러요.
+ */
+export async function saveSchoolToAccount(v: {
+  office: string;
+  code: string;
+  grade: number;
+  cls: string;
+  no?: number;
+}): Promise<Me> {
+  const { me } = await call<{ me: Me }>(
+    { kind: 'my-school' },
+    { method: 'POST', body: { ...v, no: v.no ?? null } },
+  );
+  return me;
+}
+
+
+// ---------------------------------------------------------------- 쪽지
+
+export type ThreadMessage = {
+  id: string;
+  from: 'student' | 'teacher';
+  author: string;
+  text: string;
+  /** 보낸 시각. ISO 글자예요. 화면에서 보기 좋게 바꿔요. */
+  at: string;
+};
+
+export type Thread = {
+  id: string;
+  subject: string;
+  student: { name: string; cls: string; no: number | null };
+  /** 목록 미리보기에 쓸 마지막 한 줄 */
+  last: ThreadMessage | null;
+  count: number;
+  unread: boolean;
+  /** 선생님 답변이 아직 없으면 true */
+  pending: boolean;
+  at: string;
+};
+
+/** 내가 볼 수 있는 쪽지 목록. 최근 것이 앞이에요. */
+export async function getThreads(): Promise<Thread[]> {
+  const { threads } = await call<{ threads: Thread[] }>({ kind: 'threads' });
+  return threads;
+}
+
+/** 쪽지 하나를 전부 읽어요. 여는 순간 읽음으로 표시돼요. */
+export async function getThread(id: string): Promise<{ thread: Thread; messages: ThreadMessage[] }> {
+  return await call<{ thread: Thread; messages: ThreadMessage[] }>({ kind: 'thread', id });
+}
+
+/** 학생이 새 질문을 보내요. */
+export async function askTeacher(subject: string, text: string): Promise<Thread> {
+  const { thread } = await call<{ thread: Thread }>(
+    { kind: 'threads' },
+    { method: 'POST', body: { subject, text } },
+  );
+  return thread;
+}
+
+/** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
+export async function replyTo(id: string, text: string): Promise<ThreadMessage> {
+  const { message } = await call<{ message: ThreadMessage }>(
+    { kind: 'thread', id },
+    { method: 'POST', body: { text } },
+  );
+  return message;
 }

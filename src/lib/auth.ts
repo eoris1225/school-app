@@ -11,13 +11,9 @@ import { supabase } from '@/lib/supabase';
 
 export type Role = 'student' | 'teacher';
 
-/** 서버가 알려주는 내 정보. 로그인 안 했으면 null이에요. */
-export type Me = {
-  id: string;
-  role: Role;
-  name: string;
-  subjects: string[];
-};
+// 서버가 알려주는 내 정보예요. 모양은 api.ts 한 곳에만 적어둬요.
+// 두 군데에 적어두면 서버가 칸을 늘렸을 때 한쪽만 고치게 돼요.
+export type { Me } from '@/lib/api';
 
 /** Supabase가 주는 영어 문구를 우리말로 바꿔요. */
 function say(message: string): string {

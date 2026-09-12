@@ -17,6 +17,16 @@ export type Me = {
   role: 'student' | 'teacher';
   name: string;
   subjects: string[];
+  /*
+   * 학교와 반도 계정에 붙어 있어요.
+   *
+   * 쪽지는 앱이 보낸 학교를 안 믿고 이것만 봐요. 앱이 보낸 값을 믿으면
+   * 선생님이 설정에서 학교만 바꿔서 남의 학교 학생 질문을 읽을 수 있어요.
+   */
+  school: { office: string; code: string } | null;
+  /** '2-3' 처럼 학년-반이에요. 아직 안 골랐으면 null이에요. */
+  cls: string | null;
+  no: number | null;
 };
 
 export class AuthError extends Error {}
@@ -50,19 +60,60 @@ async function userIdOf(token: string): Promise<string | null> {
 }
 
 /** 계정 id로 프로필을 읽어요. */
-async function profileOf(id: string): Promise<Me | null> {
-  const q = new URLSearchParams({ select: 'id,role,name,subjects', id: `eq.${id}` });
-  const res = await fetch(`${rest('profiles')}?${q}`, { headers: serviceHeaders() });
-  if (!res.ok) throw new AuthError('프로필을 읽지 못했어요');
-  const rows = (await res.json()) as Record<string, unknown>[];
-  const row = rows[0];
-  if (!row) return null;
+function toMe(row: Record<string, unknown>): Me {
+  const office = row.school_office ? String(row.school_office) : '';
+  const code = row.school_code ? String(row.school_code) : '';
+  const grade = row.grade === null || row.grade === undefined ? null : Number(row.grade);
+  const cls = row.cls ? String(row.cls) : '';
   return {
     id: String(row.id),
     role: row.role === 'teacher' ? 'teacher' : 'student',
     name: String(row.name ?? ''),
     subjects: Array.isArray(row.subjects) ? row.subjects.map(String) : [],
+    school: office && code ? { office, code } : null,
+    cls: grade !== null && cls ? `${grade}-${cls}` : null,
+    no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
   };
+}
+
+const PROFILE_COLS = 'id,role,name,subjects,school_office,school_code,grade,cls,student_no';
+
+async function profileOf(id: string): Promise<Me | null> {
+  const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
+  const res = await fetch(`${rest('profiles')}?${q}`, { headers: serviceHeaders() });
+  if (!res.ok) throw new AuthError('프로필을 읽지 못했어요');
+  const rows = (await res.json()) as Record<string, unknown>[];
+  const row = rows[0];
+  if (!row) return null;
+  return toMe(row);
+}
+
+/**
+ * 내 학교와 반을 계정에 적어요.
+ *
+ * 앱에서 학교를 고를 때마다 불러요. 쪽지가 이 값을 보고 누구에게 갈지
+ * 정하기 때문에, 기기에만 두면 안 되고 계정에 붙어 있어야 해요.
+ * 역할과 담당 과목은 여기서 못 건드려요. 표에 걸린 트리거가 되돌려요.
+ */
+export async function setSchool(
+  id: string,
+  v: { office: string; code: string; grade: number; cls: string; no: number | null },
+): Promise<Me> {
+  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
+    method: 'PATCH',
+    headers: { ...serviceHeaders(), prefer: 'return=representation' },
+    body: JSON.stringify({
+      school_office: v.office,
+      school_code: v.code,
+      grade: v.grade,
+      cls: v.cls,
+      student_no: v.no,
+    }),
+  });
+  if (!res.ok) throw new AuthError(`학교를 저장하지 못했어요 (${res.status})`);
+  const rows = (await res.json()) as Record<string, unknown>[];
+  if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
+  return toMe(rows[0]);
 }
 
 /** 로그인한 사람. 로그인 안 했으면 null이에요. */
@@ -100,10 +151,5 @@ export async function promote(id: string, subjects: string[]): Promise<Me> {
   }
   const rows = (await res.json()) as Record<string, unknown>[];
   const row = Array.isArray(rows) ? rows[0] : (rows as Record<string, unknown>);
-  return {
-    id: String(row.id),
-    role: 'teacher',
-    name: String(row.name ?? ''),
-    subjects: Array.isArray(row.subjects) ? row.subjects.map(String) : [],
-  };
+  return toMe(row);
 }

@@ -19,8 +19,16 @@ import {
   AuthError,
   promote,
   requireTeacher as requireTeacherLogin,
+  setSchool,
   whoami,
 } from '../_shared/auth.ts';
+import {
+  listThreads,
+  readThread,
+  reply,
+  startThread,
+  ThreadError,
+} from '../_shared/threads.ts';
 import {
   createAssessment,
   DbError,
@@ -171,6 +179,27 @@ async function readBody(req: Request) {
   return { date, title, subject, grades, classes };
 }
 
+/** 쪽지 내용을 읽어요. 새 질문이면 과목도 같이 받아요. */
+async function readMessage(req: Request, needSubject: boolean) {
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    throw new BadRequest('보낸 내용을 읽을 수 없어요');
+  }
+  const b = raw as Record<string, unknown>;
+
+  const text = typeof b.text === 'string' ? b.text.trim() : '';
+  if (text.length < 1) throw new BadRequest('내용을 적어주세요');
+  if (text.length > 2000) throw new BadRequest('내용은 2000자까지예요');
+
+  if (!needSubject) return { text, subject: null as string | null };
+
+  const subject = typeof b.subject === 'string' ? b.subject.trim() : '';
+  if (!subject || subject.length > 30) throw new BadRequest('과목을 골라주세요');
+  return { text, subject };
+}
+
 function toList(v: unknown, field: string): unknown[] {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) throw new BadRequest(`${field}는 목록이어야 해요`);
@@ -274,6 +303,80 @@ async function handle(req: Request, url: URL): Promise<Response> {
       return json({ me: await whoami(req) });
     }
 
+    /*
+     * 내 학교와 반을 계정에 적어요.
+     *
+     * 기기에만 두면 안 돼요. 쪽지가 이 값을 보고 누구에게 갈지 정하거든요.
+     * 앱이 학교를 고를 때마다 여기로 보내요.
+     */
+    case 'my-school': {
+      if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+
+      let body: { office?: unknown; code?: unknown; grade?: unknown; cls?: unknown; no?: unknown };
+      try {
+        body = (await req.json()) as typeof body;
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+      const office = String(body.office ?? '');
+      const code = String(body.code ?? '');
+      if (!/^[A-Z]\d{2}$/.test(office)) throw new BadRequest('office가 이상해요');
+      if (!/^\d{7}$/.test(code)) throw new BadRequest('학교 코드가 이상해요');
+
+      const grade = Number(body.grade);
+      if (!Number.isInteger(grade) || grade < 1 || grade > 6) throw new BadRequest('학년이 이상해요');
+      const cls = String(body.cls ?? '').trim();
+      if (!cls || cls.length > 10) throw new BadRequest('반이 이상해요');
+
+      const raw = body.no === null || body.no === undefined || body.no === '' ? null : Number(body.no);
+      if (raw !== null && (!Number.isInteger(raw) || raw < 1 || raw > 100)) {
+        throw new BadRequest('번호가 이상해요');
+      }
+
+      return json({ me: await setSchool(me.id, { office, code, grade, cls, no: raw }) });
+    }
+
+    /*
+     * 쪽지.
+     *
+     * 학교는 앱이 보낸 값을 안 믿고 계정에 적힌 것만 봐요. 누가 무엇을
+     * 볼 수 있는지는 _shared/threads.ts 한 곳에 모아뒀어요.
+     */
+    case 'threads': {
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+
+      if (req.method === 'GET') {
+        return json({ threads: await listThreads(me) });
+      }
+      if (req.method === 'POST') {
+        const body = await readMessage(req, true);
+        return json({ thread: await startThread(me, body.subject!, body.text) }, 201);
+      }
+      throw new BadRequest('쪽지 목록은 GET, POST만 돼요');
+    }
+
+    case 'thread': {
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+      const id = q.get('id');
+      if (!id) throw new BadRequest('id가 필요해요');
+
+      if (req.method === 'GET') {
+        const found = await readThread(me, id);
+        // 볼 수 없는 쪽지도 "없다"고만 해요. 있다는 것까지 알려주면 안 돼요.
+        if (!found) throw new BadRequest('그런 쪽지가 없어요');
+        return json(found);
+      }
+      if (req.method === 'POST') {
+        const body = await readMessage(req, false);
+        return json({ message: await reply(me, id, body.text) }, 201);
+      }
+      throw new BadRequest('쪽지는 GET, POST만 돼요');
+    }
+
     // 선생님으로 올려요. 코드는 여기서 한 번만 확인해요.
     // 통과하면 계정에 역할이 붙고, 그 뒤로는 코드가 필요 없어요.
     case 'promote': {
@@ -313,7 +416,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
     default:
       throw new BadRequest(
-        'kind는 meal, timetable, schedule, classes, school 중 하나여야 해요',
+        'kind는 meal, timetable, schedule, classes, school, assessments, threads, thread 중 하나여야 해요',
       );
   }
 }
@@ -342,6 +445,8 @@ Deno.serve(async (req) => {
     if (e instanceof BadRequest) return json({ error: e.message }, 400);
     if (e instanceof Forbidden) return json({ error: e.message }, 403);
     if (e instanceof AuthError) return json({ error: e.message }, 401);
+    // 쪽지 규칙에 걸린 거예요. 서버 잘못이 아니니 400으로 알려줘요.
+    if (e instanceof ThreadError) return json({ error: e.message }, 400);
     if (e instanceof DbError) {
       console.error('DB 오류', e.message);
       return json({ error: '수행평가를 처리하지 못했어요' }, 502);

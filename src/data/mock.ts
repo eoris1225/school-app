@@ -24,20 +24,6 @@ export function classLabel(c: ClassId) {
   return `${grade}학년 ${cls}반`;
 }
 
-/** 과목별 선생님. 학생이 과목을 골라 질문하면 이 선생님들께 쪽지가 가요. */
-export const SUBJECT_TEACHERS: Record<Subject, string[]> = {
-  국어: ['이수진', '장민호'],
-  수학: ['박지현', '최윤호'],
-  영어: ['김도현'],
-  과학: ['정민재', '윤소희'],
-  사회: ['한서영'],
-  한국사: ['오세훈'],
-  정보: ['강하늘'],
-  체육: ['윤태호'],
-  음악: ['서지우'],
-  미술: ['문가은'],
-};
-
 export const BELL = [
   { period: 1, start: '08:40', end: '09:30' },
   { period: 2, start: '09:40', end: '10:30' },
@@ -96,20 +82,4 @@ export function showsTo(e: Pick<SchoolEvent, 'grades' | 'classes'>, grade: numbe
  * 나중에 Supabase 테이블로 옮길 자리예요.
  */
 export const INITIAL_EVENTS: SchoolEvent[] = [];
-export type Message = { id: string; from: Role; author: string; text: string; time: string };
-
-export type Thread = {
-  id: string;
-  subject: Subject;
-  student: { name: string; cls: ClassId };
-  messages: Message[];
-  unreadStudent: boolean;
-  unreadTeacher: boolean;
-};
-
-/**
- * 쪽지는 아직 이 기기 안에서만 오가요. 서버에 올리는 건 다음에 만들어요.
- * 예전에는 화면 확인용으로 가짜 학생(김하은)의 쪽지가 들어 있었는데,
- * 이제 로그인한 사람 이름으로 걸러내서 아무한테도 안 보여요. 그래서 비웠어요.
- */
-export const INITIAL_THREADS: Thread[] = [];
+// 쪽지 모양은 서버가 정해요. src/lib/api.ts 의 Thread 를 쓰세요.
