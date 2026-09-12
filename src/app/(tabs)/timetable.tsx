@@ -187,7 +187,12 @@ export default function TimetableScreen() {
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessibilityRole={mine ? 'button' : undefined}
                     accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
-                    <IconChip art={subjectArt(raw)} subject={raw} size={42} />
+                    {/*
+                      교시마다 과목 색을 주면 한 화면에 일곱 색이 깔려서
+                      어디를 봐야 할지 모르겠어요. 평소에는 조용히 두고
+                      지금 하는 수업만 색으로 남겨요.
+                    */}
+                    <IconChip art={subjectArt(raw)} subject={raw} size={42} quiet={!isNow} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
                         <Text style={[styles.periodTag, { color: st.fg }]}>{period}교시</Text>

@@ -15,6 +15,12 @@ import { useApp } from '@/lib/app-state';
  *
  * 지금은 반대예요. 바탕은 연한 색 한 겹으로 얌전히 두고, 그 위에 진짜
  * 입체로 그린 물체를 올려요. 튀어나와 보여야 하는 건 상자가 아니라 물체예요.
+ *
+ * 색은 아껴 써요. 네 칸이 전부 알록달록하면 어디를 봐야 할지 모르겠어요.
+ * 평소에는 단색으로 조용히 있다가, 알릴 게 생긴 칸만 색이 들어와요.
+ *   쪽지  안 읽은 게 있을 때
+ *   달력  수행평가가 일주일 안에 있을 때
+ * 그래서 색이 보이면 "저기 뭔가 있다"는 뜻이 돼요.
  */
 export function Tile({
   art,
@@ -36,7 +42,10 @@ export function Tile({
   size?: number;
 }) {
   const { palette, scheme } = useApp();
-  const pad = tone(toneKey, scheme).bg;
+  // 배지나 딱지가 붙었다는 건 알릴 게 있다는 뜻이에요. 그때만 색을 켜요.
+  const loud = !!badge || !!tag;
+  // 조용한 칸은 테마색을 아주 옅게 깔아요. 회색으로 두면 꺼진 버튼처럼 보여요.
+  const pad = loud ? tone(toneKey, scheme).bg : palette.tint;
 
   const read = [label, tag, badge ? `새 소식 ${badge}개` : null].filter(Boolean).join(', ');
 
@@ -49,7 +58,7 @@ export function Tile({
       style={styles.wrap}>
       <View>
         <View style={[styles.pad, { width: size, height: size, borderRadius: size * 0.32, backgroundColor: pad }]}>
-          <Emoji name={art} size={fitArt(size, 0.64)} />
+          <Emoji name={art} size={fitArt(size, 0.64)} tone={loud ? 'color' : 'mono'} />
         </View>
 
         {/* 딱지는 상자 위쪽에 반쯤 걸쳐요. 안에 넣으면 그림을 가려요. */}

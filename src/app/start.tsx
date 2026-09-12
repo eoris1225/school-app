@@ -91,7 +91,7 @@ export default function StartScreen() {
         <View style={[styles.column, { maxWidth: Math.min(content, 620) }]}>
           <View style={styles.top}>
             <Pop style={[styles.mark, { backgroundColor: palette.tint }]}>
-              <Emoji name="home" size={40} />
+              <Emoji name="home" size={40} tone="mono" />
             </Pop>
             <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
               학교생활{'\n'}도우미
@@ -119,7 +119,7 @@ export default function StartScreen() {
               accessibilityLabel={school ? `${school.name} ${classLabelOf(school)}, 학교 바꾸기` : '학교 고르기'}
               depth={0.03}
               style={[styles.pick, { backgroundColor: palette.tint }]}>
-              <Emoji name="map" size={28} />
+              <Emoji name="map" size={28} tone="mono" />
               <View style={styles.fill}>
                 {school ? (
                   <>

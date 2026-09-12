@@ -35,11 +35,19 @@ export function EventRow({
       : event.kind === 'personal'
         ? 'pin'
         : 'calendar';
+  /*
+   * 수행평가만 색으로 둬요.
+   *
+   * 학사일정은 거의 매일 있어서 전부 색으로 두면 목록이 알록달록해지고,
+   * 정작 놓치면 곤란한 수행평가가 묻혀요. 색은 "이건 챙겨야 해요"라는
+   * 뜻으로만 써요.
+   */
+  const loud = event.kind === 'assessment';
 
   return (
     <View style={styles.eventRow}>
       <View style={styles.eventDate}>
-        <Emoji name={art} size={26} />
+        <Emoji name={art} size={26} tone={loud ? 'color' : 'mono'} />
         <Text numeric style={[styles.eventDay, { color: palette.sub }]}>
           {date.getMonth() + 1}/{date.getDate()}
         </Text>
