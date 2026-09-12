@@ -234,7 +234,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
 
 function StudentHome() {
   const { palette, now, events, threads, school, swaps, me } = useApp();
-  const { compact } = useLayout();
+  const { compact, tile } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
   const today = toYmd(now);
@@ -267,17 +267,17 @@ function StudentHome() {
 
   const tiles = (
     <View style={styles.tiles}>
-      <Pop delay={80}>
-        <Tile art="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
+      <Pop delay={80} style={styles.tileSlot}>
+        <Tile art="meal" tone="orange" label="급식" size={tile} onPress={() => router.push('/meal')} />
       </Pop>
-      <Pop delay={140}>
-        <Tile art="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
+      <Pop delay={140} style={styles.tileSlot}>
+        <Tile art="timetable" tone="blue" label="시간표" size={tile} onPress={() => router.push('/timetable')} />
       </Pop>
-      <Pop delay={200}>
-        <Tile art="calendar" tone="green" label="달력" tag={calendarTag} onPress={() => router.push('/calendar')} />
+      <Pop delay={200} style={styles.tileSlot}>
+        <Tile art="calendar" tone="green" label="달력" tag={calendarTag} size={tile} onPress={() => router.push('/calendar')} />
       </Pop>
-      <Pop delay={260}>
-        <Tile art="chat" tone="violet" label="쪽지" badge={unread} onPress={() => router.push('/community')} />
+      <Pop delay={260} style={styles.tileSlot}>
+        <Tile art="chat" tone="violet" label="쪽지" badge={unread} size={tile} onPress={() => router.push('/community')} />
       </Pop>
     </View>
   );
@@ -328,7 +328,7 @@ function StudentHome() {
 
 function TeacherHome() {
   const { palette, now, events, threads, school, me } = useApp();
-  const { compact } = useLayout();
+  const { compact, tile } = useLayout();
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const nowPeriod = currentPeriod(now);
@@ -360,22 +360,23 @@ function TeacherHome() {
 
   const tiles = (
     <View style={styles.tiles}>
-      <Pop delay={80}>
-        <Tile art="inbox" tone="violet" label="쪽지함" badge={pending.length} onPress={() => router.push('/community')} />
+      <Pop delay={80} style={styles.tileSlot}>
+        <Tile art="inbox" tone="violet" label="쪽지함" badge={pending.length} size={tile} onPress={() => router.push('/community')} />
       </Pop>
-      <Pop delay={140}>
+      <Pop delay={140} style={styles.tileSlot}>
         <Tile
           art="memo"
           tone="green"
           label="일정 추가"
+          size={tile}
           onPress={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
         />
       </Pop>
-      <Pop delay={200}>
-        <Tile art="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
+      <Pop delay={200} style={styles.tileSlot}>
+        <Tile art="timetable" tone="blue" label="시간표" size={tile} onPress={() => router.push('/timetable')} />
       </Pop>
-      <Pop delay={260}>
-        <Tile art="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
+      <Pop delay={260} style={styles.tileSlot}>
+        <Tile art="meal" tone="orange" label="급식" size={tile} onPress={() => router.push('/meal')} />
       </Pop>
     </View>
   );
@@ -457,7 +458,9 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 4 },
   dotNow: { width: 22, borderRadius: 4 },
 
-  tiles: { flexDirection: 'row', gap: 16, paddingTop: 24, paddingBottom: 8 },
+  // 네 칸이 남은 폭을 똑같이 나눠 가져요. 폭을 박아두면 좁은 폰에서 잘려요.
+  tiles: { flexDirection: 'row', gap: 12, paddingTop: 24, paddingBottom: 8 },
+  tileSlot: { flex: 1 },
 
   head: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 8 },
   headTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3, flexShrink: 1 },

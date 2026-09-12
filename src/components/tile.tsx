@@ -90,7 +90,8 @@ export function Tile({
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: 80, alignItems: 'center', gap: 8 },
+  // 폭은 부모(홈 타일 줄)가 4등분해서 줘요. 여기서 박아두지 않아요.
+  wrap: { width: '100%', alignItems: 'center', gap: 8 },
   pad: { alignItems: 'center', justifyContent: 'center' },
 
   tag: {
