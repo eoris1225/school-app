@@ -6,7 +6,7 @@
  *
  * 규칙은 두 줄이에요.
  *   학생   내가 보낸 쪽지만
- *   선생님 우리 학교 + 내 담당 과목으로 온 쪽지만
+ *   선생님 우리 학교 + 내 담당 과목 중에서, 나를 지정했거나 지정이 없는 것만
  *
  * "우리 학교"는 앱이 보낸 값이 아니라 프로필에 적힌 값이에요.
  * 앱이 보낸 값을 믿으면 선생님이 학교 설정만 바꿔서 남의 학교 학생
@@ -33,6 +33,8 @@ export type Thread = {
   id: string;
   subject: string;
   student: { name: string; cls: string; no: number | null };
+  /** 콕 집어 보낸 선생님. 안 고르면 null이고 그 과목 선생님 모두에게 가요. */
+  teacher: { id: string; name: string } | null;
   /** 목록에서 미리보기로 쓸 마지막 한 줄 */
   last: Message | null;
   count: number;
@@ -152,7 +154,13 @@ export async function putImage(
   return path;
 }
 
-/** 이 사람이 볼 수 있는 쪽지만 걸러내는 조건이에요. */
+/**
+ * 이 사람이 볼 수 있는 쪽지만 걸러내는 조건이에요.
+ *
+ * 선생님은 우리 학교 + 내 담당 과목까지는 예전과 같고, 거기에 한 줄이
+ * 더 붙어요. 학생이 콕 집어 보낸 쪽지는 그 선생님만 봐요. 아무도 안
+ * 지정한 쪽지는 예전처럼 그 과목 선생님 모두가 봐요.
+ */
 function scope(me: Me): string {
   if (me.role === 'teacher') {
     if (!me.school) throw new ThreadError('학교를 먼저 골라주세요');
@@ -162,14 +170,43 @@ function scope(me: Me): string {
       school_office: `eq.${me.school.office}`,
       school_code: `eq.${me.school.code}`,
       subject: `in.(${list})`,
+      or: `(teacher_id.is.null,teacher_id.eq.${me.id})`,
     });
     return q.toString();
   }
   return new URLSearchParams({ student_id: `eq.${me.id}` }).toString();
 }
 
+export type TeacherPick = { id: string; name: string; teaches: string[] };
+
+/**
+ * 우리 학교에서 그 과목을 맡은 선생님들.
+ *
+ * 학교는 부르는 사람의 프로필에서만 가져와요. 앱이 보낸 값을 믿으면
+ * 아무 학교나 적어서 남의 학교 선생님 명단을 훑을 수 있어요.
+ * 이름 말고는 아무것도 안 줘요.
+ */
+export async function listTeachers(me: Me, subject: string): Promise<TeacherPick[]> {
+  if (!me.school) throw new ThreadError('학교를 먼저 골라주세요');
+  const q = new URLSearchParams({
+    select: 'id,name,teaches',
+    role: 'eq.teacher',
+    school_office: `eq.${me.school.office}`,
+    school_code: `eq.${me.school.code}`,
+    subjects: `cs.{"${subject}"}`,
+    order: 'name.asc',
+  });
+  const rows = await ask(`${rest('profiles')}?${q}`);
+  return rows.map((r) => ({
+    id: String(r.id),
+    name: String(r.name ?? ''),
+    teaches: Array.isArray(r.teaches) ? r.teaches.map(String) : [],
+  }));
+}
+
 const LIST_COLS =
-  'id,subject,student_name,student_cls,student_no,unread_student,unread_teacher,updated_at,' +
+  'id,subject,student_name,student_cls,student_no,teacher_id,teacher_name,' +
+  'unread_student,unread_teacher,updated_at,' +
   'messages(id,author_role,author_name,text,image_path,created_at)';
 
 function toThread(row: Record<string, unknown>, me: Me): Thread {
@@ -184,6 +221,9 @@ function toThread(row: Record<string, unknown>, me: Me): Thread {
       cls: String(row.student_cls ?? ''),
       no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
     },
+    teacher: row.teacher_id
+      ? { id: String(row.teacher_id), name: String(row.teacher_name ?? '') }
+      : null,
     last: msgs.length ? msgs[msgs.length - 1] : null,
     count: msgs.length,
     unread: Boolean(me.role === 'teacher' ? row.unread_teacher : row.unread_student),
@@ -228,11 +268,29 @@ export async function readThread(
   return { thread: { ...toThread(rows[0], me), unread: false }, messages: await withImages(msgs) };
 }
 
-/** 학생이 새 질문을 보내요. */
-export async function startThread(me: Me, subject: string, text: string): Promise<Thread> {
+/**
+ * 학생이 새 질문을 보내요.
+ *
+ * teacherId를 주면 그 선생님께만 가요. 안 주면 그 과목 선생님 모두에게 가요.
+ * 준 값은 그대로 믿지 않고 다시 확인해요. 앱이 아무 번호나 적어 보내면
+ * 그 사람 쪽지함에 아무 글이나 꽂을 수 있으니까요. 우리 학교 선생님이면서
+ * 그 과목을 맡고 있어야 통과예요.
+ */
+export async function startThread(
+  me: Me,
+  subject: string,
+  text: string,
+  teacherId?: string,
+): Promise<Thread> {
   if (me.role !== 'student') throw new ThreadError('질문은 학생만 보낼 수 있어요');
   if (!me.school) throw new ThreadError('학교를 먼저 골라주세요');
   if (!me.cls) throw new ThreadError('학년과 반을 먼저 골라주세요');
+
+  let teacher: TeacherPick | null = null;
+  if (teacherId) {
+    teacher = (await listTeachers(me, subject)).find((t) => t.id === teacherId) ?? null;
+    if (!teacher) throw new ThreadError('그 선생님께는 보낼 수 없어요');
+  }
 
   const made = await ask(rest('threads'), {
     method: 'POST',
@@ -245,6 +303,8 @@ export async function startThread(me: Me, subject: string, text: string): Promis
       student_name: me.name,
       student_cls: me.cls,
       student_no: me.no,
+      teacher_id: teacher?.id ?? null,
+      teacher_name: teacher?.name ?? null,
     }),
   });
   const id = String(made[0].id);

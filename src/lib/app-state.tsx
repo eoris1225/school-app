@@ -118,7 +118,7 @@ type AppContextValue = {
   reloadThreads: () => void;
   /** 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요. */
   /** 교과군 이름이에요. subject.ts 의 TEACHABLE 에서 골라요. */
-  askQuestion: (subject: string, text: string) => Promise<string | null>;
+  askQuestion: (subject: string, text: string, teacher?: string) => Promise<string | null>;
   sendMessage: (threadId: string, text: string, photo?: { uri: string }) => Promise<string | null>;
   /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
   dropThread: (threadId: string) => Promise<string | null>;
@@ -459,10 +459,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reloadThreads = useCallback(() => setThreadsNonce((n) => n + 1), []);
 
   const askQuestion = useCallback(
-    async (subject: string, text: string): Promise<string | null> => {
+    async (subject: string, text: string, teacher?: string): Promise<string | null> => {
       if (!me) return '로그인이 필요해요';
       try {
-        await askTeacher(subject, text);
+        await askTeacher(subject, text, teacher);
         reloadThreads();
         return null;
       } catch (e) {

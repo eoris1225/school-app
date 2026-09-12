@@ -24,6 +24,7 @@ import {
   whoami,
 } from '../_shared/auth.ts';
 import {
+  listTeachers,
   listThreads,
   putImage,
   readThread,
@@ -219,11 +220,22 @@ async function readMessage(req: Request, needSubject: boolean) {
   if (text.length < 1) throw new BadRequest('내용을 적어주세요');
   if (text.length > 2000) throw new BadRequest('내용은 2000자까지예요');
 
-  if (!needSubject) return { text, subject: null as string | null };
+  if (!needSubject) return { text, subject: null as string | null, teacher: undefined };
 
   const subject = typeof b.subject === 'string' ? b.subject.trim() : '';
   if (!subject || subject.length > 30) throw new BadRequest('과목을 골라주세요');
-  return { text, subject };
+
+  /*
+   * 콕 집어 보낼 선생님. 안 보내면 그 과목 선생님 모두에게 가요.
+   * 모양만 여기서 봐요. 우리 학교 선생님인지, 그 과목을 맡는지는
+   * threads.ts가 다시 확인해요. 모양이 맞다고 보내도 되는 건 아니에요.
+   */
+  const who = b.teacher;
+  const teacher = who === undefined || who === null || who === '' ? undefined : String(who);
+  if (teacher !== undefined && !/^[0-9a-f-]{36}$/i.test(teacher)) {
+    throw new BadRequest('선생님을 다시 골라주세요');
+  }
+  return { text, subject, teacher };
 }
 
 function toList(v: unknown, field: string): unknown[] {
@@ -396,9 +408,27 @@ async function handle(req: Request, url: URL): Promise<Response> {
       }
       if (req.method === 'POST') {
         const body = await readMessage(req, true);
-        return json({ thread: await startThread(me, body.subject!, body.text) }, 201);
+        return json(
+          { thread: await startThread(me, body.subject!, body.text, body.teacher) },
+          201,
+        );
       }
       throw new BadRequest('쪽지 목록은 GET, POST만 돼요');
+    }
+
+    /*
+     * 그 과목을 맡은 우리 학교 선생님들.
+     *
+     * 학생이 쪽지를 보낼 때 한 분을 골라서 보낼 수 있게 하려고요.
+     * 계정이 아직 없는 과목이면 빈 목록이고, 그때는 예전처럼 그 과목
+     * 선생님 모두에게 가요.
+     */
+    case 'teachers': {
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+      const subject = q.get('subject')?.trim();
+      if (!subject || subject.length > 30) throw new BadRequest('subject가 필요해요');
+      return json({ teachers: await listTeachers(me, subject) });
     }
 
     case 'thread': {
@@ -496,7 +526,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
     default:
       throw new BadRequest(
-        'kind는 meal, timetable, schedule, classes, school, assessments, threads, thread 중 하나여야 해요',
+        'kind는 meal, timetable, schedule, classes, school, assessments, teachers, threads, thread 중 하나여야 해요',
       );
   }
 }

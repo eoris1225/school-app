@@ -44,7 +44,9 @@ export default function ThreadScreen() {
       ? `${thread.student.name} 학생, ${classLabel(thread.student.cls)}${
           thread.student.no ? ` ${thread.student.no}번` : ''
         }`
-      : `우리 학교 ${thread.subject} 선생님들께`;
+      : thread.teacher
+        ? `${thread.teacher.name} 선생님께`
+        : `우리 학교 ${thread.subject} 선생님들께`;
 
   const send = async () => {
     const v = text.trim();
