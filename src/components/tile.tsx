@@ -16,11 +16,15 @@ import { useApp } from '@/lib/app-state';
  * 지금은 반대예요. 바탕은 연한 색 한 겹으로 얌전히 두고, 그 위에 진짜
  * 입체로 그린 물체를 올려요. 튀어나와 보여야 하는 건 상자가 아니라 물체예요.
  *
- * 색은 아껴 써요. 네 칸이 전부 알록달록하면 어디를 봐야 할지 모르겠어요.
- * 평소에는 단색으로 조용히 있다가, 알릴 게 생긴 칸만 색이 들어와요.
- *   쪽지  안 읽은 게 있을 때
- *   달력  수행평가가 일주일 안에 있을 때
- * 그래서 색이 보이면 "저기 뭔가 있다"는 뜻이 돼요.
+ * 여기는 색을 늘 켜둬요.
+ *
+ * 앱 안에서 "색은 챙길 것에만"이 규칙인데 홈 타일은 예외예요. 네 칸이
+ * 화면을 옮겨다니는 주요 통로라서, 색과 모양으로 바로 알아보는 게 빨라요.
+ * 한번 단색으로 바꿔봤는데 네 칸이 다 비슷해 보여서 되돌렸어요.
+ *
+ * 알릴 게 있는지는 색 말고 배지와 딱지가 말해줘요.
+ *   쪽지  안 읽은 개수 (빨간 동그라미)
+ *   달력  수행평가가 일주일 안이면 D-3 딱지
  */
 export function Tile({
   art,
@@ -42,10 +46,7 @@ export function Tile({
   size?: number;
 }) {
   const { palette, scheme } = useApp();
-  // 배지나 딱지가 붙었다는 건 알릴 게 있다는 뜻이에요. 그때만 색을 켜요.
-  const loud = !!badge || !!tag;
-  // 조용한 칸은 테마색을 아주 옅게 깔아요. 회색으로 두면 꺼진 버튼처럼 보여요.
-  const pad = loud ? tone(toneKey, scheme).bg : palette.tint;
+  const pad = tone(toneKey, scheme).bg;
 
   const read = [label, tag, badge ? `새 소식 ${badge}개` : null].filter(Boolean).join(', ');
 
@@ -58,7 +59,7 @@ export function Tile({
       style={styles.wrap}>
       <View>
         <View style={[styles.pad, { width: size, height: size, borderRadius: size * 0.32, backgroundColor: pad }]}>
-          <Emoji name={art} size={fitArt(size, 0.64)} tone={loud ? 'color' : 'mono'} />
+          <Emoji name={art} size={fitArt(size, 0.64)} />
         </View>
 
         {/* 딱지는 상자 위쪽에 반쯤 걸쳐요. 안에 넣으면 그림을 가려요. */}
