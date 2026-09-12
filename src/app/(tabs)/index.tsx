@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icon';
-import { Reveal, Tap } from '@/components/motion';
+import { Pop, Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Tile } from '@/components/tile';
 import { Avatar } from '@/components/ui';
@@ -23,7 +23,7 @@ import {
   type Weekday,
 } from '@/data/mock';
 import { isPending, useApp } from '@/lib/app-state';
-import { currentPeriod, dday, formatDay, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
+import { currentPeriod, dday, formatDay, fromYmd, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
 import { useLayout } from '@/lib/layout';
 
 export default function HomeScreen() {
@@ -254,12 +254,31 @@ function StudentHome() {
   const unread = threads.filter((t) => t.unreadStudent).length;
   const meal = meals.data?.find((m) => m.type === 'lunch') ?? null;
 
+  /*
+   * 달력 아이콘에 붙는 딱지예요. 가장 가까운 수행평가까지 며칠 남았는지 보여줘요.
+   * 놓치면 곤란한 일이라 달력을 열기 전에 알려주는 게 나아요.
+   * 일주일보다 멀면 안 붙여요. 늘 붙어 있으면 아무도 안 봐요.
+   */
+  const nextAssessment = upcoming.find((e) => e.kind === 'assessment');
+  const left = nextAssessment
+    ? Math.round((fromYmd(nextAssessment.date).getTime() - fromYmd(today).getTime()) / 86400000)
+    : null;
+  const calendarTag = left !== null && left <= 7 ? dday(nextAssessment!.date, now) : undefined;
+
   const tiles = (
     <View style={styles.tiles}>
-      <Tile icon="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
-      <Tile icon="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
-      <Tile icon="calendar" tone="green" label="달력" onPress={() => router.push('/calendar')} />
-      <Tile icon="chat" tone="violet" label="쪽지" badge={unread} onPress={() => router.push('/community')} />
+      <Pop delay={80}>
+        <Tile art="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
+      </Pop>
+      <Pop delay={140}>
+        <Tile art="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
+      </Pop>
+      <Pop delay={200}>
+        <Tile art="calendar" tone="green" label="달력" tag={calendarTag} onPress={() => router.push('/calendar')} />
+      </Pop>
+      <Pop delay={260}>
+        <Tile art="chat" tone="violet" label="쪽지" badge={unread} onPress={() => router.push('/community')} />
+      </Pop>
     </View>
   );
 
@@ -341,15 +360,23 @@ function TeacherHome() {
 
   const tiles = (
     <View style={styles.tiles}>
-      <Tile icon="inbox" tone="violet" label="쪽지함" badge={pending.length} onPress={() => router.push('/community')} />
-      <Tile
-        icon="plus"
-        tone="green"
-        label="일정 추가"
-        onPress={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
-      />
-      <Tile icon="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
-      <Tile icon="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
+      <Pop delay={80}>
+        <Tile art="inbox" tone="violet" label="쪽지함" badge={pending.length} onPress={() => router.push('/community')} />
+      </Pop>
+      <Pop delay={140}>
+        <Tile
+          art="memo"
+          tone="green"
+          label="일정 추가"
+          onPress={() => router.push({ pathname: '/add-event', params: { date: toYmd(now) } })}
+        />
+      </Pop>
+      <Pop delay={200}>
+        <Tile art="timetable" tone="blue" label="시간표" onPress={() => router.push('/timetable')} />
+      </Pop>
+      <Pop delay={260}>
+        <Tile art="meal" tone="orange" label="급식" onPress={() => router.push('/meal')} />
+      </Pop>
     </View>
   );
 

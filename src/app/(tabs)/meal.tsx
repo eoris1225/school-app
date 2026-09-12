@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Tap } from '@/components/motion';
+import { Emoji } from '@/components/emoji';
+import { Pop, Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Divider, Empty, ErrorNote, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { ALLERGENS, WEEKDAYS, type Weekday } from '@/data/mock';
@@ -94,21 +95,24 @@ export default function MealScreen() {
           {/* 내가 못 먹는 게 들어 있으면 맨 위에 한 번 모아서 알려줘요.
               메뉴를 하나하나 훑기 전에 먼저 보이게요. */}
           {meal && risky.length > 0 ? (
-            <View style={[styles.warn, { backgroundColor: palette.tint }]}>
-              <Text style={[styles.warnTitle, { color: palette.accentDeep }]}>
-                못 먹는 재료가 든 메뉴가 {risky.length}가지 있어요
-              </Text>
-              <Text style={[styles.warnBody, { color: palette.text }]}>
-                {risky.map((r) => r.name).join(', ')}
-              </Text>
-            </View>
+            <Pop style={[styles.warn, { backgroundColor: palette.tint }]}>
+              <Emoji name="warn" size={28} />
+              <View style={styles.fill}>
+                <Text style={[styles.warnTitle, { color: palette.accentDeep }]}>
+                  못 먹는 재료가 든 메뉴가 {risky.length}가지 있어요
+                </Text>
+                <Text style={[styles.warnBody, { color: palette.text }]}>
+                  {risky.map((r) => r.name).join(', ')}
+                </Text>
+              </View>
+            </Pop>
           ) : null}
 
           {meal ? (
             meal.items.map((item, i, arr) => {
               const hits = allergyHits(item.allergy, allergies);
               return (
-                <View key={`${item.name}-${i}`}>
+                <Reveal key={`${item.name}-${i}`} delay={i * 45} distance={8}>
                   <View style={styles.itemRow}>
                     <View style={styles.itemLeft}>
                       {hits.length ? (
@@ -137,11 +141,15 @@ export default function MealScreen() {
                     ) : null}
                   </View>
                   {i < arr.length - 1 ? <Divider /> : null}
-                </View>
+                </Reveal>
               );
             })
           ) : (
-            <Empty text={`${day}요일은 ${type === 'lunch' ? '점심' : '저녁'} 급식이 없어요`} />
+            <Empty
+              art="meal"
+              text={`${day}요일은 ${type === 'lunch' ? '점심' : '저녁'} 급식이 없어요`}
+              hint="방학이나 쉬는 날이면 학교가 올리지 않아요."
+            />
           )}
 
           <Tap
@@ -182,7 +190,8 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, gap: 12 },
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  warn: { borderRadius: 18, padding: 16, marginBottom: 8 },
+  fill: { flex: 1 },
+  warn: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 18, padding: 16, marginBottom: 8 },
   warnTitle: { fontSize: 13, fontWeight: '800' },
   warnBody: { fontSize: 15, lineHeight: 23, marginTop: 4 },
   itemName: { fontSize: 15, fontWeight: '600' },

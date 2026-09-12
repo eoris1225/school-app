@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { Emoji, subjectArt, type EmojiName } from '@/components/emoji';
 import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
@@ -27,14 +28,21 @@ export function EventRow({
       : event.kind === 'personal'
         ? '내 일정'
         : '학사일정';
+  // 수행평가는 그 과목 그림, 내 일정은 압정, 학사일정은 달력이에요.
+  const art: EmojiName =
+    event.kind === 'assessment'
+      ? subjectArt(event.subject ?? '')
+      : event.kind === 'personal'
+        ? 'pin'
+        : 'calendar';
 
   return (
     <View style={styles.eventRow}>
       <View style={styles.eventDate}>
-        <Text numeric style={[styles.eventDay, { color: palette.text }]}>
-          {date.getDate()}
+        <Emoji name={art} size={26} />
+        <Text numeric style={[styles.eventDay, { color: palette.sub }]}>
+          {date.getMonth() + 1}/{date.getDate()}
         </Text>
-        <Text style={[styles.eventMonth, { color: palette.sub }]}>{date.getMonth() + 1}월</Text>
       </View>
       <View style={styles.eventBody}>
         <Text style={[styles.eventTitle, { color: palette.text }]}>{event.title}</Text>
@@ -118,9 +126,8 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  eventDate: { width: 40, alignItems: 'center' },
-  eventDay: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 28 },
-  eventMonth: { fontSize: 12, fontWeight: '600' },
+  eventDate: { width: 44, alignItems: 'center', gap: 4 },
+  eventDay: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
   eventBody: { flex: 1, gap: 4 },
   eventTitle: { fontSize: 13, fontWeight: '700', lineHeight: 22 },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
