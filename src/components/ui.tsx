@@ -108,7 +108,16 @@ export function Header({ title, subtitle, right }: { title: string; subtitle?: s
 }
 
 /** 뒤로 가기 버튼이 있는 제목 (쪽지 상세, 내 정보, 일정 추가) */
-export function BackHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function BackHeader({
+  title,
+  subtitle,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  /** 오른쪽 끝에 놓을 것. 지우기 같은 거요. */
+  right?: ReactNode;
+}) {
   const { palette } = useApp();
   return (
     <View style={styles.backHeader}>
@@ -123,6 +132,7 @@ export function BackHeader({ title, subtitle }: { title: string; subtitle?: stri
           </Text>
         ) : null}
       </View>
+      {right}
     </View>
   );
 }

@@ -1,9 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Reveal } from '@/components/motion';
+import { Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { BackHeader, Empty, ErrorNote, Field, IconButton, Loading, Screen } from '@/components/ui';
 import { classLabel } from '@/data/mock';
@@ -15,7 +15,7 @@ import { useRemote } from '@/lib/use-remote';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { palette, role, sendMessage, reloadThreads, now } = useApp();
+  const { palette, role, sendMessage, dropThread, reloadThreads, now } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
   const scrollRef = useRef<ScrollView>(null);
@@ -24,6 +24,8 @@ export default function ThreadScreen() {
   const [failed, setFailed] = useState<string | null>(null);
   // 답장을 보낸 뒤 이 값을 올려서 다시 읽어와요.
   const [nonce, setNonce] = useState(0);
+  // 지우기는 한 번 더 물어봐요. 되돌릴 수 없으니까요.
+  const [confirmDrop, setConfirmDrop] = useState(false);
 
   // 서버에서 통째로 받아와요. 여는 순간 읽음으로 표시돼요.
   const remote = useRemote(`thread:${id}:${nonce}`, () => getThread(id));
@@ -55,6 +57,25 @@ export default function ThreadScreen() {
     reloadThreads();
   };
 
+  /*
+   * 보낸 사람만, 답이 오기 전에만 지울 수 있어요.
+   * 선생님이 시간 들여 쓴 답이 한쪽 뜻만으로 사라지면 안 되니까요.
+   */
+  const canDrop = role === 'student' && !!thread && thread.pending;
+
+  const drop = async () => {
+    setBusy(true);
+    setFailed(null);
+    const problem = await dropThread(id);
+    setBusy(false);
+    if (problem) {
+      setFailed(problem);
+      setConfirmDrop(false);
+      return;
+    }
+    router.back();
+  };
+
   if (remote.loading) {
     return (
       <Screen bottomInset>
@@ -79,7 +100,50 @@ export default function ThreadScreen() {
 
   return (
     <Screen scroll={false}>
-      <BackHeader title={`${thread.subject} 질문`} subtitle={subtitle} />
+      <BackHeader
+        title={`${thread.subject} 질문`}
+        subtitle={subtitle}
+        right={
+          canDrop ? (
+            <IconButton
+              icon="trash"
+              label="이 질문 거둬들이기"
+              onPress={() => setConfirmDrop(true)}
+            />
+          ) : null
+        }
+      />
+
+      {/* 한 번 더 물어봐요. 누르자마자 사라지면 실수를 되돌릴 수 없어요. */}
+      {confirmDrop ? (
+        <View style={[styles.confirm, { backgroundColor: palette.tint }]}>
+          <Text style={[styles.confirmText, { color: palette.text }]}>
+            이 질문을 거둬들일까요? 보낸 내용이 사라지고 선생님 쪽지함에서도 없어져요.
+          </Text>
+          <View style={styles.confirmRow}>
+            <Tap
+              onPress={() => setConfirmDrop(false)}
+              accessibilityRole="button"
+              accessibilityLabel="그대로 두기"
+              depth={0.05}
+              style={[styles.confirmBtn, { borderColor: palette.line }]}>
+              <Text style={[styles.confirmBtnText, { color: palette.text }]}>그대로 두기</Text>
+            </Tap>
+            <Tap
+              onPress={drop}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="거둬들이기"
+              depth={0.05}
+              style={[styles.confirmBtn, { backgroundColor: palette.accent, borderColor: palette.accent }]}>
+              <Text style={[styles.confirmBtnText, { color: palette.onAccent }]}>
+                {busy ? '지우는 중이에요' : '거둬들이기'}
+              </Text>
+            </Tap>
+          </View>
+        </View>
+      ) : null}
+
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -161,6 +225,18 @@ const styles = StyleSheet.create({
   bubble: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
   bubbleText: { fontSize: 15, lineHeight: 22 },
   time: { fontSize: 12 },
+  confirm: { borderRadius: 18, padding: 16, marginBottom: 8 },
+  confirmText: { fontSize: 13, lineHeight: 20 },
+  confirmRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  confirmBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBtnText: { fontSize: 13, fontWeight: '700' },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
