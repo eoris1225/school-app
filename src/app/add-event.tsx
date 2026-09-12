@@ -49,7 +49,11 @@ export default function AddEventScreen() {
     return (
       <Screen bottomInset>
         <BackHeader title="일정 추가" />
-        <Empty text="일정은 선생님만 추가할 수 있어요" />
+        <Empty
+          art="warn"
+          text="일정은 선생님만 추가할 수 있어요"
+          hint="선생님이시면 내 정보에서 코드를 넣어주세요."
+        />
       </Screen>
     );
   }

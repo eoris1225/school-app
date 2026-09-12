@@ -66,13 +66,17 @@ export default function PickSchoolScreen() {
       </Tap>
 
       {!ready ? (
-        <Empty text={`학교 이름을 ${MIN}글자 이상 적고 찾기를 눌러주세요`} />
+        <Empty art="map" text="다니는 학교를 찾아주세요" hint={`이름을 ${MIN}글자 이상 적고 찾기를 누르면 돼요.`} />
       ) : found.loading ? (
         <Loading text="학교를 찾는 중이에요" />
       ) : found.error ? (
         <ErrorNote text={found.error} onRetry={found.retryable ? found.retry : undefined} />
       ) : schools.length === 0 ? (
-        <Empty text={`'${query}' 로 찾은 학교가 없어요. 이름을 다시 확인해주세요`} />
+        <Empty
+          art="warn"
+          text={`'${query}' 로 찾은 학교가 없어요`}
+          hint="띄어쓰기를 빼거나 앞 두 글자만 적어보세요."
+        />
       ) : (
         <View style={styles.list}>
           {total > schools.length ? (

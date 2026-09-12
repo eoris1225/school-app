@@ -77,7 +77,9 @@ function StudentCommunity() {
       {sentTo ? <Text style={[styles.sent, { color: palette.accentDeep }]}>{sentTo}</Text> : null}
 
       <SectionTitle title="내 질문" />
-      {threads.length === 0 ? <Empty text="아직 보낸 질문이 없어요" /> : null}
+      {threads.length === 0 ? (
+        <Empty art="chat" text="아직 보낸 질문이 없어요" hint="궁금한 과목을 고르고 아래에 적어서 보내보세요." />
+      ) : null}
       {threads.map((t) => (
         <ThreadRow key={t.id} thread={t} onPress={() => openThread(t)} />
       ))}
@@ -112,7 +114,11 @@ function TeacherInbox() {
         ]}
       />
       {list.length === 0 ? (
-        <Empty text={tab === 'pending' ? '답변을 기다리는 쪽지가 없어요' : '쪽지가 없어요'} />
+        <Empty
+          art="inbox"
+          text={tab === 'pending' ? '답변을 기다리는 쪽지가 없어요' : '쪽지가 없어요'}
+          hint={tab === 'pending' ? '새 쪽지가 오면 여기에 쌓여요.' : undefined}
+        />
       ) : null}
       {list.map((t) => (
         <ThreadRow key={t.id} thread={t} onPress={() => openThread(t)} />

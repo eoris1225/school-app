@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Reveal } from '@/components/motion';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, Divider, Empty, ErrorNote, Field, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
@@ -226,10 +227,12 @@ export default function CalendarScreen() {
           <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
         ) : null}
         {!remote.loading && !remote.error && dayEvents.length === 0 ? (
-          <Empty text="이날은 일정이 없어요" />
+          <Empty art="calendar" text="이날은 일정이 없어요" />
         ) : null}
         {dayEvents.map((e, i) => (
-          <View key={e.id}>
+          // key에 고른 날짜를 섞어요. 날짜를 바꾸면 줄이 새로 그려지면서
+          // 다시 올라와요. 안 그러면 내용만 조용히 갈려서 바뀐 줄 몰라요.
+          <Reveal key={`${selected}:${e.id}`} delay={i * 50} distance={10}>
             {i > 0 ? <Divider /> : null}
             {/* 지울 수 있는 사람에게만 지우기가 나와요.
                 수행평가는 그 과목 선생님만이에요. 규칙은 app-state의 canDelete에 있어요. */}
@@ -266,7 +269,7 @@ export default function CalendarScreen() {
                 </View>
               </View>
             ) : null}
-          </View>
+          </Reveal>
         ))}
       </View>
       {failed ? <ErrorNote text={failed} /> : null}

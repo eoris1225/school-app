@@ -26,7 +26,7 @@ export default function ThreadScreen() {
     return (
       <Screen bottomInset>
         <BackHeader title="쪽지" />
-        <Empty text="쪽지를 찾을 수 없어요" />
+        <Empty art="chat" text="쪽지를 찾을 수 없어요" hint="지워졌거나 주소가 잘못됐어요." />
       </Screen>
     );
   }

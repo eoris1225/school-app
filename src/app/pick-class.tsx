@@ -63,7 +63,11 @@ export default function PickClassScreen() {
       ) : rooms.error ? (
         <ErrorNote text={rooms.error} onRetry={rooms.retryable ? rooms.retry : undefined} />
       ) : grades.length === 0 ? (
-        <Empty text="이 학교는 학년·반 정보가 올라와 있지 않아요. 다른 학교를 골라주세요" />
+        <Empty
+          art="warn"
+          text="학년·반 정보가 아직 없어요"
+          hint="이 학교는 NEIS에 반 목록을 올리지 않았어요. 다른 학교를 골라주세요."
+        />
       ) : (
         <>
           <SectionTitle title="학년" />

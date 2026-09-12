@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fitIcon, Icon, type IconName } from '@/components/icon';
-import { SlidingPill, Tap } from '@/components/motion';
+import { Emoji, fitArt, type EmojiName } from '@/components/emoji';
+import { Icon, type IconName } from '@/components/icon';
+import { Pop, Shimmer, SlidingPill, Tap } from '@/components/motion';
 import { FONT, Text } from '@/components/text';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
@@ -360,12 +361,12 @@ export function Field({ style, ...props }: TextInputProps) {
 
 /** 색 배경을 깐 아이콘. 회색 화면에 색 점을 찍어 줘요. */
 export function IconChip({
-  icon,
+  art,
   subject,
   tone,
   size = 40,
 }: {
-  icon: IconName;
+  art: EmojiName;
   /** 과목 이름을 주면 그 과목 색을 써요. */
   subject?: string;
   /** 색을 직접 고르고 싶을 때. */
@@ -380,23 +381,76 @@ export function IconChip({
         styles.iconChip,
         { width: size, height: size, borderRadius: size * 0.32, backgroundColor: t.bg },
       ]}>
-      <Icon name={icon} size={fitIcon(size, 0.5)} color={t.fg} />
+      <Emoji name={art} size={fitArt(size, 0.58)} />
     </View>
   );
 }
 
-export function Empty({ text }: { text: string }) {
-  const { palette } = useApp();
-  return <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>;
-}
-
-/** 불러오는 중에 보여줘요. 화면이 텅 비어 보이지 않게요. */
-export function Loading({ text = '불러오는 중이에요' }: { text?: string }) {
+/**
+ * 아무것도 없을 때 보여줘요.
+ *
+ * 회색 문장 한 줄만 덩그러니 두면 앱이 고장 난 것처럼 보여요. 그림을
+ * 얹어서 "비어 있는 게 맞다"는 느낌을 주고, 다음에 뭘 하면 되는지
+ * 한 줄 더 적을 수 있게 해뒀어요.
+ */
+export function Empty({
+  text,
+  art = 'pin',
+  hint,
+  action,
+  onAction,
+}: {
+  text: string;
+  /** 위에 올릴 3D 그림. 자리마다 어울리는 걸 골라주세요. */
+  art?: EmojiName;
+  /** 다음에 뭘 하면 되는지 한 줄 */
+  hint?: string;
+  /** 바로 할 수 있게 해주는 버튼 */
+  action?: string;
+  onAction?: () => void;
+}) {
   const { palette } = useApp();
   return (
-    <View style={styles.center}>
-      <ActivityIndicator color={palette.accent} />
-      <Text style={[styles.empty, { color: palette.sub }]}>{text}</Text>
+    <Pop delay={60} style={styles.emptyWrap}>
+      <View style={[styles.emptyArt, { backgroundColor: palette.tint }]}>
+        <Emoji name={art} size={fitArt(72, 0.56)} />
+      </View>
+      <Text style={[styles.empty, { color: palette.text }]}>{text}</Text>
+      {hint ? <Text style={[styles.emptyHint, { color: palette.sub }]}>{hint}</Text> : null}
+      {action && onAction ? (
+        <Tap
+          onPress={onAction}
+          accessibilityRole="button"
+          accessibilityLabel={action}
+          depth={0.05}
+          style={[styles.emptyBtn, { backgroundColor: palette.tint }]}>
+          <Text style={[styles.emptyBtnText, { color: palette.accentDeep }]}>{action}</Text>
+        </Tap>
+      ) : null}
+    </Pop>
+  );
+}
+
+/**
+ * 불러오는 중에 보여줘요.
+ *
+ * 빙글빙글 도는 동그라미 대신 들어올 내용의 자리를 미리 잡아둬요. 글이
+ * 도착할 때 화면이 덜 덜컹거리고, 얼마나 올지도 눈에 보여요.
+ * 화면 읽어주는 기능한테는 글로 알려줘요.
+ */
+export function Loading({ text = '불러오는 중이에요', rows = 4 }: { text?: string; rows?: number }) {
+  const { palette } = useApp();
+  return (
+    <View accessibilityRole="progressbar" accessibilityLabel={text} style={styles.skeleton}>
+      {Array.from({ length: rows }, (_, i) => (
+        <View key={i} style={styles.skeletonRow}>
+          <Shimmer width={40} height={40} radius={13} delay={i * 110} color={palette.tint} />
+          <View style={styles.skeletonLines}>
+            <Shimmer width={`${64 - (i % 3) * 12}%`} height={14} delay={i * 110 + 40} color={palette.tint} />
+            <Shimmer width={`${38 - (i % 2) * 8}%`} height={12} radius={6} delay={i * 110 + 80} color={palette.tint} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -490,8 +544,16 @@ export const styles = StyleSheet.create({
   buttonText: { fontSize: 15, fontWeight: '800' },
 
   iconChip: { alignItems: 'center', justifyContent: 'center' },
+  emptyWrap: { alignItems: 'center', gap: 12, paddingVertical: 32 },
+  emptyArt: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  emptyHint: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: -4 },
+  emptyBtn: { minHeight: 44, borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center', marginTop: 4 },
+  emptyBtnText: { fontSize: 13, fontWeight: '700' },
+  skeleton: { gap: 16, paddingVertical: 8 },
+  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  skeletonLines: { flex: 1, gap: 8 },
   field: { borderWidth: 1.5, fontSize: 15, fontFamily: FONT.regular },
-  empty: { fontSize: 13, textAlign: 'center', paddingVertical: 28, lineHeight: 22 },
+  empty: { fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22 },
   center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12 },
   retry: { fontSize: 15, fontWeight: '700' },
   divider: { height: 1, marginVertical: 2 },

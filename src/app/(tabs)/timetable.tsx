@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { subjectIcon } from '@/components/icon';
-import { Tap } from '@/components/motion';
+import { subjectArt } from '@/components/emoji';
+import { Reveal, Tap } from '@/components/motion';
 import { Chip, ChipRow, Divider, Empty, ErrorNote, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
@@ -140,12 +140,19 @@ export default function TimetableScreen() {
             ) : remote.error ? (
               <ErrorNote text={remote.error} onRetry={remote.retryable ? remote.retry : undefined} />
             ) : holiday ? (
-              <Empty text={`${day}요일은 ${holiday}이라 수업이 없어요`} />
+              <Empty art="party" text={`${day}요일은 ${holiday}이라 수업이 없어요`} />
             ) : week[day].filter(Boolean).length === 0 ? (
-              <Empty text={`${day}요일은 등록된 시간표가 없어요`} />
+              <Empty
+                art="timetable"
+                text={`${day}요일은 등록된 시간표가 없어요`}
+                hint="학교가 아직 안 올렸을 수 있어요."
+              />
             ) : (
             week[day].map((raw, i, arr) => {
               if (!raw) return null;
+              // 점심 뒤 첫 수업이 어느 줄인지. 그 위에 점심시간을 끼워 넣어요.
+              const lunchAt = arr.findIndex((r, k) => !!r && k + 1 > LUNCH.afterPeriod);
+              const afterLunch = lunchAt === i;
               const subject = readSubject(raw);
               // 내가 바꾼 과목이면 표시해줘요. 원래 뭐였는지 알 수 있게요.
               const swapped = mine && Object.values(swaps).includes(subject.name);
@@ -154,8 +161,10 @@ export default function TimetableScreen() {
               const bell = BELL[i];
               const st = subjectTone(raw, palette.scheme);
               return (
-                <View key={period}>
-                  {period === LUNCH.afterPeriod + 1 ? (
+                // 요일이나 반을 바꾸면 key가 달라져서 줄이 다시 올라와요.
+                // 내용만 조용히 갈리면 바뀐 걸 눈치채기 어려워요.
+                <Reveal key={`${cls}:${day}:${period}`} delay={i * 45} distance={10}>
+                  {afterLunch ? (
                     <View style={[styles.lunch, { borderColor: palette.line }]}>
                       <Text style={[styles.lunchText, { color: palette.sub }]}>
                         점심시간 {LUNCH.start}부터 {LUNCH.end}까지
@@ -178,7 +187,7 @@ export default function TimetableScreen() {
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessibilityRole={mine ? 'button' : undefined}
                     accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
-                    <IconChip icon={subjectIcon(raw)} subject={raw} size={42} />
+                    <IconChip art={subjectArt(raw)} subject={raw} size={42} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
                         <Text style={[styles.periodTag, { color: st.fg }]}>{period}교시</Text>
@@ -194,8 +203,8 @@ export default function TimetableScreen() {
                     {swapped ? <Tag label="바꿈" /> : null}
                     {isNow ? <Tag label="지금" tone="solid" /> : null}
                   </Tap>
-                  {i < arr.length - 1 && period !== LUNCH.afterPeriod ? <Divider /> : null}
-                </View>
+                  {i < arr.length - 1 && arr.findIndex((r, k) => !!r && k > i) !== lunchAt ? <Divider /> : null}
+                </Reveal>
               );
             })
             )}
