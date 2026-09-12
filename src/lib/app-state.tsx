@@ -33,6 +33,7 @@ import {
   getAssessments,
   getThreads,
   removeAssessment,
+  removeThread,
   replyTo,
   saveSchoolToAccount,
   type Assessment,
@@ -112,6 +113,8 @@ type AppContextValue = {
   /** 교과군 이름이에요. subject.ts 의 TEACHABLE 에서 골라요. */
   askQuestion: (subject: string, text: string) => Promise<string | null>;
   sendMessage: (threadId: string, text: string) => Promise<string | null>;
+  /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
+  dropThread: (threadId: string) => Promise<string | null>;
   /** 탭 배지 숫자 (학생: 새 답변, 선생님: 답변 대기) */
   badgeCount: number;
 };
@@ -458,6 +461,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [me, reloadThreads],
   );
 
+  const dropThread = useCallback(
+    async (threadId: string): Promise<string | null> => {
+      if (!me) return '로그인이 필요해요';
+      try {
+        await removeThread(threadId);
+        reloadThreads();
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '지우지 못했어요';
+      }
+    },
+    [me, reloadThreads],
+  );
+
   /**
    * 누가 무엇을 지울 수 있는지 한 곳에서 정해요.
    *
@@ -523,6 +540,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reloadThreads,
       askQuestion,
       sendMessage,
+      dropThread,
       badgeCount,
     };
   }, [
@@ -556,6 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     canDelete,
     askQuestion,
     sendMessage,
+    dropThread,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

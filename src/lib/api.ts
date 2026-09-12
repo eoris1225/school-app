@@ -354,6 +354,14 @@ export async function askTeacher(subject: string, text: string): Promise<Thread>
   return thread;
 }
 
+/**
+ * 보낸 질문을 거둬들여요. 보낸 사람만 돼요.
+ * 선생님이 답한 뒤에는 못 지워요. 답까지 같이 사라지거든요.
+ */
+export async function removeThread(id: string): Promise<void> {
+  await call<{ deleted: boolean }>({ kind: 'thread', id }, { method: 'DELETE' });
+}
+
 /** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
 export async function replyTo(id: string, text: string): Promise<ThreadMessage> {
   const { message } = await call<{ message: ThreadMessage }>(

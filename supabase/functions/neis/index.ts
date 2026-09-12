@@ -26,6 +26,7 @@ import {
 import {
   listThreads,
   readThread,
+  removeThread,
   reply,
   startThread,
   ThreadError,
@@ -415,7 +416,11 @@ async function handle(req: Request, url: URL): Promise<Response> {
         const body = await readMessage(req, false);
         return json({ message: await reply(me, id, body.text) }, 201);
       }
-      throw new BadRequest('쪽지는 GET, POST만 돼요');
+      if (req.method === 'DELETE') {
+        await removeThread(me, id);
+        return json({ deleted: true });
+      }
+      throw new BadRequest('쪽지는 GET, POST, DELETE만 돼요');
     }
 
     // 선생님으로 올려요. 코드는 여기서 한 번만 확인해요.

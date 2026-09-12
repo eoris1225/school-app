@@ -217,3 +217,29 @@ export async function reply(me: Me, id: string, text: string): Promise<Message> 
 
   return toMessage(made[0]);
 }
+
+/**
+ * 보낸 질문을 거둬들여요.
+ *
+ * 보낸 사람만 지울 수 있어요. 선생님은 못 지워요. 학생이 올린 글을 선생님이
+ * 없앨 수 있으면 그건 다른 얘기가 돼요. 부적절한 글은 학교가 따로 다뤄야지
+ * 앱이 조용히 지울 일이 아니에요.
+ *
+ * 지우면 오간 내용도 같이 사라져요 (표에 걸어뒀어요). 선생님 쪽지함에서도
+ * 없어져요. 그래서 답이 달린 뒤에는 못 지워요. 선생님이 시간 들여 쓴 답이
+ * 한쪽 뜻만으로 사라지면 안 되니까요.
+ */
+export async function removeThread(me: Me, id: string): Promise<void> {
+  if (me.role !== 'student') throw new ThreadError('보낸 사람만 지울 수 있어요');
+
+  const rows = await ask(
+    `${rest('threads')}?select=id,messages(author_role)&id=eq.${id}&student_id=eq.${me.id}`,
+  );
+  if (rows.length === 0) throw new ThreadError('그런 쪽지가 없어요');
+
+  const msgs = Array.isArray(rows[0].messages) ? rows[0].messages : [];
+  const answered = msgs.some((m) => (m as Record<string, unknown>).author_role === 'teacher');
+  if (answered) throw new ThreadError('선생님이 답한 쪽지는 지울 수 없어요');
+
+  await ask(`${rest('threads')}?id=eq.${id}&student_id=eq.${me.id}`, { method: 'DELETE' });
+}
