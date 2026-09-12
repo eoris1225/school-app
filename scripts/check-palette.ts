@@ -79,6 +79,10 @@ for (const base of [...THEMES, ...wheel()]) {
 
     for (const [name, on, under, min] of [
       ['띠글씨', p.onBand, p.band, RULES.bandText],
+      // 그라데이션 양 끝에서도 읽혀야 해요. 글씨는 가운데 색으로 정했지만
+      // 왼쪽 위는 더 밝고 오른쪽 아래는 더 어두워요.
+      ['띠글씨(밝은 끝)', p.onBand, p.bandLight, RULES.bandText],
+      ['띠글씨(깊은 끝)', p.onBand, p.bandDeep, RULES.bandText],
       ['버튼글씨', p.onAccent, p.accent, RULES.accentText],
       ['본문', p.text, p.bg, RULES.bodyText],
       ['본문(카드)', p.text, p.surface, RULES.bodyText],
@@ -89,6 +93,11 @@ for (const base of [...THEMES, ...wheel()]) {
       note(name, c);
       if (c < min) fail.push(`${name} ${c.toFixed(2)}`);
     }
+
+    // 그라데이션이 눈에 보일 만큼은 벌어져야 해요.
+    const span = contrast(p.bandLight, p.bandDeep);
+    note('그라데이션', span);
+    if (span < 1.35) fail.push(`그라데이션이 너무 약해요 ${span.toFixed(2)}`);
 
     const fromBg = contrast(p.band, p.bg);
     note('바탕', fromBg);

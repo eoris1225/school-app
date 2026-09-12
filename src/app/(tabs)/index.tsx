@@ -8,7 +8,6 @@ import { Pop, Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Tile } from '@/components/tile';
 import { Avatar } from '@/components/ui';
-import { mix } from '@/constants/themes';
 import { subjectTone } from '@/constants/tones';
 import { getLessons, getMeals } from '@/lib/api';
 import { readSubject, subjectGroup } from '@/lib/subject';
@@ -48,10 +47,15 @@ function HomeShell({ hero, children }: { hero: React.ReactNode; children: React.
       style={[styles.shell, { backgroundColor: palette.bg }]}
       contentContainerStyle={styles.shellContent}
       showsVerticalScrollIndicator={false}>
+      {/*
+        양 끝 색은 팔레트가 만들어요(themes.ts의 bandEdges). 여기서 흰색·검정을
+        섞으면 세게 줄수록 채도가 죽어서 끝이 회색으로 바래요. 색상은 그대로
+        두고 밝기만 옮기면 세게 줘도 색이 살아 있어요.
+      */}
       <LinearGradient
-        colors={[mix(palette.band, '#FFFFFF', 0.14), palette.band, mix(palette.band, '#000000', 0.1)]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
+        colors={[palette.bandLight, palette.band, palette.bandDeep]}
+        start={{ x: 0.05, y: 0 }}
+        end={{ x: 0.95, y: 1 }}
         style={[
           inset
             ? { marginTop: insets.top + 12, borderRadius: 30, alignSelf: 'center', width: '100%', maxWidth: content }
