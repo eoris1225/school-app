@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 
+import { Fade } from '@/components/motion';
 import { Text } from '@/components/text';
 import type { ToneColor } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
@@ -80,15 +81,21 @@ export function DayCell({
   return (
     <View style={styles.wrap}>
       <View style={styles.box}>
+        {/*
+          칠은 스르르 나타나요. 일정을 받아오면 마흔두 칸이 한꺼번에 색을
+          얻는데, 그게 뿅 하고 바뀌면 화면이 덜컥거려요.
+        */}
         {fill.length > 1 ? (
-          <LinearGradient
-            {...bands(fill, palette.surface)}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+          <Fade style={StyleSheet.absoluteFill}>
+            <LinearGradient
+              {...bands(fill, palette.surface)}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Fade>
         ) : fill.length === 1 ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: fill[0] }]} />
+          <Fade style={[StyleSheet.absoluteFill, { backgroundColor: fill[0] }]} />
         ) : null}
 
         {/* 고른 날은 테두리로 표시해요. 칠은 일정 색이 맡고 있어서요. */}
