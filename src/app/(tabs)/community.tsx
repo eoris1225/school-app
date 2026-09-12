@@ -6,7 +6,8 @@ import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, ChipRow, Empty, ErrorNote, Field, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { TEACHABLE } from '@/lib/subject';
-import { getSubjectTeachers, type Thread } from '@/lib/api';
+import { classLabel } from '@/data/mock';
+import { getSubjectTeachers, type TeacherPick, type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
 import { useRemote } from '@/lib/use-remote';
 
@@ -16,6 +17,34 @@ export default function CommunityScreen() {
 }
 
 const openThread = (t: Thread) => router.push({ pathname: '/thread', params: { id: t.id } });
+
+/**
+ * 선생님 이름 밑에 붙일 한 줄을 정해요.
+ *
+ * 이름만으로는 못 고를 때가 있어요. 박선생이 두 분이면 똑같은 칩이 두 개
+ * 뜨고, 학생은 찍는 수밖에 없어요. 같은 성씨는 학교에 흔해요.
+ *
+ * 맡은 과목을 먼저 보여줘요. '박선생 · 미적분' 이면 어느 박선생인지 알고,
+ * 덤으로 "이 선생님이 내가 듣는 그 과목 선생님인가"도 알 수 있어요.
+ *
+ * 이름이 겹치면 맡은 반까지 붙여요. 과목까지 같은 두 분이 있을 수 있거든요.
+ * 겹치지 않는데 과목도 안 적어두셨으면 그때도 반을 보여줘요. 아무것도
+ * 없는 것보다 나아요.
+ */
+function describe(list: TeacherPick[]): Map<string, string> {
+  const sameName = new Map<string, number>();
+  for (const t of list) sameName.set(t.name, (sameName.get(t.name) ?? 0) + 1);
+
+  const out = new Map<string, string>();
+  for (const t of list) {
+    const parts: string[] = [];
+    if (t.teaches.length) parts.push(t.teaches.join(', '));
+    const clash = (sameName.get(t.name) ?? 0) > 1;
+    if (t.cls && (clash || parts.length === 0)) parts.push(classLabel(t.cls));
+    out.set(t.id, parts.join(' · '));
+  }
+  return out;
+}
 
 /* ---------------- 학생: 질문 보내기 + 내 질문 ---------------- */
 
@@ -41,6 +70,7 @@ function StudentCommunity() {
   );
   const list = staff.data ?? [];
   const picked = list.find((t) => t.id === teacher) ?? null;
+  const detail = describe(list);
 
   const send = async () => {
     if (!subject || !canSend) return;
@@ -110,6 +140,7 @@ function StudentCommunity() {
                 <Chip
                   key={t.id}
                   label={`${t.name} 선생님`}
+                  detail={detail.get(t.id) || undefined}
                   selected={teacher === t.id}
                   onPress={() => setTeacher(t.id)}
                 />
@@ -118,7 +149,7 @@ function StudentCommunity() {
           </View>
           <Text style={[styles.to, { color: palette.accentDeep }]}>
             {picked
-              ? `${picked.name} 선생님께만 가요${picked.teaches.length ? ` · ${picked.teaches.join(', ')}` : ''}`
+              ? `${picked.name} 선생님께만 가요${detail.get(picked.id) ? ` · ${detail.get(picked.id)}` : ''}`
               : `우리 학교 ${subject} 선생님 ${list.length}분께 모두 가요`}
           </Text>
         </>

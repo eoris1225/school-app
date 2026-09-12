@@ -361,7 +361,14 @@ export async function getThread(id: string): Promise<{ thread: Thread; messages:
 }
 
 /** 그 과목을 맡은 우리 학교 선생님. 아직 계정이 없으면 빈 목록이에요. */
-export type TeacherPick = { id: string; name: string; teaches: string[] };
+export type TeacherPick = {
+  id: string;
+  name: string;
+  /** 실제로 맡은 과목 이름. '미적분' 처럼요. */
+  teaches: string[];
+  /** '2-3' 처럼 학년-반. 안 골랐으면 null이에요. */
+  cls: string | null;
+};
 
 /**
  * 그 과목 선생님 목록을 받아와요.

@@ -177,19 +177,29 @@ function scope(me: Me): string {
   return new URLSearchParams({ student_id: `eq.${me.id}` }).toString();
 }
 
-export type TeacherPick = { id: string; name: string; teaches: string[] };
+export type TeacherPick = {
+  id: string;
+  name: string;
+  /** 실제로 맡은 과목 이름. '미적분' 처럼요. 안 적었으면 빈 목록이에요. */
+  teaches: string[];
+  /** '2-3' 처럼 학년-반. 같은 이름 선생님을 가릴 때 써요. 안 골랐으면 null이에요. */
+  cls: string | null;
+};
 
 /**
  * 우리 학교에서 그 과목을 맡은 선생님들.
  *
  * 학교는 부르는 사람의 프로필에서만 가져와요. 앱이 보낸 값을 믿으면
  * 아무 학교나 적어서 남의 학교 선생님 명단을 훑을 수 있어요.
- * 이름 말고는 아무것도 안 줘요.
+ *
+ * 이름과 맡은 과목, 맡은 반까지만 줘요. 같은 학교에서 서로 아는 사이라
+ * 다 아는 것들이에요. 그 대신 같은 이름 선생님이 두 분이어도 학생이
+ * 누가 누군지 가릴 수 있어요.
  */
 export async function listTeachers(me: Me, subject: string): Promise<TeacherPick[]> {
   if (!me.school) throw new ThreadError('학교를 먼저 골라주세요');
   const q = new URLSearchParams({
-    select: 'id,name,teaches',
+    select: 'id,name,teaches,grade,cls',
     role: 'eq.teacher',
     school_office: `eq.${me.school.office}`,
     school_code: `eq.${me.school.code}`,
@@ -201,6 +211,7 @@ export async function listTeachers(me: Me, subject: string): Promise<TeacherPick
     id: String(r.id),
     name: String(r.name ?? ''),
     teaches: Array.isArray(r.teaches) ? r.teaches.map(String) : [],
+    cls: r.grade && r.cls ? `${Number(r.grade)}-${String(r.cls)}` : null,
   }));
 }
 
