@@ -25,6 +25,8 @@ export type Message = {
   author: string;
   text: string;
   at: string;
+  /** 사진이 붙어 있으면 잠깐 쓸 수 있는 주소. 없으면 null이에요. */
+  image: string | null;
 };
 
 export type Thread = {
@@ -79,7 +81,75 @@ function toMessage(row: Record<string, unknown>): Message {
     author: String(row.author_name ?? ''),
     text: String(row.text ?? ''),
     at: String(row.created_at ?? ''),
+    // 주소는 여기서 안 만들어요. 볼 수 있는 사람인지 확인한 뒤에 붙여요.
+    image: row.image_path ? String(row.image_path) : null,
   };
+}
+
+const BUCKET = 'thread-images';
+
+/**
+ * 사진을 잠깐 볼 수 있는 주소를 만들어요.
+ *
+ * 저장소를 공개로 두면 주소만 알면 누구나 남의 질문 사진을 봐요. 그래서
+ * 비공개로 두고, 볼 수 있는 사람이 확인됐을 때만 한 시간짜리 주소를 만들어요.
+ */
+async function signedUrl(path: string): Promise<string | null> {
+  const res = await fetch(`${URL_BASE}/storage/v1/object/sign/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ expiresIn: 3600 }),
+  });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { signedURL?: string };
+  return body.signedURL ? `${URL_BASE}/storage/v1${body.signedURL}` : null;
+}
+
+/** 목록에 담긴 사진들에 볼 수 있는 주소를 붙여요. */
+async function withImages(msgs: Message[]): Promise<Message[]> {
+  return await Promise.all(
+    msgs.map(async (m) => (m.image ? { ...m, image: await signedUrl(m.image) } : m)),
+  );
+}
+
+/**
+ * 사진을 담아요. 담은 자리만 돌려줘요.
+ *
+ * 자리 이름에 쪽지 번호를 넣어요. 쪽지가 지워지면 어느 사진을 같이 치워야
+ * 하는지 알 수 있어야 하니까요.
+ */
+export async function putImage(
+  me: Me,
+  threadId: string,
+  bytes: ArrayBuffer,
+  type: string,
+): Promise<string> {
+  const OK = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!OK.includes(type)) throw new ThreadError('사진은 JPG, PNG, WEBP만 돼요');
+  if (bytes.byteLength > 3 * 1024 * 1024) throw new ThreadError('사진은 3MB까지예요');
+  if (bytes.byteLength === 0) throw new ThreadError('사진이 비어 있어요');
+
+  // 볼 수 있는 쪽지인지 먼저 봐요. 남의 쪽지에 사진을 넣으면 안 되니까요.
+  const rows = await ask(`${rest('threads')}?select=id&id=eq.${threadId}&${scope(me)}`);
+  if (rows.length === 0) throw new ThreadError('그런 쪽지가 없어요');
+
+  const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${threadId}/${crypto.randomUUID()}.${ext}`;
+
+  const res = await fetch(`${URL_BASE}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SERVICE_KEY!,
+      authorization: `Bearer ${SERVICE_KEY}`,
+      'content-type': type,
+    },
+    body: bytes,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ThreadError(`사진을 담지 못했어요 (${res.status}) ${detail.slice(0, 100)}`);
+  }
+  return path;
 }
 
 /** 이 사람이 볼 수 있는 쪽지만 걸러내는 조건이에요. */
@@ -100,7 +170,7 @@ function scope(me: Me): string {
 
 const LIST_COLS =
   'id,subject,student_name,student_cls,student_no,unread_student,unread_teacher,updated_at,' +
-  'messages(id,author_role,author_name,text,created_at)';
+  'messages(id,author_role,author_name,text,image_path,created_at)';
 
 function toThread(row: Record<string, unknown>, me: Me): Thread {
   const msgs = (Array.isArray(row.messages) ? row.messages : [])
@@ -125,7 +195,12 @@ function toThread(row: Record<string, unknown>, me: Me): Thread {
 /** 내가 볼 수 있는 쪽지 목록. 최근 것이 앞이에요. */
 export async function listThreads(me: Me): Promise<Thread[]> {
   const rows = await ask(`${rest('threads')}?select=${LIST_COLS}&${scope(me)}&order=updated_at.desc`);
-  return rows.map((r) => toThread(r, me));
+  // 목록에서는 주소를 안 만들어요. 미리보기에 사진을 띄우지 않거든요.
+  // 쪽지마다 주소를 만들면 목록 한 번 여는 데 여러 번 다녀와야 해요.
+  return rows.map((r) => {
+    const t = toThread(r, me);
+    return t.last ? { ...t, last: { ...t.last, image: t.last.image ? '' : null } } : t;
+  });
 }
 
 /**
@@ -150,7 +225,7 @@ export async function readThread(
     body: JSON.stringify({ [mine]: false }),
   });
 
-  return { thread: { ...toThread(rows[0], me), unread: false }, messages: msgs };
+  return { thread: { ...toThread(rows[0], me), unread: false }, messages: await withImages(msgs) };
 }
 
 /** 학생이 새 질문을 보내요. */
@@ -191,7 +266,7 @@ export async function startThread(me: Me, subject: string, text: string): Promis
 }
 
 /** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
-export async function reply(me: Me, id: string, text: string): Promise<Message> {
+export async function reply(me: Me, id: string, text: string, imagePath?: string): Promise<Message> {
   // 볼 수 있는 쪽지인지 먼저 봐요. 남의 쪽지에 끼어들면 안 되니까요.
   const rows = await ask(`${rest('threads')}?select=id&id=eq.${id}&${scope(me)}`);
   if (rows.length === 0) throw new ThreadError('그런 쪽지가 없어요');
@@ -205,6 +280,7 @@ export async function reply(me: Me, id: string, text: string): Promise<Message> 
       author_name: me.name,
       author_role: me.role,
       text,
+      image_path: imagePath ?? null,
     }),
   });
 
@@ -215,7 +291,8 @@ export async function reply(me: Me, id: string, text: string): Promise<Message> 
     body: JSON.stringify({ [other]: true, updated_at: new Date().toISOString() }),
   });
 
-  return toMessage(made[0]);
+  const one = toMessage(made[0]);
+  return one.image ? { ...one, image: await signedUrl(one.image) } : one;
 }
 
 /**

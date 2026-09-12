@@ -95,7 +95,10 @@ async function call<T>(params: Record<string, string | number>, opts: CallOption
   const timer = setTimeout(() => stop.abort(), TIMEOUT);
 
   const headers: Record<string, string> = {};
-  if (opts.body !== undefined) headers['content-type'] = 'application/json';
+  // 사진이 붙은 요청은 FormData 로 보내요. 그때는 경계 문자열을 fetch 가
+  // 알아서 붙이기 때문에 content-type 을 우리가 적으면 안 돼요.
+  const form = opts.body instanceof FormData;
+  if (opts.body !== undefined && !form) headers['content-type'] = 'application/json';
   // 로그인했으면 토큰을 같이 보내요. 서버가 이걸로 내가 누구인지 알아요.
   const token = await accessToken();
   if (token) headers.authorization = `Bearer ${token}`;
@@ -105,7 +108,7 @@ async function call<T>(params: Record<string, string | number>, opts: CallOption
     res = await fetch(`${BASE}?${q}`, {
       method: opts.method ?? 'GET',
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.body === undefined ? undefined : form ? (opts.body as FormData) : JSON.stringify(opts.body),
       signal: stop.signal,
     });
   } catch {
@@ -319,6 +322,14 @@ export type ThreadMessage = {
   text: string;
   /** 보낸 시각. ISO 글자예요. 화면에서 보기 좋게 바꿔요. */
   at: string;
+  /**
+   * 붙은 사진 주소. 없으면 null이에요.
+   *
+   * 한 시간만 쓸 수 있는 주소예요. 저장소를 공개로 두면 주소만 알면 누구나
+   * 남의 질문 사진을 보거든요. 그래서 볼 수 있는 사람인지 확인한 뒤에
+   * 서버가 그때그때 만들어줘요. 목록에서는 빈 글자로 와요(띄우지 않아서요).
+   */
+  image: string | null;
 };
 
 export type Thread = {
@@ -362,11 +373,34 @@ export async function removeThread(id: string): Promise<void> {
   await call<{ deleted: boolean }>({ kind: 'thread', id }, { method: 'DELETE' });
 }
 
-/** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
-export async function replyTo(id: string, text: string): Promise<ThreadMessage> {
+/**
+ * 이어서 한 줄 더 보내요. 학생도 선생님도 써요.
+ * 사진을 같이 보내려면 photo 를 주세요. 글은 없어도 돼요.
+ */
+export async function replyTo(
+  id: string,
+  text: string,
+  photo?: { uri: string },
+): Promise<ThreadMessage> {
+  if (!photo) {
+    const { message } = await call<{ message: ThreadMessage }>(
+      { kind: 'thread', id },
+      { method: 'POST', body: { text } },
+    );
+    return message;
+  }
+
+  // 사진이 있으면 통째로 보내요. 이름과 형식은 주소 끝을 보고 정해요.
+  const form = new FormData();
+  form.append('text', text);
+  const ext = photo.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  // React Native 에서는 이 모양으로 넣어요. 웹에서는 진짜 파일을 넣어야 해요.
+  form.append('image', { uri: photo.uri, name: `photo.${ext}`, type } as unknown as Blob);
+
   const { message } = await call<{ message: ThreadMessage }>(
     { kind: 'thread', id },
-    { method: 'POST', body: { text } },
+    { method: 'POST', body: form },
   );
   return message;
 }

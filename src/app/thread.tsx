@@ -3,6 +3,8 @@ import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Image } from 'expo-image';
+
 import { Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { BackHeader, Empty, ErrorNote, Field, IconButton, Loading, Screen } from '@/components/ui';
@@ -10,6 +12,7 @@ import { classLabel } from '@/data/mock';
 import { getThread } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
+import { pickPhoto, prettySize, type Photo } from '@/lib/photo';
 import { shortTime } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
 
@@ -26,6 +29,8 @@ export default function ThreadScreen() {
   const [nonce, setNonce] = useState(0);
   // 지우기는 한 번 더 물어봐요. 되돌릴 수 없으니까요.
   const [confirmDrop, setConfirmDrop] = useState(false);
+  // 보내기 전에 고른 사진. 보내고 나면 비워요.
+  const [photo, setPhoto] = useState<Photo | null>(null);
 
   // 서버에서 통째로 받아와요. 여는 순간 읽음으로 표시돼요.
   const remote = useRemote(`thread:${id}:${nonce}`, () => getThread(id));
@@ -43,18 +48,30 @@ export default function ThreadScreen() {
 
   const send = async () => {
     const v = text.trim();
-    if (!v || busy) return;
+    // 사진만 보내는 것도 돼요. 글만, 사진만, 둘 다 전부 괜찮아요.
+    if ((!v && !photo) || busy) return;
     setBusy(true);
     setFailed(null);
-    const problem = await sendMessage(id, v);
+    const problem = await sendMessage(id, v, photo ?? undefined);
     setBusy(false);
     if (problem) {
       setFailed(problem);
       return;
     }
     setText('');
+    setPhoto(null);
     setNonce((n) => n + 1);
     reloadThreads();
+  };
+
+  const attach = async () => {
+    setFailed(null);
+    try {
+      const got = await pickPhoto();
+      if (got) setPhoto(got);
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : '사진을 못 가져왔어요');
+    }
   };
 
   /*
@@ -170,8 +187,23 @@ export default function ThreadScreen() {
                     mine
                       ? { backgroundColor: palette.accent, borderBottomRightRadius: 6 }
                       : { backgroundColor: palette.surface, borderColor: palette.line, borderWidth: 1.5, borderBottomLeftRadius: 6 },
+                    // 사진만 있으면 안쪽 여백을 줄여요. 사진이 말풍선을 꽉 채우게요.
+                    m.image && !m.text && styles.bubblePhotoOnly,
                   ]}>
-                  <Text style={[styles.bubbleText, { color: mine ? palette.onAccent : palette.text }]}>{m.text}</Text>
+                  {m.image ? (
+                    <Image
+                      source={{ uri: m.image }}
+                      style={[styles.photo, !m.text && styles.photoOnly]}
+                      contentFit="cover"
+                      transition={150}
+                      accessibilityLabel="보낸 사진"
+                    />
+                  ) : null}
+                  {m.text ? (
+                    <Text style={[styles.bubbleText, { color: mine ? palette.onAccent : palette.text }]}>
+                      {m.text}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text style={[styles.time, { color: palette.sub }]}>{shortTime(m.at, now)}</Text>
               </Reveal>
@@ -180,6 +212,20 @@ export default function ThreadScreen() {
         </ScrollView>
 
         {failed ? <ErrorNote text={failed} /> : null}
+
+        {/* 보내기 전에 어떤 사진인지 보여줘요. 잘못 고른 걸 바로 알 수 있게요. */}
+        {photo ? (
+          <View style={[styles.attached, { backgroundColor: palette.tint }]}>
+            <Image source={{ uri: photo.uri }} style={styles.thumb} contentFit="cover" />
+            <View style={styles.fill}>
+              <Text style={[styles.attachedTitle, { color: palette.text }]}>사진 한 장</Text>
+              <Text style={[styles.attachedSize, { color: palette.sub }]}>
+                {photo.width}x{photo.height} · {prettySize(photo.bytes)}
+              </Text>
+            </View>
+            <IconButton icon="close" label="사진 빼기" onPress={() => setPhoto(null)} />
+          </View>
+        ) : null}
 
         <View
           style={[
@@ -191,6 +237,7 @@ export default function ThreadScreen() {
               backgroundColor: palette.bg,
             },
           ]}>
+          <IconButton icon="plus" label="사진 넣기" onPress={attach} disabled={busy || !!photo} />
           <Field
             value={text}
             onChangeText={(v) => {
@@ -206,7 +253,7 @@ export default function ThreadScreen() {
             icon="send"
             label={teacher ? '답변 보내기' : '보내기'}
             filled
-            disabled={!text.trim() || busy}
+            disabled={(!text.trim() && !photo) || busy}
             onPress={send}
           />
         </View>
@@ -225,6 +272,20 @@ const styles = StyleSheet.create({
   bubble: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12 },
   bubbleText: { fontSize: 15, lineHeight: 22 },
   time: { fontSize: 12 },
+  photo: { width: 220, aspectRatio: 4 / 3, borderRadius: 12, marginBottom: 8 },
+  photoOnly: { marginBottom: 0 },
+  bubblePhotoOnly: { padding: 4 },
+  attached: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+  },
+  thumb: { width: 48, height: 48, borderRadius: 10 },
+  attachedTitle: { fontSize: 13, fontWeight: '700' },
+  attachedSize: { fontSize: 12, marginTop: 2 },
   confirm: { borderRadius: 18, padding: 16, marginBottom: 8 },
   confirmText: { fontSize: 13, lineHeight: 20 },
   confirmRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
