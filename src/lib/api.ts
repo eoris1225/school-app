@@ -336,6 +336,8 @@ export type Thread = {
   id: string;
   subject: string;
   student: { name: string; cls: string; no: number | null };
+  /** 콕 집어 보낸 선생님. 안 고르면 null이고 그 과목 선생님 모두에게 가요. */
+  teacher: { id: string; name: string } | null;
   /** 목록 미리보기에 쓸 마지막 한 줄 */
   last: ThreadMessage | null;
   count: number;
@@ -356,11 +358,28 @@ export async function getThread(id: string): Promise<{ thread: Thread; messages:
   return await call<{ thread: Thread; messages: ThreadMessage[] }>({ kind: 'thread', id });
 }
 
-/** 학생이 새 질문을 보내요. */
-export async function askTeacher(subject: string, text: string): Promise<Thread> {
+/** 그 과목을 맡은 우리 학교 선생님. 아직 계정이 없으면 빈 목록이에요. */
+export type TeacherPick = { id: string; name: string; teaches: string[] };
+
+/**
+ * 그 과목 선생님 목록을 받아와요.
+ *
+ * 학교는 안 보내요. 서버가 내 계정에 적힌 학교만 봐요. 앱이 보낸 값을
+ * 믿으면 아무 학교나 적어서 남의 학교 선생님 명단을 훑을 수 있어요.
+ */
+export async function getSubjectTeachers(subject: string): Promise<TeacherPick[]> {
+  const { teachers } = await call<{ teachers: TeacherPick[] }>({ kind: 'teachers', subject });
+  return teachers;
+}
+
+/**
+ * 학생이 새 질문을 보내요.
+ * teacher를 주면 그 선생님께만 가요. 안 주면 그 과목 선생님 모두에게 가요.
+ */
+export async function askTeacher(subject: string, text: string, teacher?: string): Promise<Thread> {
   const { thread } = await call<{ thread: Thread }>(
     { kind: 'threads' },
-    { method: 'POST', body: { subject, text } },
+    { method: 'POST', body: { subject, text, teacher: teacher ?? null } },
   );
   return thread;
 }

@@ -96,15 +96,18 @@ export function ThreadRow({ thread, onPress }: { thread: Thread; onPress: () => 
   const unread = thread.unread;
   /*
    * 예전에는 "박지현 선생님" 처럼 이름을 보여줬는데 지어낸 이름이었어요.
-   * 보내는 시점에는 누가 답할지 아무도 몰라요. 그 과목 선생님 여럿이
-   * 받거든요. 답이 오면 그때 실제로 답한 분 이름을 보여줘요.
+   * 콕 집어 보낸 쪽지면 그분 이름이 진짜로 있으니 그걸 보여주고,
+   * 과목 선생님 모두에게 보냈으면 답이 오기 전까지는 누가 답할지 몰라요.
+   * 그때는 과목만 적어두고, 답이 오면 실제로 답한 분 이름으로 바꿔요.
    */
   const title =
     role === 'teacher'
       ? `${thread.student.name} 학생`
       : last?.from === 'teacher'
         ? `${last.author} 선생님`
-        : `${thread.subject} 선생님께`;
+        : thread.teacher
+          ? `${thread.teacher.name} 선생님께`
+          : `${thread.subject} 선생님께`;
   const subTitle =
     role === 'teacher'
       ? `${classLabel(thread.student.cls)}${thread.student.no ? ` ${thread.student.no}번` : ''}`
