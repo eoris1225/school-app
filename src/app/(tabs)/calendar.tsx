@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { DayCell } from '@/components/day-cell';
 import { Reveal } from '@/components/motion';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
@@ -71,24 +72,24 @@ export default function CalendarScreen() {
   const byDate = new Map<string, SchoolEvent[]>();
   shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]));
 
-  // 날짜 밑 점 색. 수행평가는 과목 색, 내 일정은 따로, 나머지는 학사일정 색이에요.
-  const markColor = (e: SchoolEvent) => {
-    const key =
-      e.kind === 'assessment'
-        ? (e.subject ?? '수행평가')
-        : e.kind === 'personal'
-          ? '내 일정'
-          : '학사일정';
-    return subjectTone(key, palette.scheme).fg;
-  };
+  // 일정 종류를 색 이름으로 바꿔요. 수행평가는 과목 색, 내 일정은 따로,
+  // 나머지는 학사일정 색이에요.
+  const toneNameOf = (e: SchoolEvent) =>
+    e.kind === 'assessment'
+      ? (e.subject ?? '수행평가')
+      : e.kind === 'personal'
+        ? '내 일정'
+        : '학사일정';
+
   /**
-   * 막대를 몇 칸으로 나눌지 정해요.
+   * 날짜 네모를 몇 가지 색으로 칠할지 정해요.
    *
-   * 같은 종류가 여러 개여도 칸을 늘리지 않아요. 국어 수행평가가 둘이라고
-   * 막대를 반으로 가르면 "두 종류가 있다"로 잘못 읽혀요.
-   * 종류가 넷 이상이면 세 칸까지만 보여줘요. 더 잘게 자르면 안 보여요.
+   * 같은 종류가 여러 개여도 색을 늘리지 않아요. 국어 수행평가가 둘이라고
+   * 네모를 반으로 가르면 "두 종류가 있다"로 잘못 읽혀요.
+   * 종류가 넷 이상이면 세 색까지만 써요. 더 잘게 자르면 안 보여요.
    */
-  const markColors = (list: SchoolEvent[]) => [...new Set(list.map(markColor))].slice(0, 3);
+  const dayTones = (list: SchoolEvent[]) =>
+    [...new Set(list.map(toneNameOf))].slice(0, 3).map((n) => subjectTone(n, palette.scheme));
 
   const dayEvents = shown.filter((e) => e.date === selected);
 
@@ -168,39 +169,14 @@ export default function CalendarScreen() {
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={`${cursor.m + 1}월 ${day}일${isToday ? ', 오늘' : ''}${marks.length ? `, 일정 ${marks.length}개` : ''}`}
                   style={styles.cell}>
-                  <View
-                    style={[
-                      styles.dayCircle,
-                      isSelected && !isToday && { backgroundColor: palette.tint, borderColor: palette.accent },
-                      isToday && { backgroundColor: palette.accent, borderColor: palette.accent },
-                    ]}>
-                    <Text
-                      numeric
-                      style={[
-                        styles.dayText,
-                        {
-                          color: isToday
-                            ? palette.onAccent
-                            : isSelected
-                              ? palette.accentDeep
-                              : weekendColor(di, palette.text),
-                        },
-                        (isToday || isSelected) && styles.dayTextBold,
-                      ]}>
-                      {day}
-                    </Text>
-                  </View>
-                  {/* 점 세 개를 따로 찍으면 어수선해요. 하나로 이어진 막대가
-                      "이 날 뭔가 있다"를 한눈에 보여주고, 색으로 종류도 알려줘요. */}
-                  <View style={styles.marks}>
-                    {marks.length > 0 ? (
-                      <View style={[styles.bar, { backgroundColor: palette.line }]}>
-                        {markColors(marks).map((c, i) => (
-                          <View key={i} style={[styles.barPart, { backgroundColor: c }]} />
-                        ))}
-                      </View>
-                    ) : null}
-                  </View>
+                  <DayCell
+                    day={day}
+                    tones={dayTones(marks)}
+                    today={isToday}
+                    selected={isSelected}
+                    count={marks.length}
+                    textColor={weekendColor(di, palette.text)}
+                  />
                 </Pressable>
               );
             })}
