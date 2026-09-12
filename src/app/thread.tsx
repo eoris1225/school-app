@@ -1,47 +1,81 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Reveal } from '@/components/motion';
 import { Text } from '@/components/text';
-import { BackHeader, Empty, Field, IconButton, Screen } from '@/components/ui';
-import { classLabel, SUBJECT_TEACHERS } from '@/data/mock';
+import { BackHeader, Empty, ErrorNote, Field, IconButton, Loading, Screen } from '@/components/ui';
+import { classLabel } from '@/data/mock';
+import { getThread } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
+import { shortTime } from '@/lib/time';
+import { useRemote } from '@/lib/use-remote';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { palette, role, threads, sendMessage, markRead } = useApp();
+  const { palette, role, sendMessage, reloadThreads, now } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
   const scrollRef = useRef<ScrollView>(null);
   const [text, setText] = useState('');
-  const thread = threads.find((t) => t.id === id);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  // 답장을 보낸 뒤 이 값을 올려서 다시 읽어와요.
+  const [nonce, setNonce] = useState(0);
 
-  useEffect(() => {
-    if (id) markRead(id);
-  }, [id, markRead]);
+  // 서버에서 통째로 받아와요. 여는 순간 읽음으로 표시돼요.
+  const remote = useRemote(`thread:${id}:${nonce}`, () => getThread(id));
+  const thread = remote.data?.thread ?? null;
+  const messages = remote.data?.messages ?? [];
 
-  if (!thread) {
+  const teacher = role === 'teacher';
+  const subtitle = !thread
+    ? undefined
+    : teacher
+      ? `${thread.student.name} 학생, ${classLabel(thread.student.cls)}${
+          thread.student.no ? ` ${thread.student.no}번` : ''
+        }`
+      : `우리 학교 ${thread.subject} 선생님들께`;
+
+  const send = async () => {
+    const v = text.trim();
+    if (!v || busy) return;
+    setBusy(true);
+    setFailed(null);
+    const problem = await sendMessage(id, v);
+    setBusy(false);
+    if (problem) {
+      setFailed(problem);
+      return;
+    }
+    setText('');
+    setNonce((n) => n + 1);
+    reloadThreads();
+  };
+
+  if (remote.loading) {
     return (
       <Screen bottomInset>
         <BackHeader title="쪽지" />
-        <Empty art="chat" text="쪽지를 찾을 수 없어요" hint="지워졌거나 주소가 잘못됐어요." />
+        <Loading text="쪽지를 불러오는 중이에요" rows={3} />
       </Screen>
     );
   }
 
-  const teacher = role === 'teacher';
-  const subtitle = teacher
-    ? `${thread.student.name} 학생, ${classLabel(thread.student.cls)}`
-    : `받는 사람: ${SUBJECT_TEACHERS[thread.subject].join(', ')} 선생님`;
-
-  const send = () => {
-    const v = text.trim();
-    if (!v) return;
-    sendMessage(thread.id, v);
-    setText('');
-  };
+  if (remote.error || !thread) {
+    return (
+      <Screen bottomInset>
+        <BackHeader title="쪽지" />
+        {remote.retryable ? (
+          <ErrorNote text={remote.error ?? '쪽지를 찾을 수 없어요'} onRetry={remote.retry} />
+        ) : (
+          <Empty art="chat" text="쪽지를 찾을 수 없어요" hint="지워졌거나 볼 수 없는 쪽지예요." />
+        )}
+      </Screen>
+    );
+  }
 
   return (
     <Screen scroll={false}>
@@ -56,10 +90,11 @@ export default function ThreadScreen() {
           contentContainerStyle={styles.messages}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
           showsVerticalScrollIndicator={false}>
-          {thread.messages.map((m) => {
+          {messages.map((m, i) => {
             const mine = m.from === role;
             return (
-              <View key={m.id} style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
+              <Reveal key={m.id} delay={Math.min(i, 6) * 40} distance={8}
+                style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
                 {!mine ? (
                   <Text style={[styles.author, { color: palette.sub }]}>
                     {m.author} {m.from === 'teacher' ? '선생님' : '학생'}
@@ -74,11 +109,13 @@ export default function ThreadScreen() {
                   ]}>
                   <Text style={[styles.bubbleText, { color: mine ? palette.onAccent : palette.text }]}>{m.text}</Text>
                 </View>
-                <Text style={[styles.time, { color: palette.sub }]}>{m.time}</Text>
-              </View>
+                <Text style={[styles.time, { color: palette.sub }]}>{shortTime(m.at, now)}</Text>
+              </Reveal>
             );
           })}
         </ScrollView>
+
+        {failed ? <ErrorNote text={failed} /> : null}
 
         <View
           style={[
@@ -92,13 +129,22 @@ export default function ThreadScreen() {
           ]}>
           <Field
             value={text}
-            onChangeText={setText}
+            onChangeText={(v) => {
+              setText(v);
+              setFailed(null);
+            }}
             placeholder={teacher ? '답변을 적어주세요' : '더 궁금한 점을 적어주세요'}
             multiline
             accessibilityLabel={teacher ? '답변 내용' : '메시지 내용'}
             style={styles.input}
           />
-          <IconButton icon="send" label={teacher ? '답변 보내기' : '보내기'} filled disabled={!text.trim()} onPress={send} />
+          <IconButton
+            icon="send"
+            label={teacher ? '답변 보내기' : '보내기'}
+            filled
+            disabled={!text.trim() || busy}
+            onPress={send}
+          />
         </View>
       </KeyboardAvoidingView>
     </Screen>

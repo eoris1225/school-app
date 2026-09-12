@@ -251,7 +251,7 @@ function StudentHome() {
   const week = byWeekday(lessons.data ?? [], dates, swaps);
   const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
-  const unread = threads.filter((t) => t.unreadStudent).length;
+  const unread = threads.filter((t) => t.unread).length;
   const meal = meals.data?.find((m) => m.type === 'lunch') ?? null;
 
   /*

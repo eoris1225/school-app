@@ -4,8 +4,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Chip, ChipRow, Empty, Field, Header, Screen, SectionTitle, Segmented } from '@/components/ui';
-import { SUBJECT_TEACHERS, SUBJECTS, type Subject, type Thread } from '@/data/mock';
+import { Button, Chip, ChipRow, Empty, ErrorNote, Field, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
+import { SUBJECTS, type Subject } from '@/data/mock';
+import { type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
 
 export default function CommunityScreen() {
@@ -18,15 +19,24 @@ const openThread = (t: Thread) => router.push({ pathname: '/thread', params: { i
 /* ---------------- 학생: 질문 보내기 + 내 질문 ---------------- */
 
 function StudentCommunity() {
-  const { palette, threads, askQuestion } = useApp();
+  const { palette, threads, threadsLoading, askQuestion } = useApp();
   const [subject, setSubject] = useState<Subject | null>(null);
   const [text, setText] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const canSend = !!subject && text.trim().length > 0;
+  const [failed, setFailed] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const canSend = !!subject && text.trim().length > 0 && !busy;
 
-  const send = () => {
+  const send = async () => {
     if (!subject || !canSend) return;
-    askQuestion(subject, text.trim());
+    setBusy(true);
+    setFailed(null);
+    const problem = await askQuestion(subject, text.trim());
+    setBusy(false);
+    if (problem) {
+      setFailed(problem);
+      return;
+    }
     setSentTo(`${subject} 선생님께 쪽지를 보냈어요`);
     setText('');
     setSubject(null);
@@ -57,8 +67,10 @@ function StudentCommunity() {
         </View>
 
         {subject ? (
+          // 누가 답할지는 보낼 때 알 수 없어요. 그 과목 선생님 여럿이 받거든요.
+          // 예전에는 지어낸 이름을 보여줬는데 없앴어요.
           <Text style={[styles.to, { color: palette.accentDeep }]}>
-            받는 사람: {SUBJECT_TEACHERS[subject].join(', ')} 선생님
+            우리 학교 {subject} 선생님들께 가요
           </Text>
         ) : null}
 
@@ -73,12 +85,19 @@ function StudentCommunity() {
           accessibilityLabel="질문 내용"
           style={styles.input}
         />
-        <Button label={subject ? `${subject} 선생님께 보내기` : '과목을 먼저 골라주세요'} icon="send" disabled={!canSend} onPress={send} />
+        <Button
+          label={busy ? '보내는 중이에요' : subject ? `${subject} 선생님께 보내기` : '과목을 먼저 골라주세요'}
+          icon="send"
+          disabled={!canSend}
+          onPress={send}
+        />
+      {failed ? <ErrorNote text={failed} /> : null}
       {sentTo ? <Text style={[styles.sent, { color: palette.accentDeep }]}>{sentTo}</Text> : null}
 
       <SectionTitle title="내 질문" />
-      {threads.length === 0 ? (
-        <Empty art="chat" text="아직 보낸 질문이 없어요" hint="궁금한 과목을 고르고 아래에 적어서 보내보세요." />
+      {threadsLoading ? <Loading text="쪽지를 불러오는 중이에요" rows={2} /> : null}
+      {!threadsLoading && threads.length === 0 ? (
+        <Empty art="chat" text="아직 보낸 질문이 없어요" hint="궁금한 과목을 고르고 위에 적어서 보내보세요." />
       ) : null}
       {threads.map((t) => (
         <ThreadRow key={t.id} thread={t} onPress={() => openThread(t)} />
@@ -90,7 +109,7 @@ function StudentCommunity() {
 /* ---------------- 선생님: 쪽지함 ---------------- */
 
 function TeacherInbox() {
-  const { threads, me } = useApp();
+  const { threads, threadsLoading, me } = useApp();
   const [tab, setTab] = useState<'pending' | 'done' | 'all'>('pending');
   const pending = threads.filter(isPending);
   const done = threads.filter((t) => !isPending(t));
@@ -113,7 +132,8 @@ function TeacherInbox() {
           { value: 'all', label: '전체' },
         ]}
       />
-      {list.length === 0 ? (
+      {threadsLoading ? <Loading text="쪽지를 불러오는 중이에요" rows={3} /> : null}
+      {!threadsLoading && list.length === 0 ? (
         <Empty
           art="inbox"
           text={tab === 'pending' ? '답변을 기다리는 쪽지가 없어요' : '쪽지가 없어요'}

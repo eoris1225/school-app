@@ -84,3 +84,29 @@ export function weekDates(now: Date): Record<Weekday, string> {
   });
   return out;
 }
+
+/**
+ * 쪽지가 언제 왔는지 짧게 적어요.
+ *
+ * 서버는 "2026-09-12T05:30:00Z" 처럼 보내요. 그대로 보여주면 아무도
+ * 안 읽어요. 오늘 온 건 시각만, 어제면 '어제', 그 전이면 날짜로 적어요.
+ * 카톡이나 문자가 하는 방식이에요.
+ */
+export function shortTime(iso: string, now = new Date()): string {
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return '';
+
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(now) - day(t)) / 86400000);
+
+  if (days === 0) {
+    const h = t.getHours();
+    const ampm = h < 12 ? '오전' : '오후';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${ampm} ${h12}:${pad(t.getMinutes())}`;
+  }
+  if (days === 1) return '어제';
+  if (days < 7) return `${DOW[t.getDay()]}요일`;
+  if (t.getFullYear() === now.getFullYear()) return `${t.getMonth() + 1}월 ${t.getDate()}일`;
+  return `${t.getFullYear()}. ${t.getMonth() + 1}. ${t.getDate()}.`;
+}

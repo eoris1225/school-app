@@ -26,7 +26,18 @@ import {
   type MyEvent,
   type SubjectSwaps,
 } from '@/lib/my-settings';
-import { addAssessment, ApiError, getAssessments, removeAssessment, type Assessment } from '@/lib/api';
+import {
+  addAssessment,
+  ApiError,
+  askTeacher,
+  getAssessments,
+  getThreads,
+  removeAssessment,
+  replyTo,
+  saveSchoolToAccount,
+  type Assessment,
+  type Thread,
+} from '@/lib/api';
 
 import {
   buildPalette,
@@ -41,12 +52,9 @@ import {
 import {
   showsTo,
   INITIAL_EVENTS,
-  INITIAL_THREADS,
-  type Message,
   type Role,
   type SchoolEvent,
   type Subject,
-  type Thread,
 } from '@/data/mock';
 
 type AppContextValue = {
@@ -96,9 +104,13 @@ type AppContextValue = {
   canDelete: (event: SchoolEvent) => boolean;
   /** 내 역할에서 보이는 쪽지 (학생은 내 질문, 선생님은 내 과목 쪽지) */
   threads: Thread[];
-  askQuestion: (subject: Subject, text: string) => void;
-  sendMessage: (threadId: string, text: string) => void;
-  markRead: (threadId: string) => void;
+  /** 쪽지 목록을 아직 받아오는 중인지 */
+  threadsLoading: boolean;
+  /** 서버에서 쪽지를 다시 읽어요. 보내거나 읽은 뒤에 불러요. */
+  reloadThreads: () => void;
+  /** 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요. */
+  askQuestion: (subject: Subject, text: string) => Promise<string | null>;
+  sendMessage: (threadId: string, text: string) => Promise<string | null>;
   /** 탭 배지 숫자 (학생: 새 답변, 선생님: 답변 대기) */
   badgeCount: number;
 };
@@ -120,7 +132,8 @@ function fromAssessment(a: Assessment): SchoolEvent {
   };
 }
 
-export const isPending = (t: Thread) => t.messages[t.messages.length - 1]?.from === 'student';
+/** 선생님 답변이 아직 없는 쪽지. 서버가 계산해서 보내줘요. */
+export const isPending = (t: Thread) => t.pending;
 
 /**
  * 지금 시각이에요. 앱이 열려 있는 동안 1분마다 새로 봐요.
@@ -149,7 +162,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [myEvents, setMyEventsState] = useState<MyEvent[]>([]);
   // 달력을 다시 읽게 만드는 값이에요. 등록·삭제 뒤에 올려요.
   const [eventsNonce, setEventsNonce] = useState(0);
-  const [allThreads, setAllThreads] = useState<Thread[]>(INITIAL_THREADS);
+  // 받아온 쪽지와 "언제 것인지" 표예요. 아래에서 계산으로 꺼내 써요.
+  const [fetchedThreads, setFetchedThreads] = useState<{ stamp: string; list: Thread[] } | null>(null);
+  // 쪽지를 다시 읽게 만드는 값이에요. 보내거나 읽은 뒤에 올려요.
+  const [threadsNonce, setThreadsNonce] = useState(0);
   const now = useNow();
 
   // 저장해둔 학교를 한 번 읽어와요. 읽는 동안엔 schoolLoading이 true예요.
@@ -187,6 +203,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [school, year, eventsNonce]);
+
+  /*
+   * 쪽지를 서버에서 받아와요.
+   *
+   * 누가 무엇을 볼 수 있는지는 서버가 정해요. 학생은 자기가 보낸 것,
+   * 선생님은 우리 학교 + 내 담당 과목으로 온 것만 와요.
+   * 로그인 안 했으면 아예 안 물어봐요.
+   */
+  const threadStamp = me ? `${me.id}#${threadsNonce}` : '';
+  useEffect(() => {
+    if (!threadStamp) return; // 로그인 안 했으면 물어보지 않아요
+    let alive = true;
+    getThreads()
+      .then((list) => {
+        if (alive) setFetchedThreads({ stamp: threadStamp, list });
+      })
+      .catch(() => {
+        // 못 읽어도 앱은 돌아가야 해요. 쪽지함이 비어 보일 뿐이에요.
+        if (alive) setFetchedThreads({ stamp: threadStamp, list: [] });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [threadStamp]);
+
+  // 지금 것이 맞을 때만 써요. 로그아웃했거나 다시 읽는 중이면 비어 있어요.
+  // useMemo로 감싸요. 매번 새 배열을 만들면 화면이 괜히 다시 그려져요.
+  const fresh = fetchedThreads?.stamp === threadStamp ? fetchedThreads : null;
+  const threads = useMemo(() => (threadStamp ? (fresh?.list ?? []) : []), [threadStamp, fresh]);
+  const threadsLoading = !!threadStamp && fresh === null;
 
   // 나만의 설정을 한 번에 읽어와요.
   useEffect(() => {
@@ -277,10 +323,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMe(null);
   }, []);
 
-  const setSchool = useCallback((next: MySchool) => {
-    setSchoolState(next);
-    void saveMySchool(next);
-  }, []);
+  const setSchool = useCallback(
+    (next: MySchool) => {
+      setSchoolState(next);
+      void saveMySchool(next);
+      /*
+       * 계정에도 같이 적어요.
+       *
+       * 기기에만 두면 쪽지가 누구에게 갈지 서버가 알 수 없어요. 선생님이
+       * 설정에서 학교만 바꿔 남의 학교 질문을 읽는 것도 막아야 하고요.
+       * 로그인 전에 고를 수도 있어서, 그때는 넘어가고 로그인 뒤에 적어요.
+       */
+      if (!me) return;
+      saveSchoolToAccount({
+        office: next.office,
+        code: next.code,
+        grade: next.grade,
+        cls: next.cls,
+        no: next.number,
+      })
+        .then(() => reloadMe())
+        .catch(() => {
+          // 못 적어도 앱은 돌아가요. 쪽지를 보낼 때 서버가 다시 알려줘요.
+        });
+    },
+    [me, reloadMe],
+  );
 
   /*
    * 폰 설정의 밝기예요. 이건 React 밖에 있는 값이라 useSyncExternalStore로 읽어요.
@@ -352,61 +420,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [school, role],
   );
 
+  const reloadThreads = useCallback(() => setThreadsNonce((n) => n + 1), []);
+
   const askQuestion = useCallback(
-    (subject: Subject, text: string) => {
-      if (!me || !school) return;
-      const message: Message = { id: `m${Date.now()}`, from: 'student', author: me.name, text, time: '방금' };
-      setAllThreads((prev) => [
-        {
-          id: `t${Date.now()}`,
-          subject,
-          student: { name: me.name, cls: `${school.grade}-${school.cls}` },
-          messages: [message],
-          unreadStudent: false,
-          unreadTeacher: true,
-        },
-        ...prev,
-      ]);
+    async (subject: Subject, text: string): Promise<string | null> => {
+      if (!me) return '로그인이 필요해요';
+      try {
+        await askTeacher(subject, text);
+        reloadThreads();
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '보내지 못했어요';
+      }
     },
-    [me, school],
+    [me, reloadThreads],
   );
 
   const sendMessage = useCallback(
-    (threadId: string, text: string) => {
-      if (!role || !me) return;
-      setAllThreads((prev) => {
-        const thread = prev.find((t) => t.id === threadId);
-        if (!thread) return prev;
-        const message: Message = {
-          id: `m${Date.now()}`,
-          from: role,
-          author: role === 'teacher' ? (me?.name ?? '') : thread.student.name,
-          text,
-          time: '방금',
-        };
-        const updated: Thread = {
-          ...thread,
-          messages: [...thread.messages, message],
-          unreadStudent: role === 'teacher' ? true : thread.unreadStudent,
-          unreadTeacher: role === 'student' ? true : thread.unreadTeacher,
-        };
-        return [updated, ...prev.filter((t) => t.id !== threadId)];
-      });
+    async (threadId: string, text: string): Promise<string | null> => {
+      if (!me) return '로그인이 필요해요';
+      try {
+        await replyTo(threadId, text);
+        reloadThreads();
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '보내지 못했어요';
+      }
     },
-    [role, me],
-  );
-
-  const markRead = useCallback(
-    (threadId: string) => {
-      if (!role) return;
-      const key = role === 'student' ? 'unreadStudent' : 'unreadTeacher';
-      setAllThreads((prev) => {
-        const thread = prev.find((t) => t.id === threadId);
-        if (!thread || !thread[key]) return prev;
-        return prev.map((t) => (t.id === threadId ? { ...t, [key]: false } : t));
-      });
-    },
-    [role],
+    [me, reloadThreads],
   );
 
   /**
@@ -437,14 +478,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const myClass = school?.cls ?? '';
     const events =
       role === 'teacher' ? allEvents : allEvents.filter((e) => showsTo(e, myGrade, myClass));
-    // 선생님은 담당 과목으로 온 쪽지만, 학생은 자기가 보낸 쪽지만 봐요.
-    const mySubjects = me?.subjects ?? [];
-    const threads =
-      role === 'teacher'
-        ? allThreads.filter((t) => mySubjects.includes(t.subject))
-        : allThreads.filter((t) => !!me && t.student.name === me.name);
+    // 누가 무엇을 보는지는 서버가 이미 걸러줬어요. 여기서 또 거르지 않아요.
+    // 두 군데에서 거르면 규칙이 어긋났을 때 알아채기 어려워요.
     const badgeCount =
-      role === 'teacher' ? threads.filter(isPending).length : threads.filter((t) => t.unreadStudent).length;
+      role === 'teacher' ? threads.filter(isPending).length : threads.filter((t) => t.unread).length;
     return {
       role,
       me,
@@ -474,9 +511,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       removeMyEvent,
       canDelete,
       threads,
+      threadsLoading,
+      reloadThreads,
       askQuestion,
       sendMessage,
-      markRead,
       badgeCount,
     };
   }, [
@@ -494,7 +532,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSchool,
     schoolLoading,
     allEvents,
-    allThreads,
+    threads,
+    threadsLoading,
+    reloadThreads,
     addEvent,
     removeEvent,
     reloadEvents,
@@ -508,7 +548,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     canDelete,
     askQuestion,
     sendMessage,
-    markRead,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
