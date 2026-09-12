@@ -79,6 +79,10 @@ export type Palette = {
   band: string;
   /** band 위에 올리는 글씨 */
   onBand: string;
+  /** 색 띠 그라데이션의 밝은 쪽 끝 (왼쪽 위) */
+  bandLight: string;
+  /** 색 띠 그라데이션의 깊은 쪽 끝 (오른쪽 아래) */
+  bandDeep: string;
   /** 카드 그림자 색 */
   shadow: string;
   text: string;
@@ -266,6 +270,57 @@ function bandTone(
 }
 
 /**
+ * 색 띠 그라데이션의 양 끝을 만들어요. band가 가운데예요.
+ *
+ * 검정과 흰색을 섞어서 밝기를 옮기면 채도가 같이 죽어요. 그라데이션을 세게
+ * 줄수록 양 끝이 회색으로 바래요. 그래서 여기도 색상은 그대로 두고 밝기만
+ * 옮겨요. 깊은 쪽은 채도를 조금 올려요. 어두워질수록 색이 묽어 보이거든요.
+ *
+ * 다만 세게 주면 양 끝에서 글씨가 안 읽힐 수 있어요. 글씨는 가운데 색
+ * 기준으로 정해뒀는데 왼쪽 위는 더 밝고 오른쪽 아래는 더 어두우니까요.
+ * 그래서 최대치에서 시작해 글씨가 읽힐 때까지 조금씩 줄여요. 어느 색을
+ * 골라도 읽히는 만큼만 세게 가요.
+ */
+function bandEdges(band: string, ink: string): { light: string; deep: string } {
+  const { h, s, l } = toHsl(band);
+  /*
+   * 밝기만 옮겨요. 채도는 손대지 않아요.
+   *
+   * 어두워질 때 채도를 올려봤는데, 청록처럼 원래 채도가 높은 색에서는
+   * 밝기를 내린 만큼 채도가 도로 밝혀놔서 그라데이션이 거의 안 보였어요
+   * (폭 1.29). 밝기만 옮기면 밝기와 밝기가 항상 같은 방향으로 가요.
+   */
+  const at = (dl: number) => fromHsl(h, s, Math.min(0.93, Math.max(0.05, l + dl)));
+
+  /** 글씨가 읽히는 한도 안에서 그 방향으로 갈 수 있는 최대치 */
+  const room = (dir: 1 | -1) => {
+    let last = 0;
+    for (let d = 0.02; d <= 0.34; d += 0.02) {
+      const v = l + dir * d;
+      if (v < 0.05 || v > 0.93) break;
+      if (contrast(at(dir * d), ink) < 4.5) break;
+      last = d;
+    }
+    return last;
+  };
+
+  /*
+   * 한쪽이 막히면 반대쪽에 몰아줘요.
+   *
+   * 밝은 띠에는 진한 글씨가 올라가요. 그러면 깊은 쪽으로 많이 못 내려가요.
+   * 내려갈수록 진한 글씨와 가까워지거든요. 대신 밝은 쪽으로는 얼마든지
+   * 갈 수 있어요. 어두운 띠는 그 반대고요. 그래서 양쪽을 똑같이 나누지 않고
+   * 남는 몫을 여유 있는 쪽에 넘겨요. 어느 색을 골라도 기울기는 비슷해요.
+   */
+  const TOTAL = 0.3;
+  const up = room(1);
+  const down = room(-1);
+  const deep = Math.min(down, Math.max(TOTAL - up, TOTAL / 2));
+  const light = Math.min(up, TOTAL - deep);
+  return { light: at(light), deep: at(-deep) };
+}
+
+/**
  * 화면 전체에 고른 색을 아주 옅게 물들여요.
  *
  * 바탕과 글씨가 완전한 회색이면 색 띠만 붕 떠 보여요. 아주 조금만 섞으면
@@ -285,6 +340,7 @@ function lightPalette(base: string): Palette {
   const { fill: accent, ink } = fitFill(adjustUntil(base, surface, 1.9, deepInk(h, s)), h, s);
   const tint = mix(accent, surface, 0.92);
   const band = bandTone(accent, bg, 'light', h, s);
+  const edge = bandEdges(band.fill, band.ink);
   return {
     scheme: 'light',
     accent,
@@ -298,6 +354,8 @@ function lightPalette(base: string): Palette {
     raised: surface,
     band: band.fill,
     onBand: band.ink,
+    bandLight: edge.light,
+    bandDeep: edge.deep,
     shadow: deepInk(h, s),
     text: tinted(h, s, 0.18, 0.105),
     sub: tinted(h, s, 0.15, 0.4),
@@ -314,6 +372,7 @@ function darkPalette(base: string): Palette {
   const { fill: accent, ink } = fitFill(adjustUntil(base, bg, 3.05, paleInk(h, s)), h, s);
   const tint = mix(accent, bg, 0.86);
   const band = bandTone(accent, bg, 'dark', h, s);
+  const edge = bandEdges(band.fill, band.ink);
   return {
     scheme: 'dark',
     accent,
@@ -327,6 +386,8 @@ function darkPalette(base: string): Palette {
     raised: tinted(h, s, 0.1, 0.195),
     band: band.fill,
     onBand: band.ink,
+    bandLight: edge.light,
+    bandDeep: edge.deep,
     shadow: '#000000',
     text: tinted(h, s, 0.1, 0.955),
     sub: tinted(h, s, 0.1, 0.67),
