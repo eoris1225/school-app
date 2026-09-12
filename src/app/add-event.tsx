@@ -5,7 +5,8 @@ import { StyleSheet, View } from 'react-native';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { BackHeader, Button, Chip, ChipRow, Empty, ErrorNote, Field, goBack, IconButton, Loading, Screen, Segmented } from '@/components/ui';
-import { SUBJECTS, type EventKind, type Subject } from '@/data/mock';
+import { type EventKind } from '@/data/mock';
+import { TEACHABLE } from '@/lib/subject';
 import { getClasses } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { addDays, formatDay, fromYmd, toYmd } from '@/lib/time';
@@ -20,15 +21,14 @@ export default function AddEventScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
   const { palette, role, now, addEvent, school, me } = useApp();
   // 내 담당 과목을 처음부터 골라둬요. 과목 선생님이 제일 자주 쓰는 값이에요.
-  const myFirstSubject =
-    (me?.subjects.find((s): s is Subject => (SUBJECTS as readonly string[]).includes(s)) ??
-      SUBJECTS[0]);
+  const myFirstSubject: string =
+    me?.subjects.find((s) => (TEACHABLE as readonly string[]).includes(s)) ?? TEACHABLE[0];
   const [kind, setKind] = useState<EventKind>('academic');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(() => (params.date ? fromYmd(params.date) : now));
   const [grades, setGrades] = useState<number[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
-  const [subject, setSubject] = useState<Subject>(myFirstSubject);
+  const [subject, setSubject] = useState<string>(myFirstSubject);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -170,7 +170,7 @@ export default function AddEventScreen() {
           <Text style={[styles.label, { color: palette.text }]}>과목</Text>
           <View style={styles.chips}>
             <ChipRow>
-              {SUBJECTS.map((s) => (
+              {TEACHABLE.map((s) => (
                 <Chip key={s} label={s} colored selected={subject === s} onPress={() => setSubject(s)} />
               ))}
             </ChipRow>

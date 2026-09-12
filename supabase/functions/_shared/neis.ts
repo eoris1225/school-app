@@ -277,6 +277,47 @@ export async function fetchEvents(
     .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 }
 
+/**
+ * 그 학교에서 실제로 가르치는 과목 이름을 전부 모아요.
+ *
+ * 선생님이 담당 과목을 고를 때 써요. 우리가 목록을 박아두면 학교가 새로
+ * 만든 과목은 영영 못 골라요. 그 학교 시간표에 있는 이름을 그대로 줘요.
+ *
+ * 학년·반을 빼고 한 번만 불러요. 한 주치가 768줄쯤 되는데 pSize가 1000이라
+ * 한 번에 다 와요. 반마다 따로 부르면 스물네 번이에요.
+ *
+ * 수업이 아닌 것(자율활동, 추석 같은 것)은 빼요. 맡을 수 있는 과목이 아니에요.
+ */
+export async function fetchSubjects(
+  school: School,
+  opts: { year: number; term: number; from: string; to: string },
+  key?: string,
+): Promise<string[]> {
+  const rows = await call(
+    'hisTimetable',
+    {
+      ATPT_OFCDC_SC_CODE: school.office,
+      SD_SCHUL_CODE: school.code,
+      AY: opts.year,
+      SEM: opts.term,
+      TI_FROM_YMD: toYmd(opts.from),
+      TI_TO_YMD: toYmd(opts.to),
+    },
+    key,
+  );
+
+  // 창체와 휴일은 과목이 아니에요. 여기서 거르면 앱이 또 거를 필요가 없어요.
+  const SKIP = /자율|자치|동아리|진로활동|봉사|창의적|학급활동|학교스포츠클럽|추석|설날|개교|방학|휴업|공휴일|신정|어린이날|현충일|광복절|개천절|한글날|성탄/;
+
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const name = trimName(r.ITRT_CNTNT ?? '');
+    if (!name || SKIP.test(name)) continue;
+    seen.add(name);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+
 export async function fetchClasses(
   school: School,
   year: number,

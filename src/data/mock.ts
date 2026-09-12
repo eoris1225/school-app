@@ -8,8 +8,8 @@ export type Role = 'student' | 'teacher';
 export const WEEKDAYS = ['월', '화', '수', '목', '금'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 
-export const SUBJECTS = ['국어', '수학', '영어', '과학', '사회', '한국사', '정보', '체육', '음악', '미술'] as const;
-export type Subject = (typeof SUBJECTS)[number];
+// 과목 목록은 교과군 하나로 모았어요. src/lib/subject.ts 의 TEACHABLE 을 쓰세요.
+// 여기에 따로 두면 둘이 어긋나요. 실제로 어긋나 있었어요.
 
 /** '2-3' 처럼 "학년-반" 이에요. 학교마다 반 개수가 달라서 목록으로 못 박아둬요. */
 export type ClassId = string;
@@ -55,7 +55,8 @@ export type SchoolEvent = {
   date: string;
   title: string;
   kind: EventKind;
-  subject?: Subject;
+  /** 교과군이에요. '수학', '외국어' 처럼요. */
+  subject?: string;
   /** 해당되는 학년들. 비어 있으면 전 학년이에요. */
   grades: number[];
   /** 해당되는 반들. 비어 있으면 고른 학년 전체예요. */

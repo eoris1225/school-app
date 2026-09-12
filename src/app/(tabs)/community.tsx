@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, ChipRow, Empty, ErrorNote, Field, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
-import { SUBJECTS, type Subject } from '@/data/mock';
+import { TEACHABLE } from '@/lib/subject';
 import { type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
 
@@ -20,7 +20,7 @@ const openThread = (t: Thread) => router.push({ pathname: '/thread', params: { i
 
 function StudentCommunity() {
   const { palette, threads, threadsLoading, askQuestion } = useApp();
-  const [subject, setSubject] = useState<Subject | null>(null);
+  const [subject, setSubject] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -51,7 +51,7 @@ function StudentCommunity() {
 
         <View style={styles.subjects}>
           <ChipRow>
-            {SUBJECTS.map((s) => (
+            {TEACHABLE.map((s) => (
               <Chip
                 key={s}
                 label={s}
@@ -119,7 +119,11 @@ function TeacherInbox() {
     <Screen>
       <Header
         subtitle={
-          me?.subjects.length ? `${me.subjects.join(', ')} 과목으로 온 쪽지` : '담당 과목으로 온 쪽지'
+          me?.teaches?.length
+            ? `${me.teaches.join(', ')} 맡고 계세요`
+            : me?.subjects.length
+              ? `${me.subjects.join(', ')} 과목으로 온 쪽지`
+              : '담당 과목으로 온 쪽지'
         }
         title="쪽지함"
       />

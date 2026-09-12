@@ -54,7 +54,6 @@ import {
   INITIAL_EVENTS,
   type Role,
   type SchoolEvent,
-  type Subject,
 } from '@/data/mock';
 
 type AppContextValue = {
@@ -110,7 +109,8 @@ type AppContextValue = {
   /** 서버에서 쪽지를 다시 읽어요. 보내거나 읽은 뒤에 불러요. */
   reloadThreads: () => void;
   /** 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요. */
-  askQuestion: (subject: Subject, text: string) => Promise<string | null>;
+  /** 교과군 이름이에요. subject.ts 의 TEACHABLE 에서 골라요. */
+  askQuestion: (subject: string, text: string) => Promise<string | null>;
   sendMessage: (threadId: string, text: string) => Promise<string | null>;
   /** 탭 배지 숫자 (학생: 새 답변, 선생님: 답변 대기) */
   badgeCount: number;
@@ -431,7 +431,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reloadThreads = useCallback(() => setThreadsNonce((n) => n + 1), []);
 
   const askQuestion = useCallback(
-    async (subject: Subject, text: string): Promise<string | null> => {
+    async (subject: string, text: string): Promise<string | null> => {
       if (!me) return '로그인이 필요해요';
       try {
         await askTeacher(subject, text);

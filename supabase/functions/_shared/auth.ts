@@ -16,7 +16,10 @@ export type Me = {
   id: string;
   role: 'student' | 'teacher';
   name: string;
+  /** 쪽지를 받을 기준이 되는 교과군. '수학', '외국어' 처럼요. */
   subjects: string[];
+  /** 실제로 맡은 과목 이름. '일본 문화' 처럼요. 화면에 보여주려고 담아둬요. */
+  teaches: string[];
   /*
    * 학교와 반도 계정에 붙어 있어요.
    *
@@ -70,13 +73,14 @@ function toMe(row: Record<string, unknown>): Me {
     role: row.role === 'teacher' ? 'teacher' : 'student',
     name: String(row.name ?? ''),
     subjects: Array.isArray(row.subjects) ? row.subjects.map(String) : [],
+    teaches: Array.isArray(row.teaches) ? row.teaches.map(String) : [],
     school: office && code ? { office, code } : null,
     cls: grade !== null && cls ? `${grade}-${cls}` : null,
     no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
   };
 }
 
-const PROFILE_COLS = 'id,role,name,subjects,school_office,school_code,grade,cls,student_no';
+const PROFILE_COLS = 'id,role,name,subjects,teaches,school_office,school_code,grade,cls,student_no';
 
 async function profileOf(id: string): Promise<Me | null> {
   const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
@@ -137,7 +141,7 @@ export async function requireTeacher(req: Request): Promise<Me> {
  * 선생님으로 올려요. 코드가 맞아야 해요.
  * 코드는 이때 한 번만 써요. 그 뒤로는 계정 자체가 권한이에요.
  */
-export async function promote(id: string, subjects: string[]): Promise<Me> {
+export async function promote(id: string, subjects: string[], teaches: string[] = []): Promise<Me> {
   // role은 트리거가 되돌리게 해뒀어요. service_role로 직접 쓰면 트리거를
   // 거치긴 하지만, 트리거는 old.role을 그대로 두니까 승급이 안 돼요.
   // 그래서 트리거를 잠깐 끄는 대신 전용 함수를 불러요.
@@ -151,5 +155,36 @@ export async function promote(id: string, subjects: string[]): Promise<Me> {
   }
   const rows = (await res.json()) as Record<string, unknown>[];
   const row = Array.isArray(rows) ? rows[0] : (rows as Record<string, unknown>);
-  return toMe(row);
+  // teaches 는 역할과 상관없는 칸이라 평범한 update 로 적어요.
+  // (트리거는 role 과 subjects 만 되돌려요)
+  return teaches.length ? await setTeaches(id, teaches) : toMe(row);
+}
+
+/**
+ * 맡은 과목을 바꿔요. 선생님이 된 뒤에도 고칠 수 있어야 해요.
+ *
+ * subjects(교과군)는 쪽지가 누구에게 갈지 정하니까 이것도 같이 바꿔야 하는데,
+ * 표에 걸린 트리거가 평범한 update 로는 못 바꾸게 막아요. 그래서 승급 함수를
+ * 다시 불러요. 이미 선생님이면 역할은 그대로고 과목만 바뀌어요.
+ */
+export async function setSubjects(id: string, subjects: string[], teaches: string[]): Promise<Me> {
+  const res = await fetch(`${URL_BASE}/rest/v1/rpc/promote_to_teacher`, {
+    method: 'POST',
+    headers: serviceHeaders(),
+    body: JSON.stringify({ target: id, new_subjects: subjects }),
+  });
+  if (!res.ok) throw new AuthError(`담당 과목을 바꾸지 못했어요 (${res.status})`);
+  return await setTeaches(id, teaches);
+}
+
+async function setTeaches(id: string, teaches: string[]): Promise<Me> {
+  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
+    method: 'PATCH',
+    headers: { ...serviceHeaders(), prefer: 'return=representation' },
+    body: JSON.stringify({ teaches }),
+  });
+  if (!res.ok) throw new AuthError(`담당 과목을 저장하지 못했어요 (${res.status})`);
+  const rows = (await res.json()) as Record<string, unknown>[];
+  if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
+  return toMe(rows[0]);
 }

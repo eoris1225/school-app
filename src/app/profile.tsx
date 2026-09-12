@@ -5,19 +5,20 @@ import { StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { Avatar, BackHeader, Button, Chip, Divider, Field, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
+import { Avatar, BackHeader, Button, Chip, Divider, ErrorNote, Field, Loading, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
 import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
-import { ALLERGENS, SUBJECTS } from '@/data/mock';
-import { ApiError, promoteToTeacher } from '@/lib/api';
+import { ALLERGENS } from '@/data/mock';
+import { subjectGroup, TEACHABLE } from '@/lib/subject';
+import { ApiError, getSchoolSubjects, promoteToTeacher, setMySubjects } from '@/lib/api';
+import { useRemote } from '@/lib/use-remote';
+import { addDays, toYmd } from '@/lib/time';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
-  const { palette, role, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school, me, signOut, reloadMe } =
+  const { palette, role, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school, me, signOut } =
     useApp();
   const { allergies, setAllergies } = useApp();
-  const [codeDraft, setCodeDraft] = useState('');
-  const [subjectDraft, setSubjectDraft] = useState<string[]>([]);
   const { tablet } = useLayout();
   const teacher = role === 'teacher';
   const schoolName = school?.name ?? '';
@@ -27,7 +28,15 @@ export default function ProfileScreen() {
   const rows: [string, string][] = teacher
     ? [
         ['학교', schoolName],
-        ['담당 과목', me?.subjects.length ? me.subjects.join(', ') : '아직 없어요'],
+        // 실제 과목 이름이 있으면 그걸 보여줘요. '외국어'보다 '일본 문화'가 나아요.
+        [
+          '담당 과목',
+          me?.teaches?.length
+            ? me.teaches.join(', ')
+            : me?.subjects.length
+              ? me.subjects.join(', ')
+              : '아직 없어요',
+        ],
         ['맡은 반', school ? `${school.grade}학년 ${school.cls}반` : '아직 안 골랐어요'],
         ['이름', myName],
       ]
@@ -53,23 +62,6 @@ export default function ProfileScreen() {
         name: school.name,
       },
     });
-  };
-
-  const [promoting, setPromoting] = useState(false);
-  const [promoteFailed, setPromoteFailed] = useState<string | null>(null);
-
-  /** 선생님 코드를 넣어서 역할을 올려요. 코드는 이때 한 번만 써요. */
-  const promote = async () => {
-    setPromoting(true);
-    setPromoteFailed(null);
-    try {
-      await promoteToTeacher(codeDraft.trim(), subjectDraft);
-      reloadMe();
-    } catch (e) {
-      setPromoteFailed(e instanceof ApiError ? e.message : '선생님으로 바꾸지 못했어요');
-    } finally {
-      setPromoting(false);
-    }
   };
 
   const leave = async () => {
@@ -185,53 +177,7 @@ export default function ProfileScreen() {
         </>
       ) : null}
 
-      {!teacher ? (
-        <>
-          <SectionTitle title="선생님이신가요?" />
-          <Text style={[styles.help, { color: palette.sub }]}>
-            학교에서 받은 코드를 넣으면 선생님으로 바뀌어요. 수행평가를 등록하고
-            쪽지에 답할 수 있게 돼요. 코드는 이때 한 번만 쓰고, 그 뒤로는
-            계정에 역할이 붙어요.
-          </Text>
-          <Field
-            value={codeDraft}
-            onChangeText={setCodeDraft}
-            placeholder="선생님 코드"
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="선생님 코드"
-            style={styles.code}
-          />
-          <Text style={[styles.help, { color: palette.sub }]}>담당 과목을 골라주세요</Text>
-          <View style={styles.subjectRow}>
-            {SUBJECTS.map((s) => (
-              <Chip
-                key={s}
-                label={s}
-                colored
-                selected={subjectDraft.includes(s)}
-                onPress={() =>
-                  setSubjectDraft((prev) =>
-                    prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
-                  )
-                }
-              />
-            ))}
-          </View>
-          {promoteFailed ? (
-            <View style={[styles.failed, { backgroundColor: palette.tint }]}>
-              <Text style={[styles.failedText, { color: palette.text }]}>{promoteFailed}</Text>
-            </View>
-          ) : null}
-          <Button
-            label={promoting ? '확인하는 중이에요' : '선생님으로 바꾸기'}
-            icon="check"
-            variant="secondary"
-            disabled={!codeDraft.trim() || subjectDraft.length === 0 || promoting}
-            onPress={promote}
-          />
-        </>
-      ) : null}
+      <SubjectPicker />
 
       <SectionTitle title="학교" />
       <Text style={[styles.help, { color: palette.sub }]}>
@@ -251,6 +197,127 @@ export default function ProfileScreen() {
       <SectionTitle title="계정" />
       <Button label="로그아웃" icon="swap" variant="secondary" onPress={leave} />
     </Screen>
+  );
+}
+
+/**
+ * 담당 과목을 고르는 칸이에요. 학생에게는 승급 칸으로, 선생님에게는
+ * 바꾸는 칸으로 보여요.
+ *
+ * 목록을 우리가 박아두지 않아요. 그 학교 시간표에 실제로 있는 과목 이름을
+ * 서버에서 받아와요. 학교가 새로 만든 과목도 고를 수 있어야 하니까요.
+ * 못 받아오면 교과군 열두 개로 대신해요. 아무것도 못 고르는 것보다 나아요.
+ *
+ * 고른 이름에서 교과군은 앱이 뽑아요. 쪽지는 교과군으로 오가거든요.
+ * '일본 문화'를 고르면 '외국어'로 온 쪽지를 받아요.
+ */
+function SubjectPicker() {
+  const { palette, role, me, school, now, reloadMe } = useApp();
+  const teacher = role === 'teacher';
+
+  const [code, setCode] = useState('');
+  const [picked, setPicked] = useState<string[]>(me?.teaches?.length ? me.teaches : (me?.subjects ?? []));
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  // 한 주치면 그 학기에 열리는 과목이 거의 다 나와요.
+  const to = toYmd(now);
+  const from = toYmd(addDays(now, -7));
+  const remote = useRemote(`school-subjects:${school?.code}:${from}`, () =>
+    getSchoolSubjects(from, to, school ?? undefined),
+  );
+  const options = remote.data?.length ? remote.data : [...TEACHABLE];
+
+  // 고른 이름들이 어느 교과군인지. 쪽지는 이 기준으로 와요.
+  const groups = [...new Set(picked.map((s) => subjectGroup(s)))].filter((g) => g !== '기타');
+
+  const save = async () => {
+    setBusy(true);
+    setFailed(null);
+    setDone(false);
+    try {
+      if (teacher) await setMySubjects(groups, picked);
+      else await promoteToTeacher(code.trim(), groups, picked);
+      reloadMe();
+      setDone(true);
+    } catch (e) {
+      setFailed(e instanceof ApiError ? e.message : '담당 과목을 저장하지 못했어요');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = picked.length > 0 && groups.length > 0 && (teacher || code.trim().length > 0);
+
+  return (
+    <>
+      <SectionTitle title={teacher ? '담당 과목' : '선생님이신가요?'} />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        {teacher
+          ? '맡은 과목이 바뀌면 여기서 고쳐요. 이 과목으로 온 쪽지를 받아요.'
+          : '학교에서 받은 코드를 넣으면 선생님으로 바뀌어요. 코드는 이때 한 번만 쓰고, 그 뒤로는 계정에 역할이 붙어요.'}
+      </Text>
+
+      {!teacher ? (
+        <Field
+          value={code}
+          onChangeText={setCode}
+          placeholder="선생님 코드"
+          autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel="선생님 코드"
+          style={styles.code}
+        />
+      ) : null}
+
+      <Text style={[styles.help, { color: palette.sub }]}>
+        {remote.loading
+          ? '우리 학교 과목을 불러오는 중이에요'
+          : remote.data?.length
+            ? '우리 학교 시간표에 있는 과목이에요. 맡은 것을 전부 골라주세요.'
+            : '과목 목록을 못 받아왔어요. 교과군으로 골라주세요.'}
+      </Text>
+
+      {remote.loading ? (
+        <Loading text="우리 학교 과목을 불러오는 중이에요" rows={2} />
+      ) : (
+        <View style={styles.subjectRow}>
+          {options.map((s) => (
+            <Chip
+              key={s}
+              label={s}
+              colored
+              selected={picked.includes(s)}
+              onPress={() => {
+                setDone(false);
+                setPicked((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+              }}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* 고른 이름이 어느 교과군인지 보여줘요. 쪽지가 어디로 올지 알 수 있게요. */}
+      {groups.length ? (
+        <Text style={[styles.help, { color: palette.accentDeep }]}>
+          {groups.join(', ')} 로 온 쪽지를 받아요
+        </Text>
+      ) : null}
+
+      {failed ? <ErrorNote text={failed} /> : null}
+      {done ? (
+        <Text style={[styles.saved, { color: palette.accentDeep }]}>담당 과목을 저장했어요</Text>
+      ) : null}
+
+      <Button
+        label={busy ? '저장하는 중이에요' : teacher ? '담당 과목 저장하기' : '선생님으로 바꾸기'}
+        icon="check"
+        variant="secondary"
+        disabled={!ready || busy}
+        onPress={save}
+      />
+    </>
   );
 }
 
@@ -290,6 +357,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   swatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  saved: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
   themeName: { fontSize: 13 },
   gap: { height: 8 },
 });
