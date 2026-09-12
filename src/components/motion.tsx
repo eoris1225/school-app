@@ -101,6 +101,33 @@ export function Reveal({
   return <Animated.View style={[style, anim]}>{children}</Animated.View>;
 }
 
+/**
+ * 생길 때 스르르 나타나요.
+ *
+ * Reveal과 달리 움직이지는 않아요. 달력 날짜 칸처럼 자리는 이미 있는데
+ * 색만 채워지는 자리에 써요. 일정을 다 받아오면 마흔두 칸이 한꺼번에
+ * 색을 얻는데, 그게 그냥 뿅 하고 바뀌면 눈에 거슬려요.
+ */
+export function Fade({
+  children,
+  duration = 260,
+  style,
+}: {
+  children?: ReactNode;
+  duration?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const shown = useSharedValue(0);
+
+  useEffect(() => {
+    shown.value = withTiming(1, { duration });
+  }, [duration, shown]);
+
+  const anim = useAnimatedStyle(() => ({ opacity: shown.value }));
+
+  return <Animated.View style={[style, anim]}>{children}</Animated.View>;
+}
+
 /** 선택 표시가 미끄러지듯 옮겨 다니는 알약 */
 export function SlidingPill({
   index,

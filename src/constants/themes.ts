@@ -75,12 +75,10 @@ export type Palette = {
   surface: string;
   /** 카드보다 한 단계 더 떠 보이는 바탕 (선택된 세그먼트) */
   raised: string;
-  /** 홈 위쪽 컬러 밴드 */
+  /** 홈 위쪽 컬러 밴드. 테마색과 같은 색의 다른 톤이에요. */
   band: string;
-  /** 컬러 밴드 위에 올라가는 동그라미(아바타). 밴드와 톤이 달라요. */
-  avatar: string;
-  /** avatar 위에 올리는 글씨 */
-  onAvatar: string;
+  /** band 위에 올리는 글씨 */
+  onBand: string;
   /** 카드 그림자 색 */
   shadow: string;
   text: string;
@@ -158,17 +156,85 @@ function fillAndInk(color: string): { fill: string; ink: string } {
     : { fill: adjustUntil(color, '#FFFFFF', 4.6, '#000000'), ink: '#FFFFFF' };
 }
 
+/** 색을 색상·채도·밝기로 나눠요. 밝기만 건드려서 톤을 옮기려고요. */
+function toHsl(hex: string): { h: number; s: number; l: number } {
+  const [r, g, b] = toRgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const l = (max + min) / 2;
+  if (d === 0) return { h: 0, s: 0, l };
+  const h =
+    max === r ? (((g - b) / d) % 6) * 60
+    : max === g ? ((b - r) / d + 2) * 60
+    : ((r - g) / d + 4) * 60;
+  return { h: (h + 360) % 360, s: d / (1 - Math.abs(2 * l - 1)), l };
+}
+
+function fromHsl(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60 ? [c, x, 0]
+    : h < 120 ? [x, c, 0]
+    : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c]
+    : h < 300 ? [x, 0, c]
+    : [c, 0, x];
+  return toHex([r + m, g + m, b + m].map((v) => v * 255) as Rgb);
+}
+
 /**
- * 색 띠 위에 올릴 같은 계열의 다른 톤을 만들어요.
+ * 홈 맨 위 색 띠. 테마색과 같은 색인데 톤만 달라요.
  *
- * 홈 맨 위 색 띠 위에 아바타가 앉는데, 둘 다 테마색이라 어디까지가
- * 아바타인지 안 보였어요. 예전에는 두꺼운 테두리로 잘라냈지만 그게 촌스러워요.
- * 색을 한 톤 옮기면 테두리 없이도 경계가 보여요. 띠가 밝으면 어둡게,
- * 어두우면 밝게 — 어느 색을 골라도 같은 계열 안에서 갈라져요.
+ * 띠 위에 아바타가 앉는데 둘 다 테마색이면 어디까지가 아바타인지 안 보여요.
+ * 처음에는 아바타 쪽을 옮겼는데, 작은 동그라미가 탁해 보여서 별로였어요.
+ * 고른 색은 아바타에 그대로 두고 넓은 띠를 옮기는 게 나아요. 넓은 면에서는
+ * 깊은 톤이 탁해 보이지 않고 진해 보여요.
+ *
+ * 검정이나 흰색을 섞으면 채도가 죽어서 흙색이 돼요. 그게 "똥색"이에요.
+ * 그래서 색상과 채도는 그대로 두고 밝기만 옮겨요. 같은 색의 다른 톤이지
+ * 다른 색이 아니에요.
  */
-function toneOn(accent: string, band: string): { fill: string; ink: string } {
-  const toward = luminance(band) > 0.22 ? INK : '#FFFFFF';
-  return fillAndInk(adjustUntil(accent, band, 1.7, toward));
+function bandTone(accent: string, bg: string): { fill: string; ink: string } {
+  const { h, s, l } = toHsl(accent);
+
+  /** 밝기를 한 방향으로 조금씩 옮기면서 세 조건이 다 맞는 첫 지점을 찾아요. */
+  const walk = (dir: -1 | 1): string | null => {
+    for (let d = 0.03; d <= 0.5; d += 0.03) {
+      const v = l + dir * d;
+      if (v < 0.12 || v > 0.9) return null;
+      const out = fromHsl(h, s, v);
+      if (
+        // 아바타와 갈라져야 하고
+        contrast(out, accent) >= 1.52 &&
+        // 화면 바탕에서 띠로 보여야 하고
+        contrast(out, bg) >= 1.4 &&
+        // 그 위에 올릴 글씨가 읽혀야 해요
+        Math.max(contrast(out, '#FFFFFF'), contrast(out, INK)) >= 4.6
+      ) {
+        return out;
+      }
+    }
+    return null;
+  };
+
+  /*
+   * 글씨 조건까지 여기서 같이 봐요.
+   *
+   * 예전에는 띠를 정한 다음 fillAndInk로 글씨를 맞췄어요. 그런데 그 단계가
+   * 글씨를 읽히게 하려고 띠를 도로 아바타 쪽으로 밀어서, 애써 벌려놓은
+   * 간격을 도로 좁혔어요. 옮기는 방향이 하나여야 어긋나지 않아요.
+   */
+  // 깊은 쪽을 먼저 봐요. 넓은 면에 깔리는 색은 진한 쪽이 차분해요.
+  // 너무 어두워서 바탕에 묻히는 색만 밝은 쪽으로 가요.
+  const found = walk(-1) ?? walk(1);
+  if (found) {
+    return { fill: found, ink: contrast(found, INK) >= contrast(found, '#FFFFFF') ? INK : '#FFFFFF' };
+  }
+  // 어느 쪽으로도 안 되는 색(거의 없어요)은 바탕을 섞어서 비켜요.
+  return fillAndInk(mix(accent, bg, 0.25));
 }
 
 function lightPalette(base: string): Palette {
@@ -178,7 +244,7 @@ function lightPalette(base: string): Palette {
   // 흰 카드 위에서 색 덩어리가 보여야 하니 최소한의 진하기는 지켜요.
   const { fill: accent, ink } = fillAndInk(adjustUntil(base, surface, 1.9, '#000000'));
   const tint = mix(accent, surface, 0.92);
-  const avatar = toneOn(accent, accent);
+  const band = bandTone(accent, bg);
   return {
     scheme: 'light',
     accent,
@@ -190,9 +256,8 @@ function lightPalette(base: string): Palette {
     bg,
     surface,
     raised: '#FFFFFF',
-    band: accent,
-    avatar: avatar.fill,
-    onAvatar: avatar.ink,
+    band: band.fill,
+    onBand: band.ink,
     shadow: '#101828',
     text: '#1B1C1F',
     sub: '#5F626B',
@@ -207,8 +272,7 @@ function darkPalette(base: string): Palette {
   // 너무 밝히면 위에 올린 흰 글씨가 흐려져서, 두 조건을 함께 맞춰요.
   const { fill: accent, ink } = fillAndInk(adjustUntil(base, bg, 3.05, '#FFFFFF'));
   const tint = mix(accent, bg, 0.86);
-  const band = mix(accent, bg, 0.12);
-  const avatar = toneOn(accent, band);
+  const band = bandTone(accent, bg);
   return {
     scheme: 'dark',
     accent,
@@ -220,9 +284,8 @@ function darkPalette(base: string): Palette {
     bg,
     surface: '#1B1B21',
     raised: '#2E2E37',
-    band,
-    avatar: avatar.fill,
-    onAvatar: avatar.ink,
+    band: band.fill,
+    onBand: band.ink,
     shadow: '#000000',
     text: '#F3F3F5',
     sub: '#A6A6AE',

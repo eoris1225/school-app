@@ -72,8 +72,8 @@ function TopRow({ name }: { name: string }) {
   return (
     <View style={styles.topRow}>
       <View style={styles.fill}>
-        <Text style={[styles.topDate, { color: palette.onAccent }]}>{formatDay(now)}</Text>
-        <Text style={[styles.topName, { color: palette.onAccent }]} numberOfLines={1}>
+        <Text style={[styles.topDate, { color: palette.onBand }]}>{formatDay(now)}</Text>
+        <Text style={[styles.topName, { color: palette.onBand }]} numberOfLines={1}>
           {name}
         </Text>
       </View>
@@ -94,9 +94,9 @@ function Dots({ states }: { states: DotState[] }) {
           key={i}
           style={[
             styles.dot,
-            { backgroundColor: palette.onAccent + '40' },
-            s === 'done' && { backgroundColor: palette.onAccent + 'CC' },
-            s === 'now' && [styles.dotNow, { backgroundColor: palette.onAccent }],
+            { backgroundColor: palette.onBand + '40' },
+            s === 'done' && { backgroundColor: palette.onBand + 'CC' },
+            s === 'now' && [styles.dotNow, { backgroundColor: palette.onBand }],
           ]}
         />
       ))}
@@ -307,11 +307,11 @@ function StudentHome() {
       hero={
         <>
           <TopRow name={me ? `${me.name}님` : ''} />
-          <Text style={[styles.heroLabel, { color: palette.onAccent }]}>{hero.label}</Text>
-          <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onAccent }]} numberOfLines={2}>
+          <Text style={[styles.heroLabel, { color: palette.onBand }]}>{hero.label}</Text>
+          <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onBand }]} numberOfLines={2}>
             {hero.big}
           </Text>
-          <Text style={[styles.heroLine, { color: palette.onAccent }]} numberOfLines={1}>
+          <Text style={[styles.heroLine, { color: palette.onBand }]} numberOfLines={1}>
             {hero.line}
           </Text>
           <Dots states={hero.states} />
@@ -419,13 +419,13 @@ function TeacherHome() {
       hero={
         <>
           <TopRow name={me ? `${me.name} 선생님` : ''} />
-          <Text style={[styles.heroLabel, { color: palette.onAccent }]}>
+          <Text style={[styles.heroLabel, { color: palette.onBand }]}>
             {pending.length ? '답변을 기다려요' : '오늘도 수고 많으세요'}
           </Text>
-          <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onAccent }]} numberOfLines={2}>
+          <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onBand }]} numberOfLines={2}>
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
-          <Text style={[styles.heroLine, { color: palette.onAccent }]} numberOfLines={1}>
+          <Text style={[styles.heroLine, { color: palette.onBand }]} numberOfLines={1}>
             {nextClass
               ? `다음 수업 ${nextClass.period}교시 ${nextClass.subject}`
               : '오늘 수업은 끝났어요'}

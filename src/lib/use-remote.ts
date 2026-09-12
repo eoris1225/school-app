@@ -21,6 +21,48 @@ type Done<T> = {
   retryable: boolean;
 };
 
+/*
+ * 한 번 받아온 것은 담아뒀다가 다시 들어오면 바로 보여줘요.
+ *
+ * 예전에는 탭을 옮길 때마다 처음부터 다시 받아왔어요. 달력에 들어가면
+ * 잠깐 아무것도 없다가 일정이 뿅 하고 나타났어요. 매번요.
+ *
+ * 이제는 담아둔 게 있으면 그걸 먼저 보여주고, 뒤에서 조용히 다시 받아와요.
+ * 새 값이 오면 조용히 갈려요. 기다리는 시간이 눈에 안 보여요.
+ *
+ * 오래된 것부터 버려요. 날짜나 반이 키에 들어가서 그냥 두면 계속 쌓여요.
+ */
+const CACHE = new Map<string, unknown>();
+const LIMIT = 50;
+
+function remember(key: string, data: unknown) {
+  // 다시 넣어서 맨 뒤로 보내요. Map은 넣은 순서를 지켜요.
+  CACHE.delete(key);
+  CACHE.set(key, data);
+  while (CACHE.size > LIMIT) CACHE.delete(CACHE.keys().next().value as string);
+}
+
+/**
+ * 미리 받아둬요. 이미 담아둔 게 있으면 아무것도 안 해요.
+ *
+ * 화면에 들어가기 전에 불러두면 들어가는 순간 이미 차 있어요.
+ * 실패해도 조용히 넘어가요. 어차피 화면이 다시 물어봐요.
+ */
+export function primeRemote<T>(key: string, fetcher: () => Promise<T>): void {
+  if (CACHE.has(key)) return;
+  fetcher()
+    .then((data) => remember(key, data))
+    .catch(() => {});
+}
+
+/**
+ * 담아둔 것을 전부 버려요. 로그아웃할 때 불러요.
+ * 다른 사람으로 다시 들어왔는데 앞사람 것이 남아 있으면 안 돼요.
+ */
+export function clearRemoteCache(): void {
+  CACHE.clear();
+}
+
 /**
  * 서버에서 하나 받아와서 화면에 쓰기 좋은 모양으로 내놔요.
  *
@@ -62,7 +104,10 @@ export function useRemote<T>(key: string, fetcher: () => Promise<T>): Remote<T> 
 
     latest
       .current()
-      .then((data) => settle({ data, error: null, retryable: false }))
+      .then((data) => {
+        remember(key, data);
+        settle({ data, error: null, retryable: false });
+      })
       .catch((e: unknown) => {
         const api = e instanceof ApiError;
         settle({
@@ -75,16 +120,19 @@ export function useRemote<T>(key: string, fetcher: () => Promise<T>): Remote<T> 
     return () => {
       alive = false;
     };
-  }, [stamp]);
+  }, [stamp, key]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
 
-  // 받아둔 결과가 지금 필요한 것이 아니면 아직 불러오는 중이에요.
+  // 받아둔 결과가 지금 필요한 것이 아니면 아직 받아오는 중이에요.
   const fresh = done?.stamp === stamp ? done : null;
+  // 받아오는 동안에는 지난번에 담아둔 것을 보여줘요. 빈 화면보다 나아요.
+  const kept = fresh === null ? (CACHE.get(key) as T | undefined) : undefined;
 
   return {
-    data: fresh?.data ?? null,
-    loading: fresh === null,
+    data: fresh ? fresh.data : (kept ?? null),
+    // 보여줄 게 있으면 "불러오는 중"이 아니에요. 뒤에서 받아오고 있을 뿐이에요.
+    loading: fresh === null && kept === undefined,
     error: fresh?.error ?? null,
     retryable: fresh?.retryable ?? false,
     retry,

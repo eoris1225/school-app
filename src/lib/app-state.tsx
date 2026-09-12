@@ -11,6 +11,8 @@ import {
 import { Appearance } from 'react-native';
 
 import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
+import { toYmd } from '@/lib/time';
+import { clearRemoteCache, primeRemote } from '@/lib/use-remote';
 import { subjectGroup } from '@/lib/subject';
 import { getMe } from '@/lib/api';
 import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
@@ -36,6 +38,7 @@ import {
   ApiError,
   askTeacher,
   getAssessments,
+  getEvents,
   getThreads,
   removeAssessment,
   removeThread,
@@ -221,6 +224,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [school, year, eventsNonce]);
 
   /*
+   * 이번 달 학사일정을 미리 받아둬요.
+   *
+   * 달력은 들어가야 받아오기 시작해요. 그래서 들어가면 잠깐 빈 달력이었다가
+   * 일정이 뿅 하고 나타났어요. 학교가 정해진 순간 뒤에서 받아두면 들어갈 때
+   * 이미 차 있어요. 못 받아도 그만이에요. 달력이 다시 물어봐요.
+   *
+   * 달력 화면과 똑같은 이름(key)으로 담아야 서로 알아봐요.
+   */
+  const monthStart = toYmd(new Date(now.getFullYear(), now.getMonth(), 1));
+  const monthEnd = toYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  useEffect(() => {
+    if (!school) return;
+    primeRemote(`schedule:${school.code}:${monthStart}`, () =>
+      getEvents(monthStart, monthEnd, school),
+    );
+  }, [school, monthStart, monthEnd]);
+
+  /*
    * 쪽지를 서버에서 받아와요.
    *
    * 누가 무엇을 볼 수 있는지는 서버가 정해요. 학생은 자기가 보낸 것,
@@ -355,6 +376,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await authSignOut();
     setMe(null);
+    // 담아둔 것을 전부 버려요. 다른 사람으로 들어왔는데 앞사람 것이
+    // 남아 있으면 안 돼요.
+    clearRemoteCache();
   }, []);
 
   const setSchool = useCallback(
