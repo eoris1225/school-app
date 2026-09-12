@@ -16,8 +16,11 @@ import { useApp } from '@/lib/app-state';
 
 export default function ProfileScreen() {
   const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
-  const { allergies, setAllergies } = useApp();
+  const { allergies, setAllergies, becomeStudent } = useApp();
   const teacher = role === 'teacher';
+  // 학생으로 되돌리기는 한 번 더 물어봐요. 담당 과목이 비워지고 쪽지함이 바뀌어요.
+  const [dropping, setDropping] = useState(false);
+  const [dropFailed, setDropFailed] = useState<string | null>(null);
   const schoolName = school?.name ?? '';
   const myName = me?.name ?? '';
 
@@ -167,6 +170,55 @@ export default function ProfileScreen() {
       <Button label="다른 학교로 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
 
       <SectionTitle title="계정" />
+
+      {/*
+        선생님을 다시 학생으로 되돌려요.
+        올리는 길만 있고 내리는 길이 없으면, 실수로 코드를 넣었거나 더 이상
+        그 학교 선생님이 아닐 때 방법이 없어요.
+      */}
+      {teacher ? (
+        <>
+          <Text style={[styles.help, { color: palette.sub }]}>
+            학생으로 돌아가면 담당 과목이 비워지고 쪽지함도 사라져요. 선생님 코드를 다시 넣으면
+            언제든 되돌릴 수 있어요.
+          </Text>
+          {dropping ? (
+            <View style={[styles.confirm, { backgroundColor: palette.tint }]}>
+              <Text style={[styles.confirmText, { color: palette.text }]}>
+                학생으로 돌아갈까요? 나를 콕 집어 보낸 쪽지는 그 과목 선생님들께 다시 넘어가요.
+              </Text>
+              <View style={styles.confirmRow}>
+                <View style={styles.fill}>
+                  <Button label="아니요" variant="secondary" onPress={() => setDropping(false)} />
+                </View>
+                <View style={styles.fill}>
+                  <Button
+                    label="학생으로"
+                    onPress={async () => {
+                      const problem = await becomeStudent();
+                      setDropping(false);
+                      setDropFailed(problem);
+                    }}
+                  />
+                </View>
+              </View>
+            </View>
+          ) : (
+            <Button
+              label="학생으로 돌아가기"
+              icon="swap"
+              variant="secondary"
+              onPress={() => {
+                setDropFailed(null);
+                setDropping(true);
+              }}
+            />
+          )}
+          {dropFailed ? <ErrorNote text={dropFailed} /> : null}
+          <View style={styles.gap} />
+        </>
+      ) : null}
+
       <Button label="로그아웃" icon="swap" variant="secondary" onPress={leave} />
     </Screen>
   );
@@ -321,5 +373,8 @@ const styles = StyleSheet.create({
   code: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 12 },
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
   saved: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
+  confirm: { borderRadius: 16, padding: 14, marginBottom: 12, gap: 12 },
+  confirmText: { fontSize: 13, fontWeight: '600', lineHeight: 21 },
+  confirmRow: { flexDirection: 'row', gap: 8 },
   gap: { height: 8 },
 });

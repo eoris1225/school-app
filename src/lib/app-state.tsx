@@ -28,6 +28,7 @@ import {
   saveAllergies,
   saveMyEvents,
   saveSchemePref,
+  saveSetupSeen,
   saveSwaps,
   type Allergies,
   type MyEvent,
@@ -37,9 +38,11 @@ import {
   addAssessment,
   ApiError,
   askTeacher,
+  demoteToStudent,
   getAssessments,
   getEvents,
   getThreads,
+  saveMySettings,
   removeAssessment,
   removeThread,
   replyTo,
@@ -132,6 +135,8 @@ type AppContextValue = {
   /** 잘 되면 null, 안 되면 화면에 보여줄 문구를 돌려줘요. */
   /** 교과군 이름이에요. subject.ts 의 TEACHABLE 에서 골라요. */
   askQuestion: (subject: string, text: string, teacher?: string) => Promise<string | null>;
+  /** 선생님을 다시 학생으로 되돌려요. 잘 되면 null이에요. */
+  becomeStudent: () => Promise<string | null>;
   sendMessage: (threadId: string, text: string, photo?: { uri: string }) => Promise<string | null>;
   /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
   dropThread: (threadId: string) => Promise<string | null>;
@@ -278,27 +283,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const threads = useMemo(() => (threadStamp ? (fresh?.list ?? []) : []), [threadStamp, fresh]);
   const threadsLoading = !!threadStamp && fresh === null;
 
-  // 나만의 설정을 한 번에 읽어와요.
+  /*
+   * 이 기기에만 있는 설정을 읽어와요.
+   *
+   * 교시 바꾸기와 "안내 봤음"은 여기서 안 읽어요. 그 둘은 계정에도 있어서
+   * 누가 이기는지 정해야 하거든요. 여기서 읽으면 로그인 확인과 경쟁이 붙어요.
+   * 새 기기에서 로그인하면 이 effect가 빈 값을 먼저 읽고, 그 뒤에 계정에서
+   * 내려온 값을 덮어쓰거나 반대로 덮여요. 어느 쪽이 이길지 모르는 거예요.
+   * 그래서 그 둘은 로그인 확인이 끝난 뒤 한 곳에서만 정해요 (아래 pull).
+   */
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      loadSwaps(),
-      loadAllergies(),
-      loadMyEvents(),
-      loadAccent(),
-      loadSchemePref(),
-      loadSetupSeen(),
-    ]).then(([s, a, e, color, pref, seen]) => {
-      if (!alive) return;
-      setSwapsState(s);
-      setAllergiesState(a);
-      setMyEventsState(e);
-      // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
-      if (color) setAccentState(readAccent(color));
-      // 앱을 켤 때는 덮지 않아요. 처음 그리는 화면이라 바뀌는 게 아니에요.
-      if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
-      setSetupSeen(seen);
-    });
+    Promise.all([loadAllergies(), loadMyEvents(), loadAccent(), loadSchemePref()]).then(
+      ([a, e, color, pref]) => {
+        if (!alive) return;
+        setAllergiesState(a);
+        setMyEventsState(e);
+        // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
+        if (color) setAccentState(readAccent(color));
+        // 앱을 켤 때는 덮지 않아요. 처음 그리는 화면이라 바뀌는 게 아니에요.
+        if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
+      },
+    );
     return () => {
       alive = false;
     };
@@ -310,17 +316,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
    * 열쇠는 "월-6" 처럼 요일과 교시예요. 한 번에 여러 교시를 넘길 수 있어요.
    * 빈 글자를 주면 그 교시의 바꾸기를 지워요.
    */
-  const setSwap = useCallback((slots: string[], to: string) => {
-    setSwapsState((prev) => {
-      const next = { ...prev };
-      for (const slot of slots) {
-        if (!to.trim()) delete next[slot];
-        else next[slot] = to.trim();
-      }
-      void saveSwaps(next);
-      return next;
-    });
-  }, []);
+  const setSwap = useCallback(
+    (slots: string[], to: string) => {
+      setSwapsState((prev) => {
+        const next = { ...prev };
+        for (const slot of slots) {
+          if (!to.trim()) delete next[slot];
+          else next[slot] = to.trim();
+        }
+        void saveSwaps(next);
+        // 계정에도 올려요. 폰을 바꿔도 따라오게요. 로그인 안 했으면 기기에만요.
+        if (me) saveMySettings({ swaps: next }).catch(() => {});
+        return next;
+      });
+    },
+    [me],
+  );
 
   const setAllergies = useCallback((list: Allergies) => {
     const sorted = [...new Set(list)].sort((a, b) => a - b);
@@ -344,6 +355,66 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /*
+   * 계정에 담긴 것을 기기로 내려요. 로그인할 때마다 한 번이에요.
+   *
+   * 이게 없으면 다른 기기에서 로그인했을 때 앱이 처음 쓰는 사람처럼 굴어요.
+   * 학교도 반도 번호도 이미 적어뒀는데 또 물어봐요. 그 값들이 기기 저장소에만
+   * 있었거든요.
+   *
+   * 방향이 한쪽만은 아니에요. 이 기능이 생기기 전에 기기에서 고쳐둔 게
+   * 있을 수 있어요. 계정이 비어 있고 기기에 있으면 올려 보내요. 한 번만요.
+   *
+   * 교시 바꾸기와 "안내 봤음"은 여기서만 정해요. 기기 저장소를 읽는 다른
+   * effect와 나눠 가지면 누가 나중에 끝나느냐에 따라 값이 달라져요.
+   */
+  /** 로그인 안 했을 때. 기기에 있는 것만 써요. */
+  const pullLocal = useCallback(async () => {
+    setSwapsState(await loadSwaps());
+    setSetupSeen(await loadSetupSeen());
+  }, []);
+
+  const pull = useCallback(async (who: Me) => {
+    if (who.school) {
+      const fromAccount: MySchool = {
+        office: who.school.office,
+        code: who.school.code,
+        name: who.school.name,
+        officeName: who.school.officeName,
+        grade: Number(who.cls?.split('-')[0] ?? 1),
+        cls: who.cls?.split('-')[1] ?? '1',
+        number: who.no ?? undefined,
+      };
+      // 이름까지 있을 때만 써요. 이름이 없으면 화면에 학교를 못 적어요.
+      // (이 기능 전에 저장된 계정이 그래요. 다음에 학교를 고르면 채워져요.)
+      if (fromAccount.name && who.cls) {
+        setSchoolState((cur) => cur ?? fromAccount);
+        const saved = await loadMySchool();
+        if (!saved) void saveMySchool(fromAccount);
+      }
+    }
+
+    const localSwaps = await loadSwaps();
+    const hasAccount = Object.keys(who.swaps).length > 0;
+    const hasLocal = Object.keys(localSwaps).length > 0;
+    if (hasAccount) {
+      setSwapsState(who.swaps);
+      void saveSwaps(who.swaps);
+    } else if (hasLocal) {
+      // 기기에만 있던 걸 계정으로 올려요. 예전에 고쳐둔 것을 안 버리려고요.
+      setSwapsState(localSwaps);
+      saveMySettings({ swaps: localSwaps }).catch(() => {});
+    } else {
+      setSwapsState({});
+    }
+
+    // 계정과 기기 중 한쪽이라도 봤으면 본 거예요. 다시 물어볼 이유가 없어요.
+    const seen = who.setupSeen || (await loadSetupSeen());
+    setSetupSeen(seen);
+    if (seen && !who.setupSeen) saveMySettings({ setupSeen: true }).catch(() => {});
+    if (seen) void saveSetupSeen();
+  }, []);
+
   /**
    * 로그인 상태를 따라가요.
    *
@@ -356,10 +427,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const refresh = async () => {
       try {
         const who = await getMe();
-        if (alive) setMe(who);
+        if (!alive) return;
+        setMe(who);
+        // 로그인했으면 계정 것을, 안 했으면 기기 것을 써요. 한 곳에서만 정해요.
+        if (who) await pull(who);
+        else await pullLocal();
       } catch {
         // 못 물어봐도 앱은 돌아가야 해요. 로그인 안 한 것으로 봐요.
-        if (alive) setMe(null);
+        if (alive) {
+          setMe(null);
+          await pullLocal();
+        }
       } finally {
         if (alive) setAuthLoading(false);
       }
@@ -377,9 +455,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       alive = false;
       stop();
     };
-  }, [meNonce]);
+  }, [meNonce, pull, pullLocal]);
 
   const reloadMe = useCallback(() => setMeNonce((n) => n + 1), []);
+
+  /**
+   * 선생님을 다시 학생으로 되돌려요.
+   *
+   * 담당 과목이 비워지고, 나를 콕 집어 보낸 쪽지는 지정이 풀려요. 안 풀면
+   * 그 쪽지가 아무에게도 안 보여요. 규칙은 서버에 있어요.
+   */
+  const becomeStudent = useCallback(async (): Promise<string | null> => {
+    try {
+      const who = await demoteToStudent();
+      setMe(who);
+      // 쪽지함이 바뀌어요. 담아둔 것을 버리고 다시 읽어요.
+      clearRemoteCache();
+      setThreadsNonce((n) => n + 1);
+      return null;
+    } catch (e) {
+      return e instanceof ApiError ? e.message : '되돌리지 못했어요';
+    }
+  }, []);
 
   const signOut = useCallback(async () => {
     await authSignOut();
@@ -404,6 +501,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       saveSchoolToAccount({
         office: next.office,
         code: next.code,
+        name: next.name,
+        officeName: next.officeName,
         grade: next.grade,
         cls: next.cls,
         no: next.number,
@@ -645,6 +744,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       threadsLoading,
       reloadThreads,
       askQuestion,
+      becomeStudent,
       sendMessage,
       dropThread,
       badgeCount,
@@ -685,6 +785,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeMyEvent,
     canDelete,
     askQuestion,
+    becomeStudent,
     sendMessage,
     dropThread,
   ]);

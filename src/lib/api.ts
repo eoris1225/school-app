@@ -255,17 +255,67 @@ export type Me = {
   subjects: string[];
   /** 실제로 맡은 과목 이름. '일본 문화' 처럼요. 없을 수도 있어요. */
   teaches: string[];
-  /** 계정에 붙은 학교. 쪽지가 누구에게 갈지 이걸로 정해요. */
-  school: { office: string; code: string } | null;
+  /**
+   * 계정에 붙은 학교. 쪽지가 누구에게 갈지 이걸로 정해요.
+   * 이름도 같이 와요. 다른 기기에서 로그인했을 때 학교를 다시 안 물어보려고요.
+   */
+  school: { office: string; code: string; name: string; officeName: string } | null;
   /** '2-3' 처럼 학년-반. 아직 안 골랐으면 null이에요. */
   cls: string | null;
   no: number | null;
+  /** 교시마다 내가 실제로 듣는 과목. '월-6' 처럼 생긴 열쇠예요. */
+  swaps: Record<string, string>;
+  /** 가입 안내를 한 번 지나갔는지 */
+  setupSeen: boolean;
 };
+
+/*
+ * 서버가 준 나를 우리가 쓰는 모양으로 맞춰요.
+ *
+ * 서버가 앱보다 낡을 수 있어요. 앱은 올렸는데 함수는 아직 예전 것이면
+ * swaps 나 setupSeen 이 아예 안 와요. 그걸 그대로 쓰면 Object.keys(undefined)
+ * 같은 데서 터지고, 터지는 자리가 "내가 누구인지 묻는" 곳이라 앱이
+ * 로그인 안 한 것처럼 보여요. 화면 전체가 죽는 거예요.
+ *
+ * 그래서 들어오는 자리에서 한 번 다듬어요. 없는 건 빈 값으로 봐요.
+ * 서버가 올라가면 저절로 값이 채워지고, 그 전까지는 기기에 있는 걸 써요.
+ */
+function readMe(raw: unknown): Me | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  const school = m.school as Record<string, unknown> | null | undefined;
+  const swaps: Record<string, string> = {};
+  if (m.swaps && typeof m.swaps === 'object' && !Array.isArray(m.swaps)) {
+    for (const [k, v] of Object.entries(m.swaps as Record<string, unknown>)) {
+      if (typeof v === 'string') swaps[k] = v;
+    }
+  }
+  return {
+    id: String(m.id ?? ''),
+    role: m.role === 'teacher' ? 'teacher' : 'student',
+    name: String(m.name ?? ''),
+    subjects: Array.isArray(m.subjects) ? m.subjects.map(String) : [],
+    teaches: Array.isArray(m.teaches) ? m.teaches.map(String) : [],
+    school:
+      school && school.office && school.code
+        ? {
+            office: String(school.office),
+            code: String(school.code),
+            name: String(school.name ?? ''),
+            officeName: String(school.officeName ?? ''),
+          }
+        : null,
+    cls: typeof m.cls === 'string' && m.cls ? m.cls : null,
+    no: typeof m.no === 'number' ? m.no : null,
+    swaps,
+    setupSeen: m.setupSeen === true,
+  };
+}
 
 /** 서버가 보는 나. 로그인 안 했으면 null이에요. */
 export async function getMe(): Promise<Me | null> {
-  const { me } = await call<{ me: Me | null }>({ kind: 'me' });
-  return me;
+  const { me } = await call<{ me: unknown }>({ kind: 'me' });
+  return readMe(me);
 }
 
 /**
@@ -277,20 +327,20 @@ export async function promoteToTeacher(
   subjects: string[],
   teaches: string[] = [],
 ): Promise<Me> {
-  const { me } = await call<{ me: Me }>({ kind: 'promote' }, {
+  const { me } = await call<{ me: unknown }>({ kind: 'promote' }, {
     method: 'POST',
     body: { code, subjects, teaches },
   });
-  return me;
+  return readMe(me) as Me;
 }
 
 /** 담당 과목 바꾸기. 이미 선생님인 사람만 돼요. 코드는 다시 안 물어봐요. */
 export async function setMySubjects(subjects: string[], teaches: string[]): Promise<Me> {
-  const { me } = await call<{ me: Me }>({ kind: 'my-subjects' }, {
+  const { me } = await call<{ me: unknown }>({ kind: 'my-subjects' }, {
     method: 'POST',
     body: { subjects, teaches },
   });
-  return me;
+  return readMe(me) as Me;
 }
 
 
@@ -303,15 +353,39 @@ export async function setMySubjects(subjects: string[], teaches: string[]): Prom
 export async function saveSchoolToAccount(v: {
   office: string;
   code: string;
+  name: string;
+  officeName: string;
   grade: number;
   cls: string;
   no?: number;
 }): Promise<Me> {
-  const { me } = await call<{ me: Me }>(
+  const { me } = await call<{ me: unknown }>(
     { kind: 'my-school' },
     { method: 'POST', body: { ...v, no: v.no ?? null } },
   );
-  return me;
+  return readMe(me) as Me;
+}
+
+
+/**
+ * 기기에만 두던 설정을 계정에 적어요.
+ *
+ * 교시 바꾸기는 한 학기 분량을 손으로 고친 거예요. 폰을 바꿨다고 처음부터
+ * 다시 하라는 건 좀 그래요. 알레르기는 안 보내요. 화면에 이 기기에만
+ * 담긴다고 적어뒀으니 그 약속은 지켜야죠.
+ */
+export async function saveMySettings(v: {
+  swaps?: Record<string, string>;
+  setupSeen?: boolean;
+}): Promise<Me> {
+  const { me } = await call<{ me: unknown }>({ kind: 'my-settings' }, { method: 'POST', body: v });
+  return readMe(me) as Me;
+}
+
+/** 선생님을 다시 학생으로 되돌려요. 본인만 돼요. */
+export async function demoteToStudent(): Promise<Me> {
+  const { me } = await call<{ me: unknown }>({ kind: 'demote' }, { method: 'POST', body: {} });
+  return readMe(me) as Me;
 }
 
 

@@ -25,11 +25,19 @@ export type Me = {
    *
    * 쪽지는 앱이 보낸 학교를 안 믿고 이것만 봐요. 앱이 보낸 값을 믿으면
    * 선생님이 설정에서 학교만 바꿔서 남의 학교 학생 질문을 읽을 수 있어요.
+   *
+   * 이름도 같이 담아요. 코드만 있으면 다른 기기에서 로그인했을 때 화면에
+   * 학교 이름을 못 써요. NEIS에 코드로 다시 물어볼 수도 있지만 한 번 받은
+   * 이름을 안 버리면 그 왕복이 아예 없어요.
    */
-  school: { office: string; code: string } | null;
+  school: { office: string; code: string; name: string; officeName: string } | null;
   /** '2-3' 처럼 학년-반이에요. 아직 안 골랐으면 null이에요. */
   cls: string | null;
   no: number | null;
+  /** 교시마다 내가 실제로 듣는 과목. '월-6' 처럼 생긴 열쇠예요. */
+  swaps: Record<string, string>;
+  /** 가입 안내를 한 번 지나갔는지 */
+  setupSeen: boolean;
 };
 
 export class AuthError extends Error {}
@@ -63,6 +71,16 @@ async function userIdOf(token: string): Promise<string | null> {
 }
 
 /** 계정 id로 프로필을 읽어요. */
+/** jsonb 칸을 글자 표로 읽어요. 이상한 게 들어 있으면 빈 표로 봐요. */
+function toSwaps(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
 function toMe(row: Record<string, unknown>): Me {
   const office = row.school_office ? String(row.school_office) : '';
   const code = row.school_code ? String(row.school_code) : '';
@@ -74,13 +92,25 @@ function toMe(row: Record<string, unknown>): Me {
     name: String(row.name ?? ''),
     subjects: Array.isArray(row.subjects) ? row.subjects.map(String) : [],
     teaches: Array.isArray(row.teaches) ? row.teaches.map(String) : [],
-    school: office && code ? { office, code } : null,
+    school:
+      office && code
+        ? {
+            office,
+            code,
+            name: String(row.school_name ?? ''),
+            officeName: String(row.office_name ?? ''),
+          }
+        : null,
     cls: grade !== null && cls ? `${grade}-${cls}` : null,
     no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
+    swaps: toSwaps(row.swaps),
+    setupSeen: row.setup_seen === true,
   };
 }
 
-const PROFILE_COLS = 'id,role,name,subjects,teaches,school_office,school_code,grade,cls,student_no';
+const PROFILE_COLS =
+  'id,role,name,subjects,teaches,school_office,school_code,school_name,office_name,' +
+  'grade,cls,student_no,swaps,setup_seen';
 
 async function profileOf(id: string): Promise<Me | null> {
   const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
@@ -101,7 +131,15 @@ async function profileOf(id: string): Promise<Me | null> {
  */
 export async function setSchool(
   id: string,
-  v: { office: string; code: string; grade: number; cls: string; no: number | null },
+  v: {
+    office: string;
+    code: string;
+    name: string;
+    officeName: string;
+    grade: number;
+    cls: string;
+    no: number | null;
+  },
 ): Promise<Me> {
   const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
     method: 'PATCH',
@@ -109,6 +147,8 @@ export async function setSchool(
     body: JSON.stringify({
       school_office: v.office,
       school_code: v.code,
+      school_name: v.name,
+      office_name: v.officeName,
       grade: v.grade,
       cls: v.cls,
       student_no: v.no,
@@ -118,6 +158,55 @@ export async function setSchool(
   const rows = (await res.json()) as Record<string, unknown>[];
   if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
   return toMe(rows[0]);
+}
+
+/**
+ * 기기에만 두던 설정을 계정에 적어요.
+ *
+ * 교시 바꾸기는 한 학기 분량을 손으로 고친 거예요. 폰을 바꿨다고 처음부터
+ * 다시 하라는 건 좀 그래요. 안내를 봤는지도 같이 담아요. 새 기기마다
+ * 가입 안내가 다시 뜨면 이상하잖아요.
+ *
+ * 알레르기는 일부러 안 옮겨요. 화면에 "이 기기에만 담기고 아무에게도 보이지
+ * 않아요" 라고 적어뒀어요. 그 약속을 지켜야죠.
+ */
+export async function setSettings(
+  id: string,
+  v: { swaps?: Record<string, string>; setupSeen?: boolean },
+): Promise<Me> {
+  const body: Record<string, unknown> = {};
+  if (v.swaps !== undefined) body.swaps = v.swaps;
+  if (v.setupSeen !== undefined) body.setup_seen = v.setupSeen;
+
+  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
+    method: 'PATCH',
+    headers: { ...serviceHeaders(), prefer: 'return=representation' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new AuthError(`설정을 저장하지 못했어요 (${res.status})`);
+  const rows = (await res.json()) as Record<string, unknown>[];
+  if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
+  return toMe(rows[0]);
+}
+
+/**
+ * 선생님을 다시 학생으로 되돌려요.
+ *
+ * 담당 과목도 같이 비워지고, 그분을 콕 집어 보낸 쪽지는 지정이 풀려요.
+ * 안 풀면 그 쪽지는 아무에게도 안 보여요 (규칙은 마이그레이션에 적어뒀어요).
+ * 본인인지는 부르는 쪽에서 봐요. 남을 강등시킬 수 있으면 안 되니까요.
+ */
+export async function demote(id: string): Promise<Me> {
+  const res = await fetch(`${URL_BASE}/rest/v1/rpc/demote_to_student`, {
+    method: 'POST',
+    headers: serviceHeaders(),
+    body: JSON.stringify({ target: id }),
+  });
+  if (!res.ok) throw new AuthError(`학생으로 되돌리지 못했어요 (${res.status})`);
+  const rows = (await res.json()) as Record<string, unknown>[];
+  const row = Array.isArray(rows) ? rows[0] : (rows as Record<string, unknown>);
+  if (!row) throw new AuthError('프로필을 찾지 못했어요');
+  return toMe(row);
 }
 
 /** 로그인한 사람. 로그인 안 했으면 null이에요. */

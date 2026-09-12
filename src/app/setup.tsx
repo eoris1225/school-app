@@ -8,7 +8,7 @@ import { Text } from '@/components/text';
 import { Button, Empty, Field, Loading, Screen } from '@/components/ui';
 import { WeekGrid } from '@/components/week-grid';
 import { ALLERGENS, WEEKDAYS } from '@/data/mock';
-import { getLessons } from '@/lib/api';
+import { getLessons, saveMySettings } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { saveSetupSeen } from '@/lib/my-settings';
 import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
@@ -30,12 +30,14 @@ type Step = 'number' | 'allergy' | 'subjects';
 const STEPS: Step[] = ['number', 'allergy', 'subjects'];
 
 export default function SetupScreen() {
-  const { palette, school, setSchool } = useApp();
+  const { palette, school, setSchool, me } = useApp();
   const [at, setAt] = useState(0);
   const step = STEPS[at];
 
   const done = () => {
     void saveSetupSeen();
+    // 계정에도 적어요. 다른 기기에서 로그인해도 다시 안 물어봐요.
+    if (me) saveMySettings({ setupSeen: true }).catch(() => {});
     router.replace('/');
   };
 
