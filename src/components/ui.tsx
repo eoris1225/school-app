@@ -69,8 +69,11 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
    * 그대로 있는 게 맞아요.
    *
    * 테두리는 1픽셀만 남겨요. 경계는 톤이 만들고, 이 선은 가장자리를 또렷하게
-   * 맺어주는 역할만 해요. 바탕색이 아니라 아바타보다 살짝 밝은 색이라
-   * 뒤에 뭐가 있든 어울려요.
+   * 맺어주는 역할만 해요.
+   *
+   * 선 색을 흰색 쪽으로 섞지 않고 그 색의 글씨색 쪽으로 섞어요. 띠가 아바타보다
+   * 밝을 때도 어두울 때도 알아서 반대로 가거든요. 밝은 화면에서는 띠가 더
+   * 밝아서 선이 진해지고, 어두운 화면에서는 띠가 더 어두워서 선이 밝아져요.
    */
   const ring = 1;
   const circle = (
@@ -84,7 +87,7 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
           borderRadius: size / 2,
           shadowColor: palette.accent,
           borderWidth: ring,
-          borderColor: mix(palette.accent, '#FFFFFF', 0.28),
+          borderColor: mix(palette.accent, palette.onAccent, 0.22),
         },
       ]}>
       <LinearGradient

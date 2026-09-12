@@ -32,24 +32,31 @@ type Colors = readonly [string, string, ...string[]];
  * 색을 더 진하게 하는 방법도 재봤는데 안 돼요. 조금만 진해져도 그 위에
  * 올릴 숫자의 대비가 4.5 아래로 떨어져요. 우리 팔레트는 연한 바탕 +
  * 진한 글씨 짝일 때만 읽혀요.
+ *
+ * 줄이 많아지면 선을 얇게 해요. 여덟 줄에 굵은 선을 그으면 선이 색보다
+ * 넓어져요.
  */
-const GAP = 0.035;
+const gapFor = (n: number) => Math.min(0.035, 0.9 / n / 4);
+
+/** 한 칸에 그릴 수 있는 줄 수. 더 있으면 오른쪽 위 숫자가 알려줘요. */
+export const MAX_BANDS = 8;
 
 function bands(colors: string[], line: string): { colors: Colors; locations: Stops } {
   const out: string[] = [];
   const at: number[] = [];
   const slice = 1 / colors.length;
+  const gap = gapFor(colors.length);
   colors.forEach((c, i) => {
     const from = i * slice;
     const to = (i + 1) * slice;
     if (i > 0) {
       // 앞 색이 끝나는 곳에 선을 한 줄 끼워요.
       out.push(line, line);
-      at.push(from, from + GAP);
+      at.push(from, from + gap);
     }
     // 같은 색을 두 번 넣고 경계를 붙여두면 그라데이션이 아니라 줄무늬가 돼요.
     out.push(c, c);
-    at.push(i > 0 ? from + GAP : from, to);
+    at.push(i > 0 ? from + gap : from, to);
   });
   return { colors: out as unknown as Colors, locations: at as unknown as Stops };
 }
@@ -63,7 +70,7 @@ export function DayCell({
   textColor,
 }: {
   day: number;
-  /** 이 날 있는 일정 종류의 색들. 없으면 빈 배열이에요. */
+  /** 이 날 일정들의 색. 일정 하나에 줄 하나예요. 없으면 빈 배열이에요. */
   tones: ToneColor[];
   today: boolean;
   selected: boolean;
@@ -76,7 +83,12 @@ export function DayCell({
 
   // 오늘이 가장 세요. 그다음이 일정 색, 아무것도 없으면 빈 칸이에요.
   const fill = today ? [palette.accent] : tones.map((t) => t.bg);
-  const ink = today ? palette.onAccent : tones.length ? tones[0].fg : textColor;
+  // 숫자는 가운데 앉으니까 가운데 줄의 글씨색을 써요.
+  const ink = today
+    ? palette.onAccent
+    : tones.length
+      ? tones[Math.floor(tones.length / 2)].fg
+      : textColor;
 
   return (
     <View style={styles.wrap}>

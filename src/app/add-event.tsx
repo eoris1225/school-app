@@ -29,6 +29,7 @@ export default function AddEventScreen() {
   const [grades, setGrades] = useState<number[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [subject, setSubject] = useState<string>(myFirstSubject);
+  const [detail, setDetail] = useState('');
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -64,6 +65,7 @@ export default function AddEventScreen() {
     title: title.trim() || '일정 제목',
     kind,
     subject: kind === 'assessment' ? subject : undefined,
+    detail: detail.trim() || undefined,
     grades,
     classes,
   };
@@ -76,6 +78,7 @@ export default function AddEventScreen() {
       title: title.trim(),
       kind,
       subject: draft.subject,
+      detail: detail.trim() || undefined,
       grades,
       classes,
     });
@@ -107,6 +110,28 @@ export default function AddEventScreen() {
         accessibilityLabel="일정 제목"
         style={styles.input}
       />
+
+      {/*
+        준비물이나 범위 같은 안내예요. 제목 한 줄로는 "뭘 챙겨가야 하지"를
+        알 수가 없어요. 안 적어도 되니까 비워두면 그냥 안 보여요.
+      */}
+      <Text style={[styles.label, { color: palette.text }]}>자세한 내용 (안 적어도 돼요)</Text>
+      <Field
+        value={detail}
+        onChangeText={setDetail}
+        placeholder={
+          kind === 'assessment'
+            ? '예: 교과서 132~150쪽 범위예요. 자와 각도기 꼭 챙겨오세요.'
+            : '예: 체육복 입고 등교하세요. 우천 시 다음 주로 미뤄요.'
+        }
+        multiline
+        maxLength={500}
+        accessibilityLabel="자세한 내용"
+        style={styles.detail}
+      />
+      <Text style={[styles.sub, { color: palette.sub }]}>
+        적어두면 학생이 일정을 눌러서 볼 수 있어요. {detail.length}/500자
+      </Text>
 
       <Text style={[styles.label, { color: palette.text }]}>날짜</Text>
       <View style={[styles.dateRow, { backgroundColor: palette.tint }]}>
@@ -205,6 +230,14 @@ const styles = StyleSheet.create({
   failed: { borderRadius: 16, padding: 16, marginBottom: 12 },
   failedText: { fontSize: 13, lineHeight: 20 },
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
+  detail: {
+    borderRadius: 16,
+    minHeight: 96,
+    padding: 14,
+    lineHeight: 22,
+    textAlignVertical: 'top',
+    marginBottom: 8,
+  },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',

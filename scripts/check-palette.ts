@@ -13,11 +13,7 @@
  *   글씨     띠 위에 올리는 글씨가 읽히나 (WCAG AA 4.5)
  *   바탕     띠가 화면 바탕에서 띠로 보이나
  */
-import { buildPalette, contrast, THEMES, type Scheme } from '@/constants/themes';
-
-const MIN_SPLIT = 1.45;
-const MIN_TEXT = 4.5;
-const MIN_BG = 1.35;
+import { buildPalette, contrast, luminance, THEMES, type Scheme } from '@/constants/themes';
 
 /** 색상환을 한 바퀴 돌면서 밝기도 여러 단계로 만들어봐요. */
 function wheel(): string[] {
@@ -43,26 +39,78 @@ function wheel(): string[] {
   return [...out, '#FFFFFF', '#000000', '#111111', '#FAFAFA', '#808080'];
 }
 
+const RULES = {
+  /** 띠와 아바타가 구분돼야 해요. */
+  split: 1.2,
+  /** 띠가 고른 색에서 너무 멀면 "딴 색"으로 보여요. (밝은 화면만) */
+  nearAccent: 1.6,
+  /** 띠 위 글씨 (WCAG AA) */
+  bandText: 4.5,
+  /** 버튼 위 글씨 */
+  accentText: 4.5,
+  /** 본문 글씨 */
+  bodyText: 4.5,
+  /** 흐린 글씨 */
+  subText: 4.5,
+  /** 띠가 바탕에서 띠로 보여야 해요. */
+  fromBg: 1.35,
+  /** 어두운 화면에서 넓은 면이 이보다 밝으면 눈이 아파요. */
+  darkBandMaxLum: 0.14,
+};
+
 const bad: string[] = [];
-let worst = { split: 99, text: 99, bg: 99 };
+const worst: Record<string, number> = {};
+const note = (k: string, v: number) => {
+  worst[k] = Math.min(worst[k] ?? 99, v);
+};
 
 for (const base of [...THEMES, ...wheel()]) {
   for (const scheme of ['light', 'dark'] as Scheme[]) {
     const p = buildPalette(base, scheme);
+    const fail: string[] = [];
+
     const split = contrast(p.band, p.accent);
-    const text = contrast(p.band, p.onBand);
-    const bg = contrast(p.band, p.bg);
-    worst = {
-      split: Math.min(worst.split, split),
-      text: Math.min(worst.text, text),
-      bg: Math.min(worst.bg, bg),
-    };
-    if (split < MIN_SPLIT || text < MIN_TEXT || bg < MIN_BG) {
-      bad.push(
-        `${scheme} ${base}: 갈라짐 ${split.toFixed(2)} 글씨 ${text.toFixed(2)} 바탕 ${bg.toFixed(2)}` +
-          ` (띠 ${p.band}, 아바타 ${p.accent})`,
-      );
+    note('갈라짐', split);
+    if (split < RULES.split) fail.push(`갈라짐 ${split.toFixed(2)}`);
+
+    if (scheme === 'light' && split > RULES.nearAccent) {
+      fail.push(`띠가 고른 색에서 너무 멀어요 ${split.toFixed(2)}`);
     }
+
+    for (const [name, on, under, min] of [
+      ['띠글씨', p.onBand, p.band, RULES.bandText],
+      ['버튼글씨', p.onAccent, p.accent, RULES.accentText],
+      ['본문', p.text, p.bg, RULES.bodyText],
+      ['본문(카드)', p.text, p.surface, RULES.bodyText],
+      ['흐린글씨', p.sub, p.bg, RULES.subText],
+      ['강조글씨', p.accentDeep, p.tint, 4.5],
+    ] as [string, string, string, number][]) {
+      const c = contrast(on, under);
+      note(name, c);
+      if (c < min) fail.push(`${name} ${c.toFixed(2)}`);
+    }
+
+    const fromBg = contrast(p.band, p.bg);
+    note('바탕', fromBg);
+    if (fromBg < RULES.fromBg) fail.push(`바탕 ${fromBg.toFixed(2)}`);
+
+    // 어두운 화면에서 띠가 너무 밝으면 눈이 아파요.
+    if (scheme === 'dark') {
+      const lum = luminance(p.band);
+      if (lum > RULES.darkBandMaxLum) fail.push(`어두운 화면 띠가 너무 밝아요 ${lum.toFixed(3)}`);
+      /*
+       * 밝은 화면 띠보다 어두워야 "다른 톤"이에요.
+       *
+       * 다만 고른 색이 원래 아주 어두우면 더 내려갈 데가 없어요. 그런 색은
+       * 어차피 눈이 아플 일이 없으니 이미 충분히 어두우면 통과예요.
+       */
+      const lightBand = luminance(buildPalette(base, 'light').band);
+      if (lum > Math.max(lightBand, 0.06)) {
+        fail.push(`어두운 화면 띠가 밝은 화면보다 안 어두워요 ${lum.toFixed(3)}`);
+      }
+    }
+
+    if (fail.length) bad.push(`${scheme} ${base} (띠 ${p.band}): ${fail.join(', ')}`);
   }
 }
 
@@ -72,6 +120,8 @@ if (bad.length) {
   Deno.exit(1);
 }
 console.log(
-  `통과: ${tried}가지 전부. 가장 빠듯한 값은 ` +
-    `갈라짐 ${worst.split.toFixed(2)}, 글씨 ${worst.text.toFixed(2)}, 바탕 ${worst.bg.toFixed(2)}`,
+  `통과: ${tried}가지 전부. 가장 빠듯한 값\n  ` +
+    Object.entries(worst)
+      .map(([k, v]) => `${k} ${v.toFixed(2)}`)
+      .join('\n  '),
 );

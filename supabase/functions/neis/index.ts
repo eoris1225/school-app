@@ -169,6 +169,10 @@ async function readBody(req: Request) {
   const subject = typeof b.subject === 'string' && b.subject.trim() ? b.subject.trim() : null;
   if (subject && subject.length > 30) throw new BadRequest('과목 이름이 너무 길어요');
 
+  // 준비물이나 범위 같은 자세한 안내. 안 적어도 돼요.
+  const detail = typeof b.detail === 'string' && b.detail.trim() ? b.detail.trim() : null;
+  if (detail && detail.length > 500) throw new BadRequest('자세한 내용은 500자까지예요');
+
   // 학년은 1~6, 반은 짧은 글자만. 각각 최대 스무 개까지요.
   const grades = toList(b.grades, 'grades').map((v) => {
     const n = Number(v);
@@ -181,7 +185,7 @@ async function readBody(req: Request) {
     return s;
   });
 
-  return { date, title, subject, grades, classes };
+  return { date, title, subject, detail, grades, classes };
 }
 
 /**

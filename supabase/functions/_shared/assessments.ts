@@ -16,6 +16,8 @@ export type Assessment = {
   date: string;
   title: string;
   subject: string | null;
+  /** 준비물이나 범위 같은 자세한 안내. 안 적었으면 null이에요. */
+  detail: string | null;
   grades: number[];
   classes: string[];
 };
@@ -24,6 +26,7 @@ export type NewAssessment = {
   date: string;
   title: string;
   subject: string | null;
+  detail: string | null;
   grades: number[];
   classes: string[];
 };
@@ -50,6 +53,7 @@ function toAssessment(row: Record<string, unknown>): Assessment {
     date: String(row.date),
     title: String(row.title),
     subject: row.subject === null || row.subject === undefined ? null : String(row.subject),
+    detail: row.detail === null || row.detail === undefined ? null : String(row.detail),
     grades: Array.isArray(row.grades) ? row.grades.map(Number) : [],
     classes: Array.isArray(row.classes) ? row.classes.map(String) : [],
   };
@@ -61,7 +65,7 @@ export async function listAssessments(
   to: string,
 ): Promise<Assessment[]> {
   const q = new URLSearchParams({
-    select: 'id,date,title,subject,grades,classes',
+    select: 'id,date,title,subject,detail,grades,classes',
     school_office: `eq.${school.office}`,
     school_code: `eq.${school.code}`,
     date: `gte.${from}`,
@@ -89,6 +93,7 @@ export async function createAssessment(
       date: item.date,
       title: item.title,
       subject: item.subject,
+      detail: item.detail,
       grades: item.grades,
       classes: item.classes,
     }),
