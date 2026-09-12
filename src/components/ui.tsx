@@ -224,12 +224,20 @@ export function SectionTitle({
 
 export function Chip({
   label,
+  detail,
   selected,
   onPress,
   /** 켜면 label을 과목 이름으로 보고 과목별 포인트 색을 입혀요. */
   colored = false,
 }: {
   label: string;
+  /**
+   * 이름 밑에 작게 붙는 한 줄.
+   *
+   * 같은 이름이 여럿일 때 가리려고 뒀어요. 박선생이 두 분이면 이름만으로는
+   * 못 골라요. 맡은 과목이나 반을 같이 보여주면 누군지 알 수 있어요.
+   */
+  detail?: string;
   selected: boolean;
   onPress: () => void;
   colored?: boolean;
@@ -249,8 +257,14 @@ export function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       depth={0.05}
-      style={[styles.chip, selected ? on : off]}>
+      accessibilityLabel={detail ? `${label}, ${detail}` : label}
+      style={[styles.chip, detail ? styles.chipTall : null, selected ? on : off]}>
       <Text style={[styles.chipText, { color }]}>{label}</Text>
+      {detail ? (
+        <Text numberOfLines={1} style={[styles.chipDetail, { color, opacity: selected ? 0.85 : 0.7 }]}>
+          {detail}
+        </Text>
+      ) : null}
     </Tap>
   );
 }
@@ -609,7 +623,9 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chipTall: { height: 56, paddingVertical: 6 },
   chipText: { fontSize: 13, fontWeight: '700' },
+  chipDetail: { fontSize: 12, fontWeight: '600', marginTop: 1 },
 
   segmented: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 16 },
   segment: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
