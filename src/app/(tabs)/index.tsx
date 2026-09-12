@@ -51,9 +51,18 @@ function HomeShell({ hero, children }: { hero: React.ReactNode; children: React.
         양 끝 색은 팔레트가 만들어요(themes.ts의 bandEdges). 여기서 흰색·검정을
         섞으면 세게 줄수록 채도가 죽어서 끝이 회색으로 바래요. 색상은 그대로
         두고 밝기만 옮기면 세게 줘도 색이 살아 있어요.
+
+        방향은 밝기에 따라 뒤집어요. 밝은 화면은 왼쪽 위가 밝고 오른쪽 아래로
+        가면서 깊어져요. 어두운 화면은 반대로 위가 깊고 아래로 갈수록 밝아져요.
+        어두운 화면에서 맨 위가 밝으면 화면을 켜자마자 그 부분이 먼저 눈에
+        들어와요. 어두운 데서 보는 화면이잖아요.
       */}
       <LinearGradient
-        colors={[palette.bandLight, palette.band, palette.bandDeep]}
+        colors={
+          palette.scheme === 'dark'
+            ? [palette.bandDeep, palette.band, palette.bandLight]
+            : [palette.bandLight, palette.band, palette.bandDeep]
+        }
         start={{ x: 0.05, y: 0 }}
         end={{ x: 0.95, y: 1 }}
         style={[

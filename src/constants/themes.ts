@@ -281,7 +281,7 @@ function bandTone(
  * 그래서 최대치에서 시작해 글씨가 읽힐 때까지 조금씩 줄여요. 어느 색을
  * 골라도 읽히는 만큼만 세게 가요.
  */
-function bandEdges(band: string, ink: string): { light: string; deep: string } {
+function bandEdges(band: string, ink: string, scheme: Scheme): { light: string; deep: string } {
   const { h, s, l } = toHsl(band);
   /*
    * 밝기만 옮겨요. 채도는 손대지 않아요.
@@ -312,7 +312,14 @@ function bandEdges(band: string, ink: string): { light: string; deep: string } {
    * 갈 수 있어요. 어두운 띠는 그 반대고요. 그래서 양쪽을 똑같이 나누지 않고
    * 남는 몫을 여유 있는 쪽에 넘겨요. 어느 색을 골라도 기울기는 비슷해요.
    */
-  const TOTAL = 0.3;
+  /*
+   * 어두운 화면에서는 얕게 줘요.
+   *
+   * 밝은 화면에서는 기울기가 세야 띠가 살아나요. 어두운 화면은 반대예요.
+   * 어두운 방에서 보는 화면이라 밝은 쪽 끝이 그만큼 더 눈에 띄어요.
+   * 같은 폭을 주면 그 끝이 혼자 빛나요.
+   */
+  const TOTAL = scheme === 'dark' ? 0.17 : 0.3;
   const up = room(1);
   const down = room(-1);
   const deep = Math.min(down, Math.max(TOTAL - up, TOTAL / 2));
@@ -340,7 +347,7 @@ function lightPalette(base: string): Palette {
   const { fill: accent, ink } = fitFill(adjustUntil(base, surface, 1.9, deepInk(h, s)), h, s);
   const tint = mix(accent, surface, 0.92);
   const band = bandTone(accent, bg, 'light', h, s);
-  const edge = bandEdges(band.fill, band.ink);
+  const edge = bandEdges(band.fill, band.ink, 'light');
   return {
     scheme: 'light',
     accent,
@@ -372,7 +379,7 @@ function darkPalette(base: string): Palette {
   const { fill: accent, ink } = fitFill(adjustUntil(base, bg, 3.05, paleInk(h, s)), h, s);
   const tint = mix(accent, bg, 0.86);
   const band = bandTone(accent, bg, 'dark', h, s);
-  const edge = bandEdges(band.fill, band.ink);
+  const edge = bandEdges(band.fill, band.ink, 'dark');
   return {
     scheme: 'dark',
     accent,
