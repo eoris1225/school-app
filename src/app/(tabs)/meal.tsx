@@ -96,6 +96,7 @@ export default function MealScreen() {
               메뉴를 하나하나 훑기 전에 먼저 보이게요. */}
           {meal && risky.length > 0 ? (
             <Pop style={[styles.warn, { backgroundColor: palette.tint }]}>
+              {/* 알레르기는 놓치면 위험해요. 여기는 늘 색으로 둬요. */}
               <Emoji name="warn" size={28} />
               <View style={styles.fill}>
                 <Text style={[styles.warnTitle, { color: palette.accentDeep }]}>

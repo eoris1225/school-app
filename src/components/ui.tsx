@@ -411,6 +411,7 @@ export function IconChip({
   subject,
   tone,
   size = 40,
+  quiet = false,
 }: {
   art: EmojiName;
   /** 과목 이름을 주면 그 과목 색을 써요. */
@@ -418,16 +419,23 @@ export function IconChip({
   /** 색을 직접 고르고 싶을 때. */
   tone?: ToneKey;
   size?: number;
+  /** 조용히 둘 것인지. 목록에서 지금 중요한 줄만 색을 남길 때 써요. */
+  quiet?: boolean;
 }) {
   const { palette } = useApp();
-  const t = tone ? toneColor(tone, palette.scheme) : subjectTone(subject ?? '', palette.scheme);
+  // 조용한 칸은 테마색을 아주 옅게 깔아요. 회색으로 두면 꺼진 것처럼 보여요.
+  const t = quiet
+    ? { bg: palette.tint, fg: palette.sub }
+    : tone
+      ? toneColor(tone, palette.scheme)
+      : subjectTone(subject ?? '', palette.scheme);
   return (
     <View
       style={[
         styles.iconChip,
         { width: size, height: size, borderRadius: size * 0.32, backgroundColor: t.bg },
       ]}>
-      <Emoji name={art} size={fitArt(size, 0.58)} />
+      <Emoji name={art} size={fitArt(size, 0.58)} tone={quiet ? 'mono' : 'color'} />
     </View>
   );
 }
@@ -459,7 +467,8 @@ export function Empty({
   return (
     <Pop delay={60} style={styles.emptyWrap}>
       <View style={[styles.emptyArt, { backgroundColor: palette.tint }]}>
-        <Emoji name={art} size={fitArt(72, 0.56)} />
+        {/* 빈 화면은 급한 일이 아니라 조용히 둬요. 경고만 색으로 남겨요. */}
+        <Emoji name={art} size={fitArt(72, 0.56)} tone={art === 'warn' ? 'color' : 'mono'} />
       </View>
       <Text style={[styles.empty, { color: palette.text }]}>{text}</Text>
       {hint ? <Text style={[styles.emptyHint, { color: palette.sub }]}>{hint}</Text> : null}

@@ -12,7 +12,15 @@ import { subjectGroup, type SubjectGroup } from '@/lib/subject';
  * 상자는 연한 색으로 얌전히 두고, 그 안에 진짜 입체로 그린 물체를 놓아요.
  *
  * 그림은 Microsoft Fluent Emoji (MIT)를 받아서 144px로 줄이고 색 수를
- * 줄여뒀어요. 23개 합쳐서 216KB예요. 출처는 assets/emoji/LICENSE.md 에 적어뒀어요.
+ * 줄여뒀어요. 출처는 assets/emoji/LICENSE.md 에 적어뒀어요.
+ *
+ * 두 벌이 있어요.
+ *   color  원래 색 그대로
+ *   mono   밝기만 남기고 색을 한 가지로 바꾼 것 (음영은 그대로라 입체는 살아요)
+ *
+ * 전부 색이면 어디를 봐야 할지 모르겠어요. 평소에는 단색으로 조용히 두고,
+ * 지금 신경 써야 하는 것만 색이 들어와요. 어느 게 그런지는 DESIGN.md 에
+ * 적어뒀어요.
  */
 
 // require는 번들러가 파일을 찾아야 해서 변수로 쓸 수 없어요. 전부 적어둬요.
@@ -42,7 +50,35 @@ const ART = {
   bell: require('@/../assets/emoji/bell.png'),
 } as const;
 
+const MONO = {
+  meal: require('@/../assets/emoji/mono/meal.png'),
+  timetable: require('@/../assets/emoji/mono/timetable.png'),
+  calendar: require('@/../assets/emoji/mono/calendar.png'),
+  chat: require('@/../assets/emoji/mono/chat.png'),
+  inbox: require('@/../assets/emoji/mono/inbox.png'),
+  memo: require('@/../assets/emoji/mono/memo.png'),
+  home: require('@/../assets/emoji/mono/home.png'),
+  book: require('@/../assets/emoji/mono/book.png'),
+  number: require('@/../assets/emoji/mono/number.png'),
+  globe: require('@/../assets/emoji/mono/globe.png'),
+  flask: require('@/../assets/emoji/mono/flask.png'),
+  map: require('@/../assets/emoji/mono/map.png'),
+  clock: require('@/../assets/emoji/mono/clock.png'),
+  laptop: require('@/../assets/emoji/mono/laptop.png'),
+  run: require('@/../assets/emoji/mono/run.png'),
+  music: require('@/../assets/emoji/mono/music.png'),
+  brush: require('@/../assets/emoji/mono/brush.png'),
+  bulb: require('@/../assets/emoji/mono/bulb.png'),
+  star: require('@/../assets/emoji/mono/star.png'),
+  party: require('@/../assets/emoji/mono/party.png'),
+  pin: require('@/../assets/emoji/mono/pin.png'),
+  warn: require('@/../assets/emoji/mono/warn.png'),
+  bell: require('@/../assets/emoji/mono/bell.png'),
+} as const;
+
 export type EmojiName = keyof typeof ART;
+/** 색을 쓸지 단색으로 조용히 둘지. 기본은 단색이에요. */
+export type EmojiTone = 'color' | 'mono';
 
 /**
  * 교과군마다 어울리는 그림이에요.
@@ -81,10 +117,18 @@ export function fitArt(box: number, ratio: number): number {
   return (Math.round(box) - raw) % 2 === 0 ? raw : raw + 1;
 }
 
-export function Emoji({ name, size = 28 }: { name: EmojiName; size?: number }) {
+export function Emoji({
+  name,
+  size = 28,
+  tone = 'color',
+}: {
+  name: EmojiName;
+  size?: number;
+  tone?: EmojiTone;
+}) {
   return (
     <Image
-      source={ART[name]}
+      source={tone === 'mono' ? MONO[name] : ART[name]}
       style={{ width: size, height: size }}
       contentFit="contain"
       // 그림 하나뿐이라 넘길 게 없어요. 바로 보여줘요.
@@ -103,12 +147,14 @@ export function EmojiPad({
   size = 56,
   bg,
   ratio = 0.62,
+  tone = 'color',
 }: {
   name: EmojiName;
   size?: number;
   bg: string;
   /** 상자 대비 그림 크기. 기본 0.62예요. */
   ratio?: number;
+  tone?: EmojiTone;
 }) {
   return (
     <View
@@ -116,7 +162,7 @@ export function EmojiPad({
         styles.pad,
         { width: size, height: size, borderRadius: size * 0.32, backgroundColor: bg },
       ]}>
-      <Emoji name={name} size={fitArt(size, ratio)} />
+      <Emoji name={name} size={fitArt(size, ratio)} tone={tone} />
     </View>
   );
 }
