@@ -39,6 +39,18 @@ function wheel(): string[] {
   return [...out, '#FFFFFF', '#000000', '#111111', '#FAFAFA', '#808080'];
 }
 
+/*
+ * 색의 밝기(HSL의 L). 0이 검정, 1이 흰색이에요.
+ *
+ * 그라데이션이 얼마나 센지는 이걸로 재요. 대비(contrast)로 재면 안 돼요.
+ * 어두운 쪽에서는 조금만 밝아져도 대비 숫자가 확 뛰거든요. 그래서 어두운
+ * 화면 그라데이션이 더 얕은데도 숫자만 보면 더 세 보여요.
+ */
+function lightnessOf(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+}
+
 const RULES = {
   /** 띠와 아바타가 구분돼야 해요. */
   split: 1.2,
@@ -96,7 +108,7 @@ for (const base of [...THEMES, ...wheel()]) {
 
     // 그라데이션이 눈에 보일 만큼은 벌어져야 해요.
     const span = contrast(p.bandLight, p.bandDeep);
-    note('그라데이션', span);
+    note(scheme === 'dark' ? '그라데이션(어두운)' : '그라데이션(밝은)', span);
     if (span < 1.35) fail.push(`그라데이션이 너무 약해요 ${span.toFixed(2)}`);
 
     const fromBg = contrast(p.band, p.bg);
@@ -113,9 +125,17 @@ for (const base of [...THEMES, ...wheel()]) {
        * 다만 고른 색이 원래 아주 어두우면 더 내려갈 데가 없어요. 그런 색은
        * 어차피 눈이 아플 일이 없으니 이미 충분히 어두우면 통과예요.
        */
-      const lightBand = luminance(buildPalette(base, 'light').band);
+      const light = buildPalette(base, 'light');
+      const lightBand = luminance(light.band);
       if (lum > Math.max(lightBand, 0.06)) {
         fail.push(`어두운 화면 띠가 밝은 화면보다 안 어두워요 ${lum.toFixed(3)}`);
+      }
+      // 기울기도 더 얕아야 해요. 어두운 방에서는 밝은 쪽 끝이 더 도드라져요.
+      const mine = lightnessOf(p.bandLight) - lightnessOf(p.bandDeep);
+      const theirs = lightnessOf(light.bandLight) - lightnessOf(light.bandDeep);
+      note('기울기(어두운)', mine);
+      if (mine >= theirs) {
+        fail.push(`어두운 화면 그라데이션이 더 얕지 않아요 ${mine.toFixed(2)} >= ${theirs.toFixed(2)}`);
       }
     }
 
