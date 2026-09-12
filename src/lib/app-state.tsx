@@ -92,7 +92,8 @@ type AppContextValue = {
 
   /** NEIS 시간표 과목 -> 내가 실제로 듣는 과목 */
   swaps: SubjectSwaps;
-  setSwap: (from: string, to: string) => void;
+  /** 교시 열쇠('월-6') 여럿을 한 번에 바꿔요. 빈 글자면 되돌려요. */
+  setSwap: (slots: string[], to: string) => void;
   /** 내가 못 먹는 알레르기 번호들 */
   allergies: Allergies;
   setAllergies: (list: Allergies) => void;
@@ -248,12 +249,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  /** 바꿀 과목을 정해요. 원래 이름과 같게 하면 바꾸기를 지워요. */
-  const setSwap = useCallback((from: string, to: string) => {
+  /**
+   * 어느 교시를 내가 듣는 과목으로 바꿀지 정해요.
+   *
+   * 열쇠는 "월-6" 처럼 요일과 교시예요. 한 번에 여러 교시를 넘길 수 있어요.
+   * 빈 글자를 주면 그 교시의 바꾸기를 지워요.
+   */
+  const setSwap = useCallback((slots: string[], to: string) => {
     setSwapsState((prev) => {
       const next = { ...prev };
-      if (!to || to === from) delete next[from];
-      else next[from] = to;
+      for (const slot of slots) {
+        if (!to.trim()) delete next[slot];
+        else next[slot] = to.trim();
+      }
       void saveSwaps(next);
       return next;
     });

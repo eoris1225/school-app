@@ -12,7 +12,7 @@ import { mix } from '@/constants/themes';
 import { subjectTone } from '@/constants/tones';
 import { getLessons, getMeals } from '@/lib/api';
 import { readSubject, subjectGroup } from '@/lib/subject';
-import { byWeekday, type Week } from '@/lib/timetable';
+import { byWeekday, withSwaps, type Week } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
 import {
   BELL,
@@ -248,7 +248,7 @@ function StudentHome() {
     getMeals(today, today, school ?? undefined),
   );
 
-  const week = byWeekday(lessons.data ?? [], dates, swaps);
+  const week = withSwaps(byWeekday(lessons.data ?? [], dates), swaps);
   const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const unread = threads.filter((t) => t.unread).length;
