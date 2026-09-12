@@ -19,7 +19,13 @@ export type Layout = {
   content: number;
   /** 홈 화면 기둥 너비. 두 칸으로 나눌 때는 더 넓게 써요. */
   home: number;
+  /** 홈 아이콘 한 개 크기. 네 개가 한 줄에 들어가도록 화면에 맞춰 줄어요. */
+  tile: number;
 };
+
+/** 화면 좌우 여백과 홈 아이콘 사이 간격. 아래 계산에 쓰여요. */
+const GUTTER = 20;
+const TILE_GAP = 12;
 
 export function useLayout(): Layout {
   const { width, height } = useWindowDimensions();
@@ -30,6 +36,17 @@ export function useLayout(): Layout {
   const short = height < 620;
   // 한 줄짜리 목록이 너무 길게 퍼지면 읽기 힘들어서 720에서 끊어요.
   const content = tablet ? 720 : 560;
+  /*
+   * 홈 아이콘 크기를 화면에서 거꾸로 구해요.
+   *
+   * 예전에는 80으로 박아뒀어요. 네 개에 간격까지 368이라 화면이 408보다
+   * 좁으면 마지막 칸이 잘렸어요. 360짜리 폰에서 '쪽지'가 28만큼 밖으로
+   * 나가 있었어요. 이렇게 구하면 좁은 화면에서는 같이 줄어들어요.
+   */
+  const column = Math.min(width, twoColumn ? Math.min(width - 40, 1040) : content);
+  const slot = (column - GUTTER * 2 - TILE_GAP * 3) / 4;
+  // 아무리 좁아도 44는 있어야 손가락으로 누를 수 있어요.
+  const tile = Math.max(44, Math.min(66, Math.floor(slot)));
   return {
     width,
     height,
@@ -39,5 +56,6 @@ export function useLayout(): Layout {
     compact: short || (!tablet && height < 760),
     content,
     home: twoColumn ? Math.min(width - 40, 1040) : content,
+    tile,
   };
 }
