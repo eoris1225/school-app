@@ -43,9 +43,28 @@ async function write(key: string, value: unknown): Promise<void> {
  * 교시마다가 아니라 과목 이름으로 바꿔요. 한 번 고치면 그 과목이 나오는
  * 모든 교시가 같이 바뀌어요. 매주 같은 걸 여러 번 고칠 필요가 없어요.
  */
+/**
+ * 내가 실제로 듣는 과목. 열쇠는 "월-6" 처럼 요일과 교시예요.
+ *
+ * 예전에는 과목 이름을 열쇠로 썼어요. "역학과 에너지"를 한 번 바꾸면 그
+ * 이름이 나오는 모든 교시가 같이 바뀌었죠. 편해 보였는데 틀린 방식이었어요.
+ *
+ * NEIS는 선택 블록에 대표 과목 하나만 적어요. 서일여고 2학년 6반 월요일이
+ * 그래요. 실제로는 6교시가 선택B, 7교시가 선택C인데 NEIS는 둘 다
+ * "역학과 에너지"로 줘요. 서로 다른 시간인데 이름이 같은 거예요.
+ * 이름으로 묶으면 한쪽을 고칠 때 다른 쪽까지 잘못 바뀌어요.
+ *
+ * 그래서 교시마다 따로 담아요. 여러 교시를 한 번에 바꾸고 싶으면 바꾸는
+ * 화면에서 골라서 하면 돼요.
+ */
 export type SubjectSwaps = Record<string, string>;
 
-const SWAPS_KEY = 'my-subject-swaps';
+/** 교시 하나를 가리키는 열쇠예요. */
+export const slotKey = (day: string, period: number) => `${day}-${period}`;
+
+// 열쇠 모양이 바뀌어서 이름을 v2로 올렸어요. 예전에 저장한 건 그냥 안 읽어요.
+// 잘못 읽으면 엉뚱한 교시가 바뀐 것처럼 보여서 더 헷갈려요.
+const SWAPS_KEY = 'my-subject-swaps-v2';
 
 const okSwaps = (v: unknown) =>
   typeof v === 'object' && v !== null && !Array.isArray(v) &&
@@ -54,8 +73,9 @@ const okSwaps = (v: unknown) =>
 export const loadSwaps = () => read<SubjectSwaps>(SWAPS_KEY, {}, okSwaps);
 export const saveSwaps = (v: SubjectSwaps) => write(SWAPS_KEY, v);
 
-/** 바꿀 과목이면 바꿔주고, 아니면 그대로 돌려줘요. */
-export const applySwap = (subject: string, swaps: SubjectSwaps) => swaps[subject] ?? subject;
+/** 그 교시를 내가 듣는 과목으로 바꿔요. 안 바꿨으면 그대로 돌려줘요. */
+export const applySwap = (day: string, period: number, subject: string, swaps: SubjectSwaps) =>
+  swaps[slotKey(day, period)] ?? subject;
 
 // ---------------------------------------------------------------- 알레르기
 

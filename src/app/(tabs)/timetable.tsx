@@ -17,10 +17,11 @@ import {
   type Weekday,
 } from '@/data/mock';
 import { getClasses, getLessons } from '@/lib/api';
-import { byWeekday } from '@/lib/timetable';
+import { byWeekday, sameNameSlots, withSwaps } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
 import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
+import { slotKey } from '@/lib/my-settings';
 import { holidayName, readSubject } from '@/lib/subject';
 import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
@@ -57,7 +58,12 @@ export default function TimetableScreen() {
   // 내가 듣는 과목으로 바꿔서 보여줘요. 다른 반을 볼 때는 바꾸지 않아요.
   // 남의 반 시간표까지 내 기준으로 바꾸면 잘못된 정보가 돼요.
   const mine = cls === myClass;
-  const week = byWeekday(remote.data ?? [], dates, mine ? swaps : {});
+  // 시간표에 적힌 그대로와, 내가 듣는 과목으로 바꾼 것을 둘 다 들고 있어요.
+  // 바꾸는 화면에 "시간표에는 이렇게 적혀 있어요"를 넘겨줘야 하거든요.
+  const raw = byWeekday(remote.data ?? [], dates);
+  // 다른 반 시간표를 볼 때는 바꾸지 않아요. 남의 반까지 내 기준으로
+  // 바꾸면 잘못된 정보가 돼요.
+  const week = mine ? withSwaps(raw, swaps) : raw;
   const holiday = holidayName(week[day].filter(Boolean));
 
   return (
@@ -148,18 +154,19 @@ export default function TimetableScreen() {
                 hint="학교가 아직 안 올렸을 수 있어요."
               />
             ) : (
-            week[day].map((raw, i, arr) => {
-              if (!raw) return null;
+            week[day].map((shown, i, arr) => {
+              if (!shown) return null;
               // 점심 뒤 첫 수업이 어느 줄인지. 그 위에 점심시간을 끼워 넣어요.
               const lunchAt = arr.findIndex((r, k) => !!r && k + 1 > LUNCH.afterPeriod);
               const afterLunch = lunchAt === i;
-              const subject = readSubject(raw);
-              // 내가 바꾼 과목이면 표시해줘요. 원래 뭐였는지 알 수 있게요.
-              const swapped = mine && Object.values(swaps).includes(subject.name);
               const period = i + 1;
+              // 시간표에 적힌 원래 이름. 바꾸는 화면에 이걸 넘겨줘요.
+              const original = raw[day][i];
+              const subject = readSubject(shown);
+              const swapped = mine && swaps[slotKey(day, period)] !== undefined;
               const isNow = day === today && period === nowPeriod;
               const bell = BELL[i];
-              const st = subjectTone(raw, palette.scheme);
+              const st = subjectTone(shown, palette.scheme);
               return (
                 // 요일이나 반을 바꾸면 key가 달라져서 줄이 다시 올라와요.
                 // 내용만 조용히 갈리면 바뀐 걸 눈치채기 어려워요.
@@ -178,7 +185,14 @@ export default function TimetableScreen() {
                         ? () =>
                             router.push({
                               pathname: '/swap-subject',
-                              params: { subject: readSubject(raw).name },
+                              params: {
+                                day,
+                                period: String(period),
+                                subject: original,
+                                // 같은 이름이 나오는 다른 교시들. 한 번에 바꿀지
+                                // 고를 수 있게 넘겨줘요.
+                                same: sameNameSlots(raw, day, period, original).join(','),
+                              },
                             })
                         : undefined
                     }
@@ -192,7 +206,7 @@ export default function TimetableScreen() {
                       어디를 봐야 할지 모르겠어요. 평소에는 조용히 두고
                       지금 하는 수업만 색으로 남겨요.
                     */}
-                    <IconChip art={subjectArt(raw)} subject={raw} size={42} quiet={!isNow} />
+                    <IconChip art={subjectArt(shown)} subject={shown} size={42} quiet={!isNow} />
                     <View style={styles.fill}>
                       <View style={styles.subjectRow}>
                         <Text style={[styles.periodTag, { color: st.fg }]}>{period}교시</Text>
