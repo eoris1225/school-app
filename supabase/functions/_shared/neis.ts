@@ -308,10 +308,12 @@ export async function fetchSubjects(
 
   // 창체와 휴일은 과목이 아니에요. 여기서 거르면 앱이 또 거를 필요가 없어요.
   const SKIP = /자율|자치|동아리|진로활동|봉사|창의적|학급활동|학교스포츠클럽|추석|설날|개교|방학|휴업|공휴일|신정|어린이날|현충일|광복절|개천절|한글날|성탄/;
+  // "[보강]체육2" 는 체육2와 같은 과목이에요. 딱지를 떼고 담아야 두 번 안 나와요.
+  const MAKEUP = /^\s*[[(【]\s*보강\s*[\])】]\s*/;
 
   const seen = new Set<string>();
   for (const r of rows) {
-    const name = trimName(r.ITRT_CNTNT ?? '');
+    const name = trimName(r.ITRT_CNTNT ?? '').replace(MAKEUP, '').trim();
     if (!name || SKIP.test(name)) continue;
     seen.add(name);
   }
