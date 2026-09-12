@@ -4,21 +4,56 @@
  * 밝은 화면과 어두운 화면을 모두 만들고, 글씨가 흐려 보이지 않도록
  * 대비(contrast)를 계산해서 색을 자동으로 조절해요.
  */
-export type ThemeKey = 'tomato' | 'ocean' | 'forest' | 'grape' | 'blossom' | 'ink';
+/*
+ * 테마는 색 그 자체예요. '토마토' 같은 이름표를 두지 않아요.
+ *
+ * 이름을 붙이면 목록에 있는 색만 쓸 수 있어요. 색 자체를 담으면 아래 목록에
+ * 없는 색을 직접 골라도 똑같이 다뤄져요. 특별 취급이 없어요.
+ *
+ * 아래는 Tailwind CSS 팔레트의 500단계예요. 여러 사람이 오래 다듬은 색이라
+ * 우리가 눈대중으로 고르는 것보다 나아요. 색상환을 한 바퀴 돌도록 골랐어요.
+ * 전부 그대로 쓸 수 있는지 확인했어요 (scripts/pick-palette.ts).
+ */
+export const THEMES = [
+  '#ef4444', // 빨강
+  '#f97316', // 주황
+  '#f59e0b', // 호박
+  '#eab308', // 노랑
+  '#84cc16', // 라임
+  '#22c55e', // 초록
+  '#10b981', // 에메랄드
+  '#14b8a6', // 청록
+  '#06b6d4', // 하늘청록
+  '#0ea5e9', // 하늘
+  '#3b82f6', // 파랑
+  '#6366f1', // 남색
+  '#8b5cf6', // 보라
+  '#a855f7', // 자주
+  '#d946ef', // 진분홍
+  '#ec4899', // 분홍
+  '#f43f5e', // 장미
+  '#64748b', // 회청
+  '#78716c', // 회갈
+] as const;
 
-export type Theme = { key: ThemeKey; name: string; accent: string };
+export const DEFAULT_THEME = '#f97316';
 
-// 쨍한 원색 대신 채도를 한 단계 낮춘 색을 써요. 넓은 면에 깔려도 눈이 편해요.
-export const THEMES: Theme[] = [
-  { key: 'tomato', name: '토마토', accent: '#C0553C' },
-  { key: 'ocean', name: '바다', accent: '#356497' },
-  { key: 'forest', name: '숲', accent: '#2F7355' },
-  { key: 'grape', name: '포도', accent: '#6A56A6' },
-  { key: 'blossom', name: '벚꽃', accent: '#B25174' },
-  { key: 'ink', name: '먹', accent: '#454750' },
-];
+/** 예전에 이름으로 저장해둔 것을 색으로 바꿔요. */
+const OLD_NAMES: Record<string, string> = {
+  tomato: '#ef4444',
+  ocean: '#0ea5e9',
+  forest: '#22c55e',
+  grape: '#8b5cf6',
+  blossom: '#ec4899',
+  ink: '#64748b',
+};
 
-export const DEFAULT_THEME: ThemeKey = 'tomato';
+/** 저장해둔 값을 쓸 수 있는 색으로 바꿔요. 이상하면 기본색이에요. */
+export function readAccent(saved: string | null | undefined): string {
+  if (!saved) return DEFAULT_THEME;
+  if (OLD_NAMES[saved]) return OLD_NAMES[saved];
+  return /^#[0-9a-fA-F]{6}$/.test(saved) ? saved : DEFAULT_THEME;
+}
 
 /** 실제로 화면에 적용된 밝기 */
 export type Scheme = 'light' | 'dark';
@@ -108,19 +143,42 @@ function adjustUntil(color: string, bg: string, min: number, toward: string) {
   return out;
 }
 
-/** 흰 글씨가 또렷하게 읽히는 진하기까지 채움색을 눌러요. */
-const fillForWhiteText = (color: string) => adjustUntil(color, '#FFFFFF', 4.6, '#000000');
+/** 채움색 위에 올릴 글씨색. 진한 글씨가 더 잘 읽히면 그걸 써요. */
+const INK = '#17181C';
+
+/**
+ * 채움색과 그 위 글씨색을 함께 정해요.
+ *
+ * 예전에는 글씨를 흰색으로 박아두고, 흰 글씨가 읽힐 때까지 색을 어둡게
+ * 눌렀어요. 그래서 노랑·라임 같은 밝은 색을 고르면 갈색이 돼버렸어요.
+ * "색이 칙칙하다"는 게 이거였어요.
+ *
+ * 밝은 색 위에는 진한 글씨를 올리면 돼요. 그러면 색을 안 눌러도 돼요.
+ * 흰 글씨와 진한 글씨 중 더 잘 읽히는 쪽을 골라요. 둘 다 모자라면
+ * (아주 중간 밝기) 그때만 색을 눌러요.
+ */
+function fillAndInk(color: string): { fill: string; ink: string } {
+  const white = contrast(color, '#FFFFFF');
+  const dark = contrast(color, INK);
+  if (dark >= 4.6 && dark >= white) return { fill: color, ink: INK };
+  if (white >= 4.6) return { fill: color, ink: '#FFFFFF' };
+  // 둘 다 모자라면 더 가까운 쪽으로 밀어요. 움직이는 양이 적어요.
+  return dark > white
+    ? { fill: adjustUntil(color, INK, 4.6, '#FFFFFF'), ink: INK }
+    : { fill: adjustUntil(color, '#FFFFFF', 4.6, '#000000'), ink: '#FFFFFF' };
+}
 
 function lightPalette(base: string): Palette {
   // 바탕은 연회색, 카드는 흰색. 이렇게 갈라 놓으면 카드가 떠 보여서 덜 밋밋해요.
   const bg = '#F4F5F7';
   const surface = '#FFFFFF';
-  const accent = fillForWhiteText(adjustUntil(base, surface, 3.1, '#000000'));
+  // 흰 카드 위에서 색 덩어리가 보여야 하니 최소한의 진하기는 지켜요.
+  const { fill: accent, ink } = fillAndInk(adjustUntil(base, surface, 1.9, '#000000'));
   const tint = mix(accent, surface, 0.92);
   return {
     scheme: 'light',
     accent,
-    onAccent: '#FFFFFF',
+    onAccent: ink,
     accentDeep: adjustUntil(base, tint, 4.6, '#000000'),
     tint,
     tintMid: mix(accent, surface, 0.5),
@@ -141,12 +199,12 @@ function darkPalette(base: string): Palette {
   const bg = '#0F0F12';
   // 어두운 바탕에서는 원래 색이 묻히니까 흰색을 섞어 밝게 올려요.
   // 너무 밝히면 위에 올린 흰 글씨가 흐려져서, 두 조건을 함께 맞춰요.
-  const accent = fillForWhiteText(adjustUntil(base, bg, 3.05, '#FFFFFF'));
+  const { fill: accent, ink } = fillAndInk(adjustUntil(base, bg, 3.05, '#FFFFFF'));
   const tint = mix(accent, bg, 0.86);
   return {
     scheme: 'dark',
     accent,
-    onAccent: '#FFFFFF',
+    onAccent: ink,
     accentDeep: adjustUntil(base, tint, 5, '#FFFFFF'),
     tint,
     tintMid: mix(accent, bg, 0.4),
