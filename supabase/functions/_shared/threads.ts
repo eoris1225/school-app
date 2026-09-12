@@ -59,8 +59,17 @@ async function ask(url: string, init?: RequestInit): Promise<Record<string, unkn
     const detail = await res.text();
     throw new ThreadError(`쪽지를 처리하지 못했어요 (${res.status}) ${detail.slice(0, 120)}`);
   }
-  if (res.status === 204) return [];
-  return (await res.json()) as Record<string, unknown>[];
+  /*
+   * 본문이 비어 있을 수 있어요.
+   *
+   * PostgREST는 return=representation 을 안 주면 POST에 201을, PATCH에
+   * 204를 주면서 본문을 안 보내요. 그걸 그대로 res.json() 하면 터져요.
+   * 상태 번호로 가리려다 201을 빠뜨려서 실제로 한 번 터졌어요.
+   * 이제는 글자로 받아보고 비어 있으면 빈 목록으로 봐요.
+   */
+  const text = await res.text();
+  if (!text.trim()) return [];
+  return JSON.parse(text) as Record<string, unknown>[];
 }
 
 function toMessage(row: Record<string, unknown>): Message {
