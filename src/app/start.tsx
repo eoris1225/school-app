@@ -11,7 +11,7 @@ import { Text } from '@/components/text';
 import { Button, Field, Loading, Segmented } from '@/components/ui';
 import { ThemeSwatches } from '@/components/color-picker';
 import { useApp } from '@/lib/app-state';
-import { signIn, signUp } from '@/lib/auth';
+import { resendConfirm, signIn, signUp } from '@/lib/auth';
 import { useLayout } from '@/lib/layout';
 import { classLabelOf } from '@/lib/my-school';
 
@@ -30,6 +30,19 @@ export default function StartScreen() {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [justSignedIn, setJustSignedIn] = useState(false);
+  /*
+   * 가입 뒤에 팝업이 보여줄 것이에요.
+   *
+   *   null    평소. 입력하는 칸이 보여요.
+   *   mail    메일 확인이 켜져 있어요. 메일함을 봐야 해요.
+   *   skipped 메일 확인이 꺼져 있어서 그 과정을 지나갔어요. 바로 시작해요.
+   *
+   * skipped 를 따로 두는 이유가 있어요. 조용히 지나가면 나중에 "메일 확인이
+   * 켜져 있는 줄 알았는데?" 하고 헷갈려요. 앱 테스트 때문에 꺼둔 것이라고
+   * 한 줄 적어두면 그럴 일이 없어요.
+   */
+  const [after, setAfter] = useState<{ kind: 'mail'; email: string } | { kind: 'skipped' } | null>(null);
+  const [resent, setResent] = useState<string | null>(null);
 
   /**
    * 방금 로그인했고 내 정보까지 왔으면 다음 화면으로 넘어가요.
@@ -71,21 +84,36 @@ export default function StartScreen() {
   const start = (m: Mode) => {
     setMode(m);
     setFailed(null);
+    setAfter(null);
+    setResent(null);
     setOpen(true);
   };
 
   const submit = async () => {
     setBusy(true);
     setFailed(null);
-    const problem = mode === 'signin' ? await signIn(email, password) : await signUp(email, password, name);
-    setBusy(false);
-    if (problem) {
-      setFailed(problem);
+
+    if (mode === 'signin') {
+      const problem = await signIn(email, password);
+      setBusy(false);
+      if (problem) return setFailed(problem);
+      // 로그인은 됐지만 서버에서 내 정보를 받아오는 데 잠깐 걸려요.
+      // app-state가 me를 채우면 위 effect가 알아서 넘겨줘요.
+      setJustSignedIn(true);
       return;
     }
-    // 로그인은 됐지만 서버에서 내 정보를 받아오는 데 잠깐 걸려요.
-    // app-state가 me를 채우면 위 effect가 알아서 넘겨줘요.
-    setJustSignedIn(true);
+
+    const result = await signUp(email, password, name);
+    setBusy(false);
+    if (result.kind === 'problem') return setFailed(result.message);
+    if (result.kind === 'mail') return setAfter({ kind: 'mail', email: result.email });
+    /*
+     * 바로 로그인됐어요. 넘어가기 전에 한 번 알려줘요.
+     *
+     * 여기서 바로 홈으로 보내지 않아요. 메일 확인을 지나갔다는 걸 읽을
+     * 틈이 없으면 적어둔 의미가 없어요. 버튼을 누르면 넘어가요.
+     */
+    setAfter({ kind: 'skipped' });
   };
 
   return (
@@ -180,65 +208,139 @@ export default function StartScreen() {
       {/*
         로그인이 끝나면 me가 채워지면서 저절로 닫혀요. 효과 안에서 닫으라고
         시키지 않아요. 그러면 학교 고르기 화면 위에 팝업이 그대로 덮여요.
+
+        메일 확인을 지나간 경우만 예외예요. 그때는 me가 바로 채워지는데,
+        저절로 닫히면 적어둔 안내를 읽을 틈이 없어요.
       */}
       <Sheet
-        visible={open && !me}
+        visible={open && (!me || after?.kind === 'skipped')}
         onClose={() => setOpen(false)}
-        title={mode === 'signin' ? '로그인' : '회원가입'}>
-        <Segmented
-          value={mode}
-          onChange={(v) => {
-            setMode(v);
-            setFailed(null);
-          }}
-          options={[
-            { value: 'signin', label: '로그인' },
-            { value: 'signup', label: '회원가입' },
-          ]}
-        />
+        title={
+          after?.kind === 'mail'
+            ? '메일을 보냈어요'
+            : after?.kind === 'skipped'
+              ? '가입됐어요'
+              : mode === 'signin'
+                ? '로그인'
+                : '회원가입'
+        }>
+        {/* 메일 확인이 켜져 있어요. 메일함을 봐야 다음으로 갈 수 있어요. */}
+        {after?.kind === 'mail' ? (
+          <>
+            <Text style={[styles.afterBody, { color: palette.text }]}>
+              {after.email}로 확인 링크를 보냈어요.
+            </Text>
+            <Text style={[styles.afterBody, { color: palette.sub }]}>
+              메일함에서 링크를 누르면 가입이 끝나요. 안 보이면 스팸함도 봐주세요.
+              링크를 누른 뒤에 여기서 로그인하면 돼요.
+            </Text>
+            <View style={styles.sheetAction}>
+              <Button
+                label="로그인하러 가기"
+                onPress={() => {
+                  setAfter(null);
+                  setMode('signin');
+                  setPassword('');
+                }}
+              />
+              <View style={styles.gap} />
+              <Button
+                label={resent ?? '메일을 못 받았어요'}
+                variant="secondary"
+                disabled={!!resent}
+                onPress={async () => {
+                  const problem = await resendConfirm(after.email);
+                  setResent(problem ?? '다시 보냈어요');
+                }}
+              />
+            </View>
+          </>
+        ) : after?.kind === 'skipped' ? (
+          /*
+           * 메일 확인이 꺼져 있어서 그 과정을 지나갔어요.
+           * 조용히 넘어가면 나중에 헷갈려요. 한 줄 적어두고 넘어가요.
+           */
+          <>
+            <Text style={[styles.afterBody, { color: palette.text }]}>
+              앱 테스트를 위해 메일 확인 과정을 스킵했어요.
+            </Text>
+            <Text style={[styles.afterBody, { color: palette.sub }]}>
+              이 프로젝트는 아직 메일 확인이 꺼져 있어요. 그래서 {email.trim()}로 바로
+              가입됐어요. 나중에 켜면 메일함에서 링크를 눌러야 가입이 끝나요.
+            </Text>
+            <View style={styles.sheetAction}>
+              {/*
+                팝업을 직접 닫아요. 안 닫으면 다음 화면 위에 그대로 덮여요.
+                after를 비우는 대신 open을 내려요. after를 비우면 내 정보가
+                아직 안 온 사이에 입력 칸이 잠깐 다시 보여요.
+              */}
+              <Button
+                label="시작하기"
+                onPress={() => {
+                  setOpen(false);
+                  setJustSignedIn(true);
+                }}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <Segmented
+              value={mode}
+              onChange={(v) => {
+                setMode(v);
+                setFailed(null);
+              }}
+              options={[
+                { value: 'signin', label: '로그인' },
+                { value: 'signup', label: '회원가입' },
+              ]}
+            />
 
-        {mode === 'signup' ? (
-          <Field
-            value={name}
-            onChangeText={setName}
-            placeholder="이름"
-            accessibilityLabel="이름"
-            style={styles.input}
-          />
-        ) : null}
-        <Field
-          value={email}
-          onChangeText={setEmail}
-          placeholder="이메일"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel="이메일"
-          style={styles.input}
-        />
-        <Field
-          value={password}
-          onChangeText={setPassword}
-          placeholder={mode === 'signup' ? '비밀번호 (6자 이상)' : '비밀번호'}
-          secureTextEntry
-          autoCapitalize="none"
-          accessibilityLabel="비밀번호"
-          style={styles.input}
-        />
+            {mode === 'signup' ? (
+              <Field
+                value={name}
+                onChangeText={setName}
+                placeholder="이름"
+                accessibilityLabel="이름"
+                style={styles.input}
+              />
+            ) : null}
+            <Field
+              value={email}
+              onChangeText={setEmail}
+              placeholder="이메일"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="이메일"
+              style={styles.input}
+            />
+            <Field
+              value={password}
+              onChangeText={setPassword}
+              placeholder={mode === 'signup' ? '비밀번호 (6자 이상)' : '비밀번호'}
+              secureTextEntry
+              autoCapitalize="none"
+              accessibilityLabel="비밀번호"
+              style={styles.input}
+            />
 
-        {failed ? (
-          <View style={[styles.failed, { backgroundColor: palette.tint }]}>
-            <Text style={[styles.failedText, { color: palette.text }]}>{failed}</Text>
-          </View>
-        ) : null}
+            {failed ? (
+              <View style={[styles.failed, { backgroundColor: palette.tint }]}>
+                <Text style={[styles.failedText, { color: palette.text }]}>{failed}</Text>
+              </View>
+            ) : null}
 
-        <View style={styles.sheetAction}>
-          <Button
-            label={busy ? '잠시만요' : mode === 'signin' ? '로그인' : '가입하고 시작하기'}
-            disabled={!ready || busy}
-            onPress={submit}
-          />
-        </View>
+            <View style={styles.sheetAction}>
+              <Button
+                label={busy ? '잠시만요' : mode === 'signin' ? '로그인' : '가입하고 시작하기'}
+                disabled={!ready || busy}
+                onPress={submit}
+              />
+            </View>
+          </>
+        )}
       </Sheet>
     </View>
   );
@@ -266,6 +368,7 @@ const styles = StyleSheet.create({
   failed: { borderRadius: 16, padding: 16, marginTop: 12 },
   failedText: { fontSize: 13, lineHeight: 20 },
   sheetAction: { marginTop: 20 },
+  afterBody: { fontSize: 15, lineHeight: 23, marginBottom: 12 },
 
   signed: { borderRadius: 18, padding: 16, marginTop: 24 },
   signedName: { fontSize: 15, fontWeight: '700' },
