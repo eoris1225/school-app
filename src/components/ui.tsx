@@ -60,13 +60,28 @@ export function Avatar({ size = 44, onPress }: { size?: number; onPress?: () => 
   const { palette, me } = useApp();
   // 이름 첫 글자예요. 성이 두 글자인 이름도 있어서 잘라내지 않고 그대로 써요.
   const initial = me?.name.trim().slice(0, 1) || '?';
-  // 아바타도 누르는 것이라 살짝 솟아 보이게 해요. 버튼과 같은 규칙이에요.
+  /*
+   * 아바타도 누르는 것이라 살짝 솟아 보이게 해요. 버튼과 같은 규칙이에요.
+   *
+   * 테두리를 바탕색으로 둘러요. 홈 맨 위 색 상자 위에 아바타가 올라가는데
+   * 둘 다 테마색이라 어디까지가 아바타인지 안 보였어요. 바탕색 테두리를
+   * 두르면 색 상자 위에서는 또렷하게 잘리고, 평범한 화면에서는 바탕과
+   * 같은 색이라 아예 안 보여요. 필요한 데서만 보이는 거예요.
+   */
+  const ring = Math.max(2, Math.round(size * 0.045));
   const circle = (
     <View
       style={[
         styles.avatar,
         styles.raised,
-        { width: size, height: size, borderRadius: size / 2, shadowColor: palette.accent },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          shadowColor: palette.accent,
+          borderWidth: ring,
+          borderColor: palette.bg,
+        },
       ]}>
       <LinearGradient
         colors={[mix(palette.accent, '#FFFFFF', 0.2), palette.accent, mix(palette.accent, '#000000', 0.12)]}

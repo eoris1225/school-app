@@ -26,13 +26,19 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
   return (
     <View style={[styles.wrap, { backgroundColor: palette.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View
-        onLayout={(e) => setTrack(e.nativeEvent.layout.width - 12)}
         style={[styles.bar, { maxWidth: Math.min(content, 640), borderColor: palette.line, backgroundColor: palette.surface }]}>
+        {/*
+          알약이 움직일 칸 너비는 이 안쪽 줄에서 직접 재요.
+          예전에는 바깥 상자 너비에서 12를 빼서 어림했는데, 테두리 1.5와
+          안쪽 여백 4를 합치면 11이라 한 픽셀씩 어긋났어요. 재서 쓰면
+          여백이나 테두리를 고쳐도 따라와요.
+        */}
+        <View onLayout={(e) => setTrack(e.nativeEvent.layout.width)} style={styles.inner}>
         <SlidingPill
           index={state.index}
           count={state.routes.length}
           width={track}
-          style={{ top: 6, bottom: 6, left: 6, borderRadius: 24, backgroundColor: palette.tint }}
+          style={{ top: 0, bottom: 0, left: 0, borderRadius: 24, backgroundColor: palette.tint }}
         />
         {state.routes.map((route, index) => {
           const focused = state.index === index;
@@ -67,6 +73,7 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
             </Tap>
           );
         })}
+        </View>
       </View>
     </View>
   );
@@ -82,6 +89,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
+  inner: { flexDirection: 'row', flex: 1 },
   item: {
     flex: 1,
     alignItems: 'center',

@@ -116,8 +116,24 @@ export function SlidingPill({
   const slot = width / Math.max(count, 1);
   const x = useSharedValue(index * slot);
 
+  /*
+   * 목표를 지나치지 않게 해요.
+   *
+   * 예전에는 damping 18 이었는데 감쇠비가 0.76이라 이동 거리의 3%만큼
+   * 지나쳤다가 돌아왔어요. 한 칸 움직일 때는 안 보이는데, 홈에서 커뮤니티로
+   * 네 칸을 뛰면 0.1칸이라 알약이 막대 밖으로 삐져나왔어요.
+   *
+   * 감쇠비를 1로 맞췄어요 (2 x sqrt(stiffness x mass) = 23.7).
+   * overshootClamping 도 켜서 계산이 어긋나도 안 넘어가게 했어요.
+   * 통통 튀지 않는다는 우리 규칙과도 맞아요.
+   */
   useEffect(() => {
-    x.value = withSpring(index * slot, { damping: 18, stiffness: 200, mass: 0.7 });
+    x.value = withSpring(index * slot, {
+      damping: 24,
+      stiffness: 200,
+      mass: 0.7,
+      overshootClamping: true,
+    });
   }, [index, slot, x]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
