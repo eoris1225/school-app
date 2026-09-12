@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Emoji } from '@/components/emoji';
@@ -9,7 +9,7 @@ import { Pop, Tap } from '@/components/motion';
 import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { Button, Field, Loading, Segmented } from '@/components/ui';
-import { buildPalette, THEMES } from '@/constants/themes';
+import { ColorPicker } from '@/components/color-picker';
 import { useApp } from '@/lib/app-state';
 import { signIn, signUp } from '@/lib/auth';
 import { useLayout } from '@/lib/layout';
@@ -18,7 +18,7 @@ import { classLabelOf } from '@/lib/my-school';
 type Mode = 'signin' | 'signup';
 
 export default function StartScreen() {
-  const { palette, scheme, themeKey, setThemeKey, school, schoolLoading, me, authLoading } = useApp();
+  const { palette, accent, setAccent, school, schoolLoading, me, authLoading } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
 
@@ -139,26 +139,7 @@ export default function StartScreen() {
             </Tap>
 
             <Text style={[styles.swatchLabel, { color: palette.sub }]}>마음에 드는 색을 골라보세요</Text>
-            <View style={styles.swatches} accessibilityRole="radiogroup">
-              {THEMES.map((t) => {
-                const selected = t.key === themeKey;
-                return (
-                  <Pressable
-                    key={t.key}
-                    onPress={() => setThemeKey(t.key)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: selected }}
-                    accessibilityLabel={`${t.name} 색`}
-                    style={({ pressed }) => [
-                      styles.swatchWrap,
-                      { borderColor: selected ? palette.accent : 'transparent' },
-                      pressed && styles.pressed,
-                    ]}>
-                    <View style={[styles.swatch, { backgroundColor: buildPalette(t.accent, scheme).accent }]} />
-                  </Pressable>
-                );
-              })}
-            </View>
+            <ColorPicker value={accent} onChange={setAccent} />
           </View>
 
           <View style={styles.actions}>
@@ -295,10 +276,6 @@ const styles = StyleSheet.create({
   pickMeta: { fontSize: 13, marginTop: 2 },
 
   swatchLabel: { fontSize: 13, marginTop: 24, marginBottom: 12 },
-  swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  swatchWrap: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  swatch: { width: 30, height: 30, borderRadius: 15 },
-  pressed: { opacity: 0.7 },
 
   actions: { marginTop: 32 },
   note: { fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 16 },

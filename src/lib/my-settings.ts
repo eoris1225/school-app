@@ -77,6 +77,25 @@ export const saveSwaps = (v: SubjectSwaps) => write(SWAPS_KEY, v);
 export const applySwap = (day: string, period: number, subject: string, swaps: SubjectSwaps) =>
   swaps[slotKey(day, period)] ?? subject;
 
+// ---------------------------------------------------------------- 테마
+
+/**
+ * 고른 테마 색과 밝기예요.
+ *
+ * 여태 저장을 안 하고 있었어요. 색을 골라도 앱을 껐다 켜면 기본색으로
+ * 돌아갔어요. 고르는 화면까지 만들어 놓고 안 남긴 건 반쪽이에요.
+ */
+const ACCENT_KEY = 'my-accent';
+const SCHEME_KEY = 'my-scheme-pref';
+
+const okString = (v: unknown) => typeof v === 'string';
+
+export const loadAccent = () => read<string>(ACCENT_KEY, '', okString);
+export const saveAccent = (v: string) => write(ACCENT_KEY, v);
+
+export const loadSchemePref = () => read<string>(SCHEME_KEY, '', okString);
+export const saveSchemePref = (v: string) => write(SCHEME_KEY, v);
+
 // ---------------------------------------------------------------- 알레르기
 
 /** 내가 못 먹는 알레르기 번호들. 1~19예요. */

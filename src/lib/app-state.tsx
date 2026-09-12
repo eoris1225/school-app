@@ -15,12 +15,16 @@ import { subjectGroup } from '@/lib/subject';
 import { getMe } from '@/lib/api';
 import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
 import {
+  loadAccent,
   loadAllergies,
   loadMyEvents,
+  loadSchemePref,
   loadSwaps,
   newEventId,
+  saveAccent,
   saveAllergies,
   saveMyEvents,
+  saveSchemePref,
   saveSwaps,
   type Allergies,
   type MyEvent,
@@ -44,11 +48,10 @@ import {
   buildPalette,
   DEFAULT_SCHEME_PREF,
   DEFAULT_THEME,
-  THEMES,
+  readAccent,
   type Palette,
   type Scheme,
   type SchemePref,
-  type ThemeKey,
 } from '@/constants/themes';
 import {
   showsTo,
@@ -67,8 +70,9 @@ type AppContextValue = {
   /** 서버에서 내 정보를 다시 읽어요. 선생님으로 올린 뒤에 불러요. */
   reloadMe: () => void;
   signOut: () => Promise<void>;
-  themeKey: ThemeKey;
-  setThemeKey: (key: ThemeKey) => void;
+  /** 고른 테마 색. '#f97316' 처럼 색 그 자체예요. */
+  accent: string;
+  setAccent: (hex: string) => void;
   /** 사용자가 고른 밝기 ('system'이면 폰 설정을 따라가요) */
   schemePref: SchemePref;
   setSchemePref: (pref: SchemePref) => void;
@@ -158,8 +162,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [meNonce, setMeNonce] = useState(0);
   const role: Role | null = me?.role ?? null;
-  const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
-  const [schemePref, setSchemePref] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
+  const [accent, setAccentState] = useState<string>(DEFAULT_THEME);
+  const [schemePref, setSchemePrefState] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
+  const setSchemePref = useCallback((pref: SchemePref) => {
+    setSchemePrefState(pref);
+    void saveSchemePref(pref);
+  }, []);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [swaps, setSwapsState] = useState<SubjectSwaps>({});
   const [allergies, setAllergiesState] = useState<Allergies>([]);
@@ -241,11 +249,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 나만의 설정을 한 번에 읽어와요.
   useEffect(() => {
     let alive = true;
-    Promise.all([loadSwaps(), loadAllergies(), loadMyEvents()]).then(([s, a, e]) => {
+    Promise.all([loadSwaps(), loadAllergies(), loadMyEvents(), loadAccent(), loadSchemePref()]).then(
+      ([s, a, e, color, pref]) => {
       if (!alive) return;
       setSwapsState(s);
       setAllergiesState(a);
       setMyEventsState(e);
+      // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
+      if (color) setAccentState(readAccent(color));
+      if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
     });
     return () => {
       alive = false;
@@ -378,10 +390,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const scheme: Scheme = schemePref === 'system' ? systemScheme : schemePref;
 
-  const palette = useMemo(() => {
-    const theme = THEMES.find((t) => t.key === themeKey) ?? THEMES[0];
-    return buildPalette(theme.accent, scheme);
-  }, [themeKey, scheme]);
+  const palette = useMemo(() => buildPalette(accent, scheme), [accent, scheme]);
+
+  const setAccent = useCallback((hex: string) => {
+    setAccentState(hex);
+    void saveAccent(hex);
+  }, []);
 
   /**
    * 수행평가를 서버에 등록해요.
@@ -513,8 +527,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       authLoading,
       reloadMe,
       signOut,
-      themeKey,
-      setThemeKey,
+      accent,
+      setAccent,
       schemePref,
       setSchemePref,
       scheme,
@@ -549,8 +563,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     authLoading,
     reloadMe,
     signOut,
-    themeKey,
+    accent,
+    setAccent,
     schemePref,
+    setSchemePref,
     scheme,
     palette,
     now,

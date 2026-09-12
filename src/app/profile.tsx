@@ -2,24 +2,21 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { Avatar, BackHeader, Button, Chip, Divider, ErrorNote, Field, Loading, Screen, SectionTitle, Segmented, Tag } from '@/components/ui';
-import { buildPalette, SCHEME_OPTIONS, THEMES } from '@/constants/themes';
+import { ColorPicker } from '@/components/color-picker';
+import { SCHEME_OPTIONS } from '@/constants/themes';
 import { ALLERGENS } from '@/data/mock';
 import { subjectGroup, TEACHABLE } from '@/lib/subject';
 import { ApiError, getSchoolSubjects, promoteToTeacher, setMySubjects } from '@/lib/api';
 import { useRemote } from '@/lib/use-remote';
 import { addDays, toYmd } from '@/lib/time';
 import { useApp } from '@/lib/app-state';
-import { useLayout } from '@/lib/layout';
 
 export default function ProfileScreen() {
-  const { palette, role, themeKey, setThemeKey, scheme, schemePref, setSchemePref, school, me, signOut } =
-    useApp();
+  const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
   const { allergies, setAllergies } = useApp();
-  const { tablet } = useLayout();
   const teacher = role === 'teacher';
   const schoolName = school?.name ?? '';
   const myName = me?.name ?? '';
@@ -96,36 +93,9 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      <SectionTitle title="테마 색상" />
+      <SectionTitle title="테마 색" />
       <Text style={[styles.help, { color: palette.sub }]}>고른 색이 앱 전체에 바로 적용돼요.</Text>
-      <View style={styles.themeGrid}>
-        {THEMES.map((t) => {
-          const selected = t.key === themeKey;
-          // 지금 밝기에서 실제로 보이게 될 색으로 미리보기를 만들어요.
-          const swatch = buildPalette(t.accent, scheme);
-          return (
-            <Tap
-              key={t.key}
-              onPress={() => setThemeKey(t.key)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={`${t.name} 테마`}
-              depth={0.06}
-              style={[
-                styles.themeTile,
-                { width: tablet ? '14%' : '30%' },
-                { backgroundColor: selected ? palette.tint : 'transparent' },
-              ]}>
-              <View style={[styles.swatch, { backgroundColor: swatch.accent }]}>
-                {selected ? <Icon name="check" size={22} color={swatch.onAccent} /> : null}
-              </View>
-              <Text style={[styles.themeName, { color: palette.text, fontWeight: selected ? '800' : '600' }]}>
-                {t.name}
-              </Text>
-            </Tap>
-          );
-        })}
-      </View>
+      <ColorPicker value={accent} onChange={setAccent} />
 
       <SectionTitle title="화면 밝기" />
       <Text style={[styles.help, { color: palette.sub }]}>
@@ -348,16 +318,6 @@ const styles = StyleSheet.create({
   failedText: { fontSize: 13, lineHeight: 20 },
   code: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 12 },
   help: { fontSize: 13, lineHeight: 19, marginTop: -4, marginBottom: 12 },
-  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  themeTile: {
-    flexGrow: 1,
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 20,
-  },
-  swatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   saved: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
-  themeName: { fontSize: 13 },
   gap: { height: 8 },
 });
