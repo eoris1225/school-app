@@ -37,12 +37,20 @@ export default function StartScreen() {
    * 로그인 직후 바로 홈으로 보내면 안 돼요. 서버에서 내가 누구인지
    * 받아오는 데 잠깐 걸리는데, 그 사이에 홈이 "로그인 안 함"으로 보고
    * 시작 화면으로 되돌려버려요.
+   *
+   * 계정에 학교가 적혀 있으면 기기로 내려오는 것을 기다려요. 다른 기기에서
+   * 로그인했을 때 기기 저장소는 비어 있는데, 그걸 보고 바로 학교 고르기로
+   * 보내버리면 이미 골라둔 걸 또 고르라는 얘기가 돼요.
    */
   useEffect(() => {
     if (!justSignedIn || !me) return;
-    if (!school) router.push('/pick-school');
+    if (!school) {
+      // 계정에 있으면 곧 채워져요. 그때 이 effect가 다시 돌아요.
+      if (!me.school) router.push('/pick-school');
+      return;
+    }
     // 처음이면 설정 안내를 한 번 지나가요. 건너뛸 수 있어요.
-    else router.replace(setupSeen ? '/' : '/setup');
+    router.replace(setupSeen ? '/' : '/setup');
   }, [justSignedIn, me, school, setupSeen]);
 
   // 저장해둔 것을 읽는 동안은 아무것도 안 보여줘요.

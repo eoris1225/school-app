@@ -17,9 +17,11 @@
 
 import {
   AuthError,
+  demote,
   promote,
   requireTeacher as requireTeacherLogin,
   setSchool,
+  setSettings,
   setSubjects,
   whoami,
 } from '../_shared/auth.ts';
@@ -373,9 +375,9 @@ async function handle(req: Request, url: URL): Promise<Response> {
       const me = await whoami(req);
       if (!me) throw new AuthError('로그인이 필요해요');
 
-      let body: { office?: unknown; code?: unknown; grade?: unknown; cls?: unknown; no?: unknown };
+      let body: Record<string, unknown>;
       try {
-        body = (await req.json()) as typeof body;
+        body = (await req.json()) as Record<string, unknown>;
       } catch {
         throw new BadRequest('보낸 내용을 읽을 수 없어요');
       }
@@ -383,6 +385,16 @@ async function handle(req: Request, url: URL): Promise<Response> {
       const code = String(body.code ?? '');
       if (!/^[A-Z]\d{2}$/.test(office)) throw new BadRequest('office가 이상해요');
       if (!/^\d{7}$/.test(code)) throw new BadRequest('학교 코드가 이상해요');
+
+      /*
+       * 학교 이름도 같이 받아둬요.
+       *
+       * 코드만 담으면 다른 기기에서 로그인했을 때 화면에 학교 이름을 못 써요.
+       * 이건 보여주기용이라 틀려도 위험하지 않아요. 쪽지가 누구에게 갈지는
+       * 이름이 아니라 office/code 로만 정해요.
+       */
+      const name = String(body.name ?? '').trim().slice(0, 60);
+      const officeName = String(body.officeName ?? '').trim().slice(0, 40);
 
       const grade = Number(body.grade);
       if (!Number.isInteger(grade) || grade < 1 || grade > 6) throw new BadRequest('학년이 이상해요');
@@ -394,7 +406,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
         throw new BadRequest('번호가 이상해요');
       }
 
-      return json({ me: await setSchool(me.id, { office, code, grade, cls, no: raw }) });
+      return json({ me: await setSchool(me.id, { office, code, name, officeName, grade, cls, no: raw }) });
     }
 
     /*
@@ -496,6 +508,67 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
       const { subjects, teaches } = readSubjects(body);
       return json({ me: await promote(me.id, subjects, teaches) });
+    }
+
+    /*
+     * 기기에만 두던 설정을 계정에 적어요.
+     *
+     * 교시 바꾸기와 "안내 봤음" 표시요. 다른 기기에서 로그인해도 따라와요.
+     * 알레르기는 일부러 안 받아요. 화면에 이 기기에만 담긴다고 적어뒀어요.
+     */
+    case 'my-settings': {
+      if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+
+      let body: Record<string, unknown>;
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+
+      const v: { swaps?: Record<string, string>; setupSeen?: boolean } = {};
+
+      if (body.swaps !== undefined) {
+        const raw = body.swaps;
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+          throw new BadRequest('교시 바꾸기가 이상해요');
+        }
+        const entries = Object.entries(raw as Record<string, unknown>);
+        // 한 주는 요일 다섯 × 교시 일곱이에요. 그보다 훨씬 많이 오면 이상해요.
+        if (entries.length > 100) throw new BadRequest('교시 바꾸기가 너무 많아요');
+        const swaps: Record<string, string> = {};
+        for (const [k, val] of entries) {
+          if (!/^[가-힣]{1}-\d{1,2}$/.test(k)) throw new BadRequest('교시 열쇠가 이상해요');
+          if (typeof val !== 'string' || val.length > 40) throw new BadRequest('과목 이름이 이상해요');
+          swaps[k] = val;
+        }
+        v.swaps = swaps;
+      }
+
+      if (body.setupSeen !== undefined) {
+        if (typeof body.setupSeen !== 'boolean') throw new BadRequest('setupSeen이 이상해요');
+        v.setupSeen = body.setupSeen;
+      }
+
+      if (v.swaps === undefined && v.setupSeen === undefined) {
+        throw new BadRequest('바꿀 것이 없어요');
+      }
+      return json({ me: await setSettings(me.id, v) });
+    }
+
+    /*
+     * 선생님을 다시 학생으로 되돌려요.
+     *
+     * 본인만 할 수 있어요. 남을 강등시킬 수 있으면 안 되니까 토큰이 가리키는
+     * 그 계정만 내려요. 담당 과목이 비워지고, 그분을 콕 집어 보낸 쪽지는
+     * 지정이 풀려서 그 과목 선생님들에게 다시 보여요.
+     */
+    case 'demote': {
+      if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
+      const me = await requireTeacherLogin(req);
+      return json({ me: await demote(me.id) });
     }
 
     /*
