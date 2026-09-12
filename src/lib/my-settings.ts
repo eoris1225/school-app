@@ -77,6 +77,19 @@ export const saveSwaps = (v: SubjectSwaps) => write(SWAPS_KEY, v);
 export const applySwap = (day: string, period: number, subject: string, swaps: SubjectSwaps) =>
   swaps[slotKey(day, period)] ?? subject;
 
+// ---------------------------------------------------------------- 처음 설정
+
+/**
+ * 가입하고 나서 안내를 한 번 봤는지.
+ *
+ * 건너뛰어도 봤다고 표시해요. 귀찮아서 넘긴 사람에게 매번 다시 물으면
+ * 더 귀찮아요. 넘긴 것들은 내 정보에서 언제든 할 수 있어요.
+ */
+const SETUP_KEY = 'my-setup-seen';
+
+export const loadSetupSeen = () => read<boolean>(SETUP_KEY, false, (v) => typeof v === 'boolean');
+export const saveSetupSeen = () => write(SETUP_KEY, true);
+
 // ---------------------------------------------------------------- 테마
 
 /**

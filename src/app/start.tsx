@@ -18,7 +18,7 @@ import { classLabelOf } from '@/lib/my-school';
 type Mode = 'signin' | 'signup';
 
 export default function StartScreen() {
-  const { palette, accent, setAccent, school, schoolLoading, me, authLoading } = useApp();
+  const { palette, accent, setAccent, school, schoolLoading, me, authLoading, setupSeen } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
 
@@ -41,8 +41,9 @@ export default function StartScreen() {
   useEffect(() => {
     if (!justSignedIn || !me) return;
     if (!school) router.push('/pick-school');
-    else router.replace('/');
-  }, [justSignedIn, me, school]);
+    // 처음이면 설정 안내를 한 번 지나가요. 건너뛸 수 있어요.
+    else router.replace(setupSeen ? '/' : '/setup');
+  }, [justSignedIn, me, school, setupSeen]);
 
   // 저장해둔 것을 읽는 동안은 아무것도 안 보여줘요.
   // 로그인 화면이 깜빡였다가 홈으로 바뀌면 이상하니까요.
@@ -148,7 +149,7 @@ export default function StartScreen() {
                 <Button
                   label={school ? '시작하기' : '학교를 먼저 골라주세요'}
                   disabled={!school}
-                  onPress={() => router.replace('/')}
+                  onPress={() => router.replace(setupSeen ? '/' : '/setup')}
                 />
                 <Text style={[styles.note, { color: palette.sub }]}>
                   학교와 반을 고르면 급식과 시간표를 받아올 수 있어요.
