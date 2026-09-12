@@ -20,6 +20,7 @@ import {
   promote,
   requireTeacher as requireTeacherLogin,
   setSchool,
+  setSubjects,
   whoami,
 } from '../_shared/auth.ts';
 import {
@@ -40,6 +41,7 @@ import {
   fetchEvents,
   fetchLessons,
   fetchMeals,
+  fetchSubjects,
   findSchool,
   NeisError,
   type School,
@@ -179,6 +181,28 @@ async function readBody(req: Request) {
   return { date, title, subject, grades, classes };
 }
 
+/**
+ * 담당 과목을 읽어요.
+ *
+ *   subjects  교과군. 쪽지가 누구에게 갈지 정해요. 하나는 있어야 해요.
+ *   teaches   실제로 맡은 과목 이름. 화면에 보여주려는 거라 없어도 돼요.
+ *
+ * 어느 이름이 어느 교과군인지는 앱이 정해서 보내요. 분류 규칙이 앱에 있고,
+ * 여기에 한 벌 더 두면 둘이 어긋나요.
+ */
+function readSubjects(body: Record<string, unknown>) {
+  const clean = (v: unknown, field: string) =>
+    toList(v, field).map((x) => {
+      const s = String(x).trim();
+      if (!s || s.length > 40) throw new BadRequest('과목 이름이 이상해요');
+      return s;
+    });
+
+  const subjects = clean(body.subjects, 'subjects');
+  if (subjects.length === 0) throw new BadRequest('담당 과목을 하나 이상 골라주세요');
+  return { subjects, teaches: clean(body.teaches, 'teaches') };
+}
+
 /** 쪽지 내용을 읽어요. 새 질문이면 과목도 같이 받아요. */
 async function readMessage(req: Request, needSubject: boolean) {
   let raw: unknown;
@@ -298,6 +322,23 @@ async function handle(req: Request, url: URL): Promise<Response> {
       throw new BadRequest('수행평가는 GET, POST, DELETE만 돼요');
     }
 
+    /*
+     * 그 학교에서 실제로 가르치는 과목 이름들.
+     *
+     * 선생님이 담당 과목을 고를 때 써요. 목록을 우리가 박아두면 학교가 새로
+     * 만든 과목은 못 골라요. 시간표에 있는 이름을 그대로 줘요.
+     */
+    case 'subjects': {
+      // 한 주치면 그 학기에 열리는 과목이 거의 다 나와요.
+      // 부르는 쪽이 기간을 정해서 보내요. 다른 경로와 같은 방식이에요.
+      const from = readDate(q.get('from'), 'from');
+      const to = readDate(q.get('to') ?? q.get('from'), 'to');
+      checkRange(from, to);
+      const year = readInt(q.get('year') ?? String(new Date().getFullYear()), 'year', 2000, 2100);
+      const term = readInt(q.get('term') ?? '0', 'term', 0, 2) || termOf(from);
+      return json({ subjects: await fetchSubjects(school, { year, term, from, to }, KEY) }, 200, true);
+    }
+
     // 내가 누구인지 알려줘요. 로그인 안 했으면 null이에요.
     case 'me': {
       return json({ me: await whoami(req) });
@@ -395,12 +436,27 @@ async function handle(req: Request, url: URL): Promise<Response> {
         throw new Forbidden('선생님 코드가 맞지 않아요');
       }
 
-      const subjects = toList(body.subjects, 'subjects').map((s) => {
-        const v = String(s).trim();
-        if (!v || v.length > 30) throw new BadRequest('과목 이름이 이상해요');
-        return v;
-      });
-      return json({ me: await promote(me.id, subjects) });
+      const { subjects, teaches } = readSubjects(body);
+      return json({ me: await promote(me.id, subjects, teaches) });
+    }
+
+    /*
+     * 담당 과목 바꾸기. 이미 선생님인 사람만요.
+     *
+     * 승급할 때 한 번 고르고 끝이면 안 돼요. 학년이 바뀌면 맡는 과목도
+     * 바뀌거든요. 코드는 다시 안 물어봐요. 이미 선생님인 게 확인됐으니까요.
+     */
+    case 'my-subjects': {
+      if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
+      const me = await requireTeacherLogin(req);
+      let body: Record<string, unknown>;
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+      const { subjects, teaches } = readSubjects(body);
+      return json({ me: await setSubjects(me.id, subjects, teaches) });
     }
 
     case 'school': {

@@ -97,8 +97,37 @@ const LABEL_TONES: Record<string, ToneKey> = {
   '내 일정': 'teal',
 };
 
+/**
+ * 교과군에 안 걸리는 과목에 색을 하나 정해줘요.
+ *
+ * 규칙을 아무리 늘려도 못 알아보는 이름은 나와요. 학교마다 과목을 새로
+ * 만들거든요. 그런 걸 전부 같은 회색으로 두면 시간표에서 서로 구분이
+ * 안 돼요. 그렇다고 아무 색이나 주면 앱을 껐다 켤 때마다 색이 바뀌어서
+ * 더 헷갈려요.
+ *
+ * 그래서 이름 글자를 더해서 색을 골라요. 같은 이름이면 언제나 같은 색이고,
+ * 다른 이름이면 대체로 다른 색이에요. 저장할 것도 없어요.
+ */
+const PICKABLE: ToneKey[] = [
+  'rose', 'blue', 'violet', 'teal', 'amber', 'orange',
+  'indigo', 'green', 'pink', 'lime', 'clay',
+];
+
+function toneFromName(name: string): ToneKey {
+  let sum = 0;
+  for (let i = 0; i < name.length; i++) {
+    // 자리마다 다르게 세요. 글자만 더하면 순서가 바뀐 이름이 같은 색이 돼요.
+    sum = (sum * 31 + name.charCodeAt(i)) % 100000;
+  }
+  return PICKABLE[sum % PICKABLE.length];
+}
+
 export function toneKeyFor(name: string): ToneKey {
-  return LABEL_TONES[name] ?? GROUP_TONES[subjectGroup(name)];
+  const label = LABEL_TONES[name];
+  if (label) return label;
+  const group = subjectGroup(name);
+  // 못 알아본 과목만 이름으로 색을 골라요. 나머지는 표에 박아둔 색 그대로예요.
+  return group === '기타' ? toneFromName(name) : GROUP_TONES[group];
 }
 
 export function tone(key: ToneKey, scheme: Scheme): ToneColor {

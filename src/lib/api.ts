@@ -166,6 +166,17 @@ export async function getEvents(from: string, to: string, school?: SchoolRef): P
   return events;
 }
 
+/**
+ * 그 학교에서 실제로 가르치는 과목 이름들.
+ *
+ * 선생님이 담당 과목을 고를 때 써요. 우리가 목록을 박아두면 학교가 새로
+ * 만든 과목은 못 골라요. 시간표에 있는 이름을 그대로 받아와요.
+ */
+export async function getSchoolSubjects(from: string, to: string, school?: SchoolRef): Promise<string[]> {
+  const { subjects } = await call<{ subjects: string[] }>({ kind: 'subjects', from, to, ...at(school) });
+  return subjects;
+}
+
 /** 그 해에 있는 학년·반 목록. */
 export async function getClasses(year: number, school?: SchoolRef): Promise<ClassRoom[]> {
   const { classes } = await call<{ classes: ClassRoom[] }>({ kind: 'classes', year, ...at(school) });
@@ -235,7 +246,10 @@ export type Me = {
   id: string;
   role: 'student' | 'teacher';
   name: string;
+  /** 쪽지를 받을 기준이 되는 교과군. '수학', '외국어' 처럼요. */
   subjects: string[];
+  /** 실제로 맡은 과목 이름. '일본 문화' 처럼요. 없을 수도 있어요. */
+  teaches: string[];
   /** 계정에 붙은 학교. 쪽지가 누구에게 갈지 이걸로 정해요. */
   school: { office: string; code: string } | null;
   /** '2-3' 처럼 학년-반. 아직 안 골랐으면 null이에요. */
@@ -253,10 +267,23 @@ export async function getMe(): Promise<Me | null> {
  * 선생님으로 올려요. 코드는 이때 한 번만 써요.
  * 통과하면 계정에 역할이 붙고, 그 뒤로는 코드가 필요 없어요.
  */
-export async function promoteToTeacher(code: string, subjects: string[]): Promise<Me> {
+export async function promoteToTeacher(
+  code: string,
+  subjects: string[],
+  teaches: string[] = [],
+): Promise<Me> {
   const { me } = await call<{ me: Me }>({ kind: 'promote' }, {
     method: 'POST',
-    body: { code, subjects },
+    body: { code, subjects, teaches },
+  });
+  return me;
+}
+
+/** 담당 과목 바꾸기. 이미 선생님인 사람만 돼요. 코드는 다시 안 물어봐요. */
+export async function setMySubjects(subjects: string[], teaches: string[]): Promise<Me> {
+  const { me } = await call<{ me: Me }>({ kind: 'my-subjects' }, {
+    method: 'POST',
+    body: { subjects, teaches },
   });
   return me;
 }
