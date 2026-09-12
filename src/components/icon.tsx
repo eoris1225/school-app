@@ -16,6 +16,8 @@ const ICONS = {
   send: { ios: 'paperplane.fill', android: 'send', web: 'send' },
   back: { ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' },
   next: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
+  down: { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' },
+  up: { ios: 'chevron.up', android: 'expand_less', web: 'expand_less' },
   check: { ios: 'checkmark', android: 'check', web: 'check' },
   close: { ios: 'xmark', android: 'close', web: 'close' },
   trash: { ios: 'trash', android: 'delete', web: 'delete' },

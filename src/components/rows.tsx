@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Emoji, subjectArt, type EmojiName } from '@/components/emoji';
@@ -10,7 +11,12 @@ import { type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
 import { dday, fromYmd, shortTime } from '@/lib/time';
 
-/** 일정 한 줄: 왼쪽 날짜, 가운데 제목, 오른쪽 D-day */
+/**
+ * 일정 한 줄: 왼쪽 날짜, 가운데 제목, 오른쪽 D-day
+ *
+ * 선생님이 자세한 내용을 적어뒀으면 눌러서 펼칠 수 있어요. 준비물이나
+ * 시험 범위 같은 거요. 목록에 늘 펼쳐두면 줄이 길어져서 훑기 어려워요.
+ */
 export function EventRow({
   event,
   onDelete,
@@ -21,6 +27,8 @@ export function EventRow({
   showDday?: boolean;
 }) {
   const { palette, now } = useApp();
+  const [open, setOpen] = useState(false);
+  const detail = event.detail?.trim();
   const date = fromYmd(event.date);
   const d = dday(event.date, now);
   const kindLabel =
@@ -45,7 +53,7 @@ export function EventRow({
    */
   const loud = event.kind === 'assessment';
 
-  return (
+  const row = (
     <View style={styles.eventRow}>
       <View style={styles.eventDate}>
         <Emoji name={art} size={26} tone={loud ? 'color' : 'mono'} />
@@ -68,6 +76,15 @@ export function EventRow({
             }
           />
           <Text style={[styles.eventTarget, { color: palette.sub }]}>{targetLabel(event)}</Text>
+          {/* 적어둔 게 있으면 있다고 알려줘야 눌러봐요. */}
+          {detail ? (
+            <View style={styles.hasDetail}>
+              <Icon name={open ? 'up' : 'down'} size={14} color={palette.accentDeep} />
+              <Text style={[styles.hasDetailText, { color: palette.accentDeep }]}>
+                {open ? '접기' : '안내'}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
       {showDday ? (
@@ -83,6 +100,26 @@ export function EventRow({
           style={[styles.deleteBtn, { borderColor: palette.line }]}>
           <Icon name="trash" size={20} color={palette.sub} />
         </Tap>
+      ) : null}
+    </View>
+  );
+
+  if (!detail) return row;
+
+  return (
+    <View>
+      <Tap
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${event.title}, 자세한 내용 ${open ? '접기' : '보기'}`}
+        depth={0.015}>
+        {row}
+      </Tap>
+      {open ? (
+        <View style={[styles.detail, { backgroundColor: palette.tint }]}>
+          <Text style={[styles.detailText, { color: palette.text }]}>{detail}</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -151,6 +188,10 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 13, fontWeight: '700', lineHeight: 22 },
   eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   eventTarget: { fontSize: 12, fontWeight: '500' },
+  hasDetail: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  hasDetailText: { fontSize: 12, fontWeight: '700' },
+  detail: { borderRadius: 16, padding: 14, marginBottom: 12 },
+  detailText: { fontSize: 14, lineHeight: 22 },
   dday: { fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
   deleteBtn: {
     width: 44,

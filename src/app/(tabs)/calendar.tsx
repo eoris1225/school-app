@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { DayCell } from '@/components/day-cell';
+import { DayCell, MAX_BANDS } from '@/components/day-cell';
 import { Reveal } from '@/components/motion';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
@@ -82,14 +82,20 @@ export default function CalendarScreen() {
         : '학사일정';
 
   /**
-   * 날짜 네모를 몇 가지 색으로 칠할지 정해요.
+   * 날짜 네모를 어떻게 칠할지 정해요.
    *
-   * 같은 종류가 여러 개여도 색을 늘리지 않아요. 국어 수행평가가 둘이라고
-   * 네모를 반으로 가르면 "두 종류가 있다"로 잘못 읽혀요.
-   * 종류가 넷 이상이면 세 색까지만 써요. 더 잘게 자르면 안 보여요.
+   * 일정 하나에 줄 하나예요. 수행평가가 셋이면 줄도 셋이에요.
+   * 예전에는 종류별로 묶어서 세 색까지만 썼는데, 그러면 바쁜 날과
+   * 하나뿐인 날이 똑같아 보였어요. 개수가 보여야 "이 날 큰일이네"가 읽혀요.
+   *
+   * 여덟 줄까지만 그려요. 38픽셀 네모에 아홉 줄을 그으면 줄이 아니라
+   * 얼룩이에요. 더 있으면 오른쪽 위 숫자가 알려줘요.
+   *
+   * 수행평가는 과목 색이에요. 국어 수행평가는 국어 색, 수학은 수학 색이라
+   * 무슨 과목이 몰렸는지 표만 봐도 보여요.
    */
   const dayTones = (list: SchoolEvent[]) =>
-    [...new Set(list.map(toneNameOf))].slice(0, 3).map((n) => subjectTone(n, palette.scheme));
+    list.slice(0, MAX_BANDS).map((e) => subjectTone(toneNameOf(e), palette.scheme));
 
   const dayEvents = shown.filter((e) => e.date === selected);
 
@@ -182,17 +188,35 @@ export default function CalendarScreen() {
             })}
           </View>
         ))}
+        {/*
+          범례예요. 수행평가만 색이 하나가 아니에요. 과목 색을 쓰거든요.
+          그래서 한 칸이 아니라 여러 색을 이어 붙여서 "과목 색"이라고 알려줘요.
+          예전에는 보라색 한 칸이었는데, 실제로는 국어면 분홍이라 거짓말이었어요.
+        */}
         <View style={styles.legend}>
-          {[
-            ['학사일정', subjectTone('학사일정', palette.scheme).fg],
-            ['수행평가', subjectTone('수행평가', palette.scheme).fg],
-            ['내 일정', subjectTone('내 일정', palette.scheme).fg],
-          ].map(([label, color]) => (
-            <View key={label} style={styles.legendItem}>
-              <View style={[styles.legendBar, { backgroundColor: color }]} />
-              <Text style={[styles.legendText, { color: palette.sub }]}>{label}</Text>
+          <View style={styles.legendItem}>
+            <View
+              style={[styles.legendBar, { backgroundColor: subjectTone('학사일정', palette.scheme).fg }]}
+            />
+            <Text style={[styles.legendText, { color: palette.sub }]}>학사일정</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={styles.legendBar}>
+              {['국어', '수학', '과학', '체육'].map((s) => (
+                <View
+                  key={s}
+                  style={[styles.legendPart, { backgroundColor: subjectTone(s, palette.scheme).fg }]}
+                />
+              ))}
             </View>
-          ))}
+            <Text style={[styles.legendText, { color: palette.sub }]}>수행평가는 과목 색</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View
+              style={[styles.legendBar, { backgroundColor: subjectTone('내 일정', palette.scheme).fg }]}
+            />
+            <Text style={[styles.legendText, { color: palette.sub }]}>내 일정</Text>
+          </View>
         </View>
       </View>
 
@@ -302,9 +326,17 @@ const styles = StyleSheet.create({
   mineHelp: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
   mineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   mineInput: { borderRadius: 16, height: 48, paddingHorizontal: 16 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12, paddingHorizontal: 8 },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendBar: { width: 14, height: 4, borderRadius: 2 },
+  legendBar: { flexDirection: 'row', width: 16, height: 4, borderRadius: 2, overflow: 'hidden' },
+  legendPart: { flex: 1 },
   legendText: { fontSize: 12, fontWeight: '600' },
 
   confirm: { borderRadius: 16, padding: 12, marginBottom: 12, gap: 12 },

@@ -57,6 +57,8 @@ export type SchoolEvent = {
   kind: EventKind;
   /** 교과군이에요. '수학', '외국어' 처럼요. */
   subject?: string;
+  /** 준비물이나 범위 같은 자세한 안내. 선생님이 적어두면 눌러서 볼 수 있어요. */
+  detail?: string;
   /** 해당되는 학년들. 비어 있으면 전 학년이에요. */
   grades: number[];
   /** 해당되는 반들. 비어 있으면 고른 학년 전체예요. */

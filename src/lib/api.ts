@@ -209,6 +209,8 @@ export type Assessment = {
   date: string;
   title: string;
   subject: string | null;
+  /** 준비물이나 범위 같은 자세한 안내. 안 적었으면 null이에요. */
+  detail: string | null;
   grades: number[];
   classes: string[];
 };

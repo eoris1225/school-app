@@ -141,6 +141,7 @@ function fromAssessment(a: Assessment): SchoolEvent {
     title: a.title,
     kind: 'assessment',
     subject: (a.subject ?? undefined) as SchoolEvent['subject'],
+    detail: a.detail ?? undefined,
     grades: a.grades,
     classes: a.classes,
   };
@@ -450,6 +451,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             date: event.date,
             title: event.title,
             subject: event.subject ?? null,
+            detail: event.detail ?? null,
             grades: event.grades,
             classes: event.classes,
           },
