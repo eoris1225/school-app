@@ -17,6 +17,7 @@ import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
 import {
   loadAccent,
   loadAllergies,
+  loadSetupSeen,
   loadMyEvents,
   loadSchemePref,
   loadSwaps,
@@ -65,6 +66,8 @@ type AppContextValue = {
   role: Role | null;
   /** 로그인한 계정. 로그인 안 했으면 null이에요. */
   me: Me | null;
+  /** 가입하고 나서 처음 설정 안내를 봤는지. 건너뛰었어도 true예요. */
+  setupSeen: boolean;
   /** 로그인 상태를 아직 확인하는 중인지 */
   authLoading: boolean;
   /** 서버에서 내 정보를 다시 읽어요. 선생님으로 올린 뒤에 불러요. */
@@ -178,6 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [fetchedThreads, setFetchedThreads] = useState<{ stamp: string; list: Thread[] } | null>(null);
   // 쪽지를 다시 읽게 만드는 값이에요. 보내거나 읽은 뒤에 올려요.
   const [threadsNonce, setThreadsNonce] = useState(0);
+  const [setupSeen, setSetupSeen] = useState(true); // 읽기 전에는 안 띄워요
   const now = useNow();
 
   // 저장해둔 학교를 한 번 읽어와요. 읽는 동안엔 schoolLoading이 true예요.
@@ -249,8 +253,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 나만의 설정을 한 번에 읽어와요.
   useEffect(() => {
     let alive = true;
-    Promise.all([loadSwaps(), loadAllergies(), loadMyEvents(), loadAccent(), loadSchemePref()]).then(
-      ([s, a, e, color, pref]) => {
+    Promise.all([
+      loadSwaps(),
+      loadAllergies(),
+      loadMyEvents(),
+      loadAccent(),
+      loadSchemePref(),
+      loadSetupSeen(),
+    ]).then(([s, a, e, color, pref, seen]) => {
       if (!alive) return;
       setSwapsState(s);
       setAllergiesState(a);
@@ -258,6 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
       if (color) setAccentState(readAccent(color));
       if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
+      setSetupSeen(seen);
     });
     return () => {
       alive = false;
@@ -525,6 +536,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       role,
       me,
       authLoading,
+      setupSeen,
       reloadMe,
       signOut,
       accent,
@@ -561,6 +573,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     role,
     me,
     authLoading,
+    setupSeen,
     reloadMe,
     signOut,
     accent,

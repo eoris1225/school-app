@@ -26,6 +26,7 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="start" />
+        <Stack.Screen name="setup" />
         <Stack.Screen name="thread" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="add-event" />
