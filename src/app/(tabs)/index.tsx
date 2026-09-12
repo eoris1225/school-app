@@ -9,13 +9,13 @@ import { Text } from '@/components/text';
 import { Tile } from '@/components/tile';
 import { Avatar } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
-import { getLessons, getMeals } from '@/lib/api';
+import { getLessons, getMeals, getSchoolLessons } from '@/lib/api';
 import { readSubject, subjectGroup } from '@/lib/subject';
 import { byWeekday, withSwaps, type Week } from '@/lib/timetable';
+import { teacherWeek } from '@/lib/teacher-week';
 import { useRemote } from '@/lib/use-remote';
 import {
   BELL,
-  classLabel,
   classOf,
   gradeOf,
   type SchoolEvent,
@@ -340,35 +340,32 @@ function StudentHome() {
 /* ================= 선생님 ================= */
 
 function TeacherHome() {
-  const { palette, now, events, threads, school, me } = useApp();
+  const { palette, now, events, threads, school, me, teach } = useApp();
   const { compact, tile } = useLayout();
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const nowPeriod = currentPeriod(now);
 
   /*
-   * 맡은 반의 오늘 시간표를 받아와요.
+   * 오늘 내가 들어가는 수업을 모아요.
    *
-   * 예전에는 '이 선생님이 가르치는 반 목록'을 가짜로 박아뒀어요(2-1, 2-3).
-   * 학교가 바뀌면 있지도 않은 반이라 아무것도 안 나와요. 지금 우리가 확실히
-   * 아는 반은 설정에서 직접 고른 반 하나뿐이라, 그 반만 보여주고 그렇게 적어요.
-   * 담당 반을 여러 개 받는 건 나중에 따로 만들어요.
+   * 예전에는 설정에서 고른 반 하나만 봤어요. 그 반은 담임 반이라 2-1, 2-3,
+   * 3-5에 들어가는 선생님은 2-3 것만 보였어요. 나머지는 없는 것처럼요.
+   *
+   * 이제 학교 전체 시간표를 한 번에 받아서 내 교과군 칸만 뽑아요. NEIS에는
+   * 담당 교사 칸이 아예 없어서 이게 유일한 길이에요. 규칙은
+   * lib/teacher-week.ts 에 모아뒀어요. 들어가는 반을 좁혀뒀으면 그것만 봐요.
    */
-  const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
   const dates = weekDates(now);
-  const lessons = useRemote(`teacher-timetable:${school?.code}:${myClass}:${dates.월}`, () =>
-    getLessons(gradeOf(myClass), classOf(myClass), dates.월, dates.금, school ?? undefined),
+  const all = useRemote(`school-timetable:${school?.code}:${dates.월}`, () =>
+    getSchoolLessons(dates.월, dates.금, school ?? undefined),
   );
-
-  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 수학 선생님이면 수학 교과군을
-  // 전부 내 수업으로 봐요. 이름을 하나하나 맞춰보면 하나도 안 걸려요.
-  const mine = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
-  const today = (lessons.data ?? [])
-    .filter((l) => l.date === toYmd(now))
-    .sort((a, b) => a.period - b.period);
-  const myClasses = today
-    .filter((l) => mine.has(subjectGroup(l.subject)))
-    .map((l) => ({ subject: readSubject(l.subject).name, period: l.period }));
+  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 이름을 하나하나 맞춰보면 하나도
+  // 안 걸려서 교과군으로 봐요.
+  const myGroups = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
+  const myWeek = teacherWeek(all.data ?? [], dates, myGroups, teach);
+  const day = weekdayOf(now);
+  const myClasses = day ? myWeek[day] : [];
   const nextClass = myClasses.find((c) => c.period >= nowPeriod) ?? null;
 
   const tiles = (
@@ -397,17 +394,19 @@ function TeacherHome() {
   const classBlock = (
     <>
       <Head
-        title={`${classLabel(myClass)} 오늘 수업`}
-        value={myClasses.length ? `내 수업 ${myClasses.length}개` : undefined}
+        title="오늘 내 수업"
+        value={myClasses.length ? `${myClasses.length}개` : undefined}
         action="시간표"
         onAction={() => router.push('/timetable')}
       />
       <Text style={[styles.body, { color: palette.sub }]} numberOfLines={2}>
         {myClasses.length
-          ? myClasses.map((c) => `${c.period}교시 ${c.subject}`).join(' · ')
-          : today.length
-            ? '이 반에서 맡으신 수업은 오늘 없어요'
-            : '오늘은 수업이 없어요'}
+          ? myClasses.map((c) => `${c.period}교시 ${c.cls ?? ''} ${readSubject(c.subject).name}`.trim()).join(' · ')
+          : myGroups.size === 0
+            ? '내 정보에서 담당 과목을 고르면 수업을 모아서 보여드려요'
+            : all.loading
+              ? '시간표를 불러오는 중이에요'
+              : '오늘은 내 수업이 없어요'}
       </Text>
     </>
   );
@@ -440,7 +439,7 @@ function TeacherHome() {
           </Text>
           <Text style={[styles.heroLine, { color: palette.onBand }]} numberOfLines={1}>
             {nextClass
-              ? `다음 수업 ${nextClass.period}교시 ${nextClass.subject}`
+              ? `다음 수업 ${nextClass.period}교시 ${nextClass.cls ?? ''} ${readSubject(nextClass.subject).name}`.trim()
               : '오늘 수업은 끝났어요'}
           </Text>
         </>

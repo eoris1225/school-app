@@ -1,0 +1,128 @@
+import { WEEKDAYS, type Weekday } from '@/data/mock';
+import type { Lesson } from '@/lib/api';
+import { slotKey } from '@/lib/my-settings';
+import { subjectGroup } from '@/lib/subject';
+
+/*
+ * 선생님 시간표를 만들어요.
+ *
+ * NEIS 시간표에는 담당 교사 칸이 아예 없어요. "허유미 선생님 시간표 주세요"가
+ * 성립하지 않아요. 그래서 학교 전체 시간표를 받아와서 그 선생님이 맡은
+ * 교과군에 해당하는 칸만 골라내요. 지어내는 게 아니라 NEIS에 있는 걸 다시
+ * 엮는 거예요.
+ *
+ * 과목 이름을 그대로 맞춰보면 하나도 안 걸려요. 선생님은 '미적분'이라고
+ * 적어두는데 NEIS에는 '미적분Ⅰ'로 오거든요. 그래서 교과군으로 봐요.
+ * 수학 선생님이면 수학 교과군 수업을 다 내 것으로 봐요.
+ *
+ * 못 맞히는 게 둘 있어요. 솔직하게 적어둬요.
+ *   1. 같은 과목 선생님이 여러 분이면 누가 어느 반인지 NEIS가 안 알려줘요.
+ *      수학 선생님이 여섯 분이면 여섯 분 수업이 다 걸려요. 그래서 들어가는
+ *      반을 좁힐 수 있게 해요 (classes). 안 좁혀도 쓸 수는 있어요.
+ *   2. 선택과목 블록은 NEIS가 대표 과목 하나만 적어요. 회의나 보강은 애초에
+ *      NEIS에 없어요. 그래서 칸을 직접 고칠 수 있게 해요 (edits).
+ */
+
+/** 시간표 한 칸에 들어가는 수업 하나 */
+export type TeachCell = {
+  period: number;
+  /** '2-3'. 직접 넣은 칸은 반을 모를 수 있어서 null이에요. */
+  cls: string | null;
+  subject: string;
+  /** 내가 손으로 넣은 칸인지. 화면에서 표시해줘요. */
+  added: boolean;
+};
+
+export type TeachWeek = Record<Weekday, TeachCell[]>;
+
+export type TeachSettings = { classes: string[]; edits: Record<string, string> };
+
+const empty = (): TeachWeek => {
+  const out = {} as TeachWeek;
+  for (const day of WEEKDAYS) out[day] = [];
+  return out;
+};
+
+/**
+ * 학교 전체 시간표에서 내 수업만 뽑아요.
+ *
+ * `mine`은 내가 맡은 교과군이에요 ('수학', '외국어' 처럼요).
+ * `dates`는 weekDates(now)가 준 그 주 월~금 날짜예요.
+ */
+export function teacherWeek(
+  lessons: Lesson[],
+  dates: Record<Weekday, string>,
+  mine: Set<string>,
+  settings: TeachSettings,
+): TeachWeek {
+  const week = empty();
+
+  // 날짜 -> 요일을 한 번만 만들어두고 찾아요.
+  const dayOf = new Map<string, Weekday>();
+  for (const day of WEEKDAYS) dayOf.set(dates[day], day);
+
+  const only = new Set(settings.classes);
+
+  for (const l of lessons) {
+    const day = dayOf.get(l.date);
+    if (!day) continue;
+    const cls = `${l.grade}-${l.cls}`;
+    // 반을 좁혀뒀으면 그 반만 봐요. 비워뒀으면 전체예요.
+    if (only.size > 0 && !only.has(cls)) continue;
+    if (!mine.has(subjectGroup(l.subject))) continue;
+    week[day].push({ period: l.period, cls, subject: l.subject, added: false });
+  }
+
+  /*
+   * 직접 고친 칸을 얹어요.
+   *
+   * 빈 글자면 그 칸을 비워요 ("내 수업 아님"). 글자가 있으면 그 칸을 통째로
+   * 그 내용으로 바꿔요. NEIS가 틀렸거나 아예 없는 걸 메우는 자리라, 원래
+   * 있던 것과 섞지 않고 사람이 적은 것만 남겨요.
+   */
+  for (const [key, value] of Object.entries(settings.edits)) {
+    const [day, raw] = key.split('-');
+    const period = Number(raw);
+    if (!WEEKDAYS.includes(day as Weekday) || !Number.isInteger(period)) continue;
+    const d = day as Weekday;
+    week[d] = week[d].filter((c) => c.period !== period);
+    if (value.trim()) {
+      week[d].push({ period, cls: null, subject: value.trim(), added: true });
+    }
+  }
+
+  for (const day of WEEKDAYS) {
+    week[day].sort(
+      (a, b) => a.period - b.period || (a.cls ?? '').localeCompare(b.cls ?? '', 'ko', { numeric: true }),
+    );
+  }
+  return week;
+}
+
+/** 그 요일 그 교시에 있는 내 수업들 */
+export const cellsAt = (week: TeachWeek, day: Weekday, period: number) =>
+  week[day].filter((c) => c.period === period);
+
+/** 이 칸을 직접 고쳐뒀는지 */
+export const isEdited = (settings: TeachSettings, day: Weekday, period: number) =>
+  settings.edits[slotKey(day, period)] !== undefined;
+
+/** 한 주에 내가 들어가는 수업이 몇 개인지 */
+export const teachCount = (week: TeachWeek) =>
+  WEEKDAYS.reduce((sum, day) => sum + week[day].length, 0);
+
+/**
+ * 같은 교시에 두 반 이상이 걸린 칸들.
+ *
+ * 선생님은 한 번에 한 반에만 들어가요. 그러니 이건 "같은 과목 선생님이 여러
+ * 분인데 아직 반을 안 좁혔다"는 신호예요. 화면에서 알려줘야 해요.
+ */
+export function clashes(week: TeachWeek): number {
+  let n = 0;
+  for (const day of WEEKDAYS) {
+    const byPeriod = new Map<number, number>();
+    for (const c of week[day]) byPeriod.set(c.period, (byPeriod.get(c.period) ?? 0) + 1);
+    for (const count of byPeriod.values()) if (count > 1) n++;
+  }
+  return n;
+}

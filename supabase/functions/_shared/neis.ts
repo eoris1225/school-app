@@ -55,28 +55,47 @@ function rowsOf(body: unknown, service: string): Record<string, string>[] {
   return ((wrap[1] as { row?: Record<string, string>[] })?.row ?? []);
 }
 
+/** 한 번에 받아오는 최대 행 수. NEIS가 허용하는 상한이에요. */
+const PAGE = 1000;
+
+/** 몇 장까지 넘길지. 한 주 학교 전체가 800행쯤이라 넉넉해요. */
+const MAX_PAGES = 6;
+
 /**
  * NEIS 한 서비스를 부르고 행 목록을 돌려줘요.
  * 인증키가 없으면 NEIS가 응답을 5행에서 잘라버리니 키는 사실상 필수예요.
+ *
+ * 장을 넘겨가며 다 받아와요. 한 반 시간표는 한 주에 30행쯤이라 한 장이면
+ * 되는데, 반을 지정하지 않고 학교 전체를 받으면 800행이 넘어요. 반이 더
+ * 많은 학교는 1000행도 넘어서 한 장으로는 조용히 잘려요.
  */
 async function call(
   service: string,
   params: Record<string, string | number | undefined>,
   key: string | undefined,
 ): Promise<Record<string, string>[]> {
-  const q = new URLSearchParams({ Type: 'json', pSize: '1000' });
-  if (key) q.set('KEY', key);
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== '') q.set(k, String(v));
+  const out: Record<string, string>[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const q = new URLSearchParams({ Type: 'json', pSize: String(PAGE), pIndex: String(page) });
+    if (key) q.set('KEY', key);
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') q.set(k, String(v));
+    }
+
+    // 헤더를 붙이지 말아요. accept: application/json 을 보내면
+    // NEIS가 JSON 대신 500 오류 페이지를 돌려줘요. (직접 당해보고 알아냈어요)
+    const res = await fetch(`${HUB}/${service}?${q}`);
+    if (!res.ok) {
+      throw new NeisError(`HTTP-${res.status}`, `NEIS가 ${res.status}로 답했어요`);
+    }
+    const rows = rowsOf(await res.json(), service);
+    out.push(...rows);
+    // 한 장을 다 못 채웠으면 마지막 장이에요.
+    if (rows.length < PAGE) break;
   }
 
-  // 헤더를 붙이지 말아요. accept: application/json 을 보내면
-  // NEIS가 JSON 대신 500 오류 페이지를 돌려줘요. (직접 당해보고 알아냈어요)
-  const res = await fetch(`${HUB}/${service}?${q}`);
-  if (!res.ok) {
-    throw new NeisError(`HTTP-${res.status}`, `NEIS가 ${res.status}로 답했어요`);
-  }
-  return rowsOf(await res.json(), service);
+  return out;
 }
 
 // ---------------------------------------------------------------- 작은 변환기
@@ -212,9 +231,17 @@ export async function fetchMeals(
     .sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type));
 }
 
+/**
+ * 시간표를 받아와요.
+ *
+ * grade와 cls를 안 주면 그 학교 모든 반이 한 번에 와요. NEIS가 원래 그래요.
+ * 선생님 시간표를 만들 때 이걸 써요. 선생님이 어느 반에 들어가는지는 NEIS에
+ * 없어서(담당 교사 칸이 아예 없어요), 학교 전체를 받아 과목으로 골라내는 게
+ * 유일한 방법이에요. 반을 하나씩 부르면 스물네 번 다녀와야 하는데 한 번이면 돼요.
+ */
 export async function fetchLessons(
   school: School,
-  opts: { year: number; term: number; grade: number; cls: string; from: string; to: string },
+  opts: { year: number; term: number; grade?: number; cls?: string; from: string; to: string },
   key?: string,
 ): Promise<Lesson[]> {
   const rows = await call(
@@ -240,7 +267,13 @@ export async function fetchLessons(
       period: Number(r.PERIO),
       subject: r.ITRT_CNTNT.trim(),
     }))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.period - b.period);
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.period - b.period ||
+        a.grade - b.grade ||
+        a.cls.localeCompare(b.cls, 'ko', { numeric: true }),
+    );
 }
 
 /** "Y"면 그 학년 해당. "*"나 빈 값은 그 학년이 아예 없는 학교라는 뜻이에요. */

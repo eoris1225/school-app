@@ -38,6 +38,12 @@ export type Me = {
   swaps: Record<string, string>;
   /** 가입 안내를 한 번 지나갔는지 */
   setupSeen: boolean;
+  /**
+   * 선생님 시간표 설정이에요.
+   *   classes  내가 들어가는 반. 비어 있으면 전체예요.
+   *   edits    칸을 직접 고친 것. 빈 글자는 "내 수업 아님" 이에요.
+   */
+  teach: { classes: string[]; edits: Record<string, string> };
 };
 
 export class AuthError extends Error {}
@@ -81,6 +87,15 @@ function toSwaps(raw: unknown): Record<string, string> {
   return out;
 }
 
+/** 선생님 시간표 설정을 읽어요. 이상한 게 들어 있으면 비운 걸로 봐요. */
+function toTeach(raw: unknown): Me['teach'] {
+  const v = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {};
+  const classes = Array.isArray(v.classes) ? v.classes.map(String) : [];
+  return { classes, edits: toSwaps(v.edits) };
+}
+
 function toMe(row: Record<string, unknown>): Me {
   const office = row.school_office ? String(row.school_office) : '';
   const code = row.school_code ? String(row.school_code) : '';
@@ -105,12 +120,13 @@ function toMe(row: Record<string, unknown>): Me {
     no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
     swaps: toSwaps(row.swaps),
     setupSeen: row.setup_seen === true,
+    teach: toTeach(row.teach),
   };
 }
 
 const PROFILE_COLS =
   'id,role,name,subjects,teaches,school_office,school_code,school_name,office_name,' +
-  'grade,cls,student_no,swaps,setup_seen';
+  'grade,cls,student_no,swaps,setup_seen,teach';
 
 async function profileOf(id: string): Promise<Me | null> {
   const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
@@ -172,11 +188,12 @@ export async function setSchool(
  */
 export async function setSettings(
   id: string,
-  v: { swaps?: Record<string, string>; setupSeen?: boolean },
+  v: { swaps?: Record<string, string>; setupSeen?: boolean; teach?: Me['teach'] },
 ): Promise<Me> {
   const body: Record<string, unknown> = {};
   if (v.swaps !== undefined) body.swaps = v.swaps;
   if (v.setupSeen !== undefined) body.setup_seen = v.setupSeen;
+  if (v.teach !== undefined) body.teach = v.teach;
 
   const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
     method: 'PATCH',
