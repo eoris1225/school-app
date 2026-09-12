@@ -245,13 +245,33 @@ function bandTone(
   s: number,
 ): { fill: string; ink: string } {
   if (scheme === 'dark') {
-    const calm = s * 0.62;
-    // 바탕에서 띠로 보일 만큼만 올려요. 대부분 첫 번째에서 끝나요.
-    for (let l = 0.2; l <= 0.44; l += 0.02) {
-      const out = fromHsl(h, calm, l);
-      if (contrast(out, bg) >= 1.5 && readable(out, h, s)) return { fill: out, ink: inkOn(out, h, s) };
+    /*
+     * 고른 색에서 시작해서 눈이 안 아플 때까지만 내려와요.
+     *
+     * 예전에는 정해둔 어두운 값(밝기 0.2)에서 시작해서 겨우 보일 만큼만
+     * 올렸어요. 그러면 눈은 안 아픈데 고른 색과 딴판이 돼요. 주황을 골랐는데
+     * 띠는 갈색이었어요. 채도까지 깎아서 더 그랬고요.
+     *
+     * 이제 반대로 해요. 고른 색 밝기에서 한 칸씩 내려오다가, 넓은 면으로
+     * 깔려도 눈이 안 아픈 선(GLARE)에 들어오는 첫 지점에서 멈춰요.
+     * "안 아픈 만큼만 어둡게" 라서 고른 색에 최대한 가까워요.
+     * 채도는 살짝만 깎아요. 많이 깎으면 어두운 색이 흙색으로 보여요.
+     */
+    const GLARE = 0.115;
+    const rich = s * 0.92;
+    const from = toHsl(accent).l;
+    for (let l = from; l >= 0.12; l -= 0.02) {
+      const out = fromHsl(h, rich, l);
+      if (
+        luminance(out) <= GLARE &&
+        contrast(out, accent) >= 1.32 &&
+        contrast(out, bg) >= 1.35 &&
+        readable(out, h, s)
+      ) {
+        return { fill: out, ink: inkOn(out, h, s) };
+      }
     }
-    return fitFill(fromHsl(h, calm, 0.28), h, s);
+    return fitFill(fromHsl(h, rich, 0.24), h, s);
   }
 
   const { l } = toHsl(accent);

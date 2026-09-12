@@ -54,8 +54,12 @@ function lightnessOf(hex: string): number {
 const RULES = {
   /** 띠와 아바타가 구분돼야 해요. */
   split: 1.2,
-  /** 띠가 고른 색에서 너무 멀면 "딴 색"으로 보여요. (밝은 화면만) */
+  /**
+   * 띠가 고른 색에서 너무 멀면 "딴 색"으로 보여요.
+   * 어두운 화면은 눈이 아프지 않게 더 내려가야 해서 조금 넉넉하게 잡아요.
+   */
   nearAccent: 1.6,
+  nearAccentDark: 2.6,
   /** 띠 위 글씨 (WCAG AA) */
   bandText: 4.5,
   /** 버튼 위 글씨 */
@@ -67,7 +71,7 @@ const RULES = {
   /** 띠가 바탕에서 띠로 보여야 해요. */
   fromBg: 1.35,
   /** 어두운 화면에서 넓은 면이 이보다 밝으면 눈이 아파요. */
-  darkBandMaxLum: 0.14,
+  darkBandMaxLum: 0.12,
 };
 
 const bad: string[] = [];
@@ -115,21 +119,24 @@ for (const base of [...THEMES, ...wheel()]) {
     note('바탕', fromBg);
     if (fromBg < RULES.fromBg) fail.push(`바탕 ${fromBg.toFixed(2)}`);
 
-    // 어두운 화면에서 띠가 너무 밝으면 눈이 아파요.
     if (scheme === 'dark') {
+      // 넓은 면이 너무 밝으면 어두운 방에서 눈이 아파요.
       const lum = luminance(p.band);
       if (lum > RULES.darkBandMaxLum) fail.push(`어두운 화면 띠가 너무 밝아요 ${lum.toFixed(3)}`);
+
       /*
-       * 밝은 화면 띠보다 어두워야 "다른 톤"이에요.
+       * 고른 색에 가깝거나, 아니면 허용한 만큼 밝거나 둘 중 하나여야 해요.
        *
-       * 다만 고른 색이 원래 아주 어두우면 더 내려갈 데가 없어요. 그런 색은
-       * 어차피 눈이 아플 일이 없으니 이미 충분히 어두우면 통과예요.
+       * 어두운 화면에서는 눈이 안 아픈 선까지 내려와야 해서 고른 색과 멀어질
+       * 수 있어요. 아주 밝은 색(연한 크림색 같은)을 고르면 어쩔 수 없어요.
+       * 그런 색은 "내려올 수 있는 만큼만 내려왔는지"를 봐요. 그게 아니면
+       * 고른 색 가까이 있어야 하고요. 둘 다 아니면 괜히 어둡게 한 거예요.
        */
-      const light = buildPalette(base, 'light');
-      const lightBand = luminance(light.band);
-      if (lum > Math.max(lightBand, 0.06)) {
-        fail.push(`어두운 화면 띠가 밝은 화면보다 안 어두워요 ${lum.toFixed(3)}`);
+      if (lum < RULES.darkBandMaxLum - 0.03 && split > RULES.nearAccentDark) {
+        fail.push(`괜히 어두워요 (밝기 ${lum.toFixed(3)}, 고른 색과 거리 ${split.toFixed(2)})`);
       }
+
+      const light = buildPalette(base, 'light');
       // 기울기도 더 얕아야 해요. 어두운 방에서는 밝은 쪽 끝이 더 도드라져요.
       const mine = lightnessOf(p.bandLight) - lightnessOf(p.bandDeep);
       const theirs = lightnessOf(light.bandLight) - lightnessOf(light.bandDeep);
