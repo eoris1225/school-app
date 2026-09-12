@@ -85,6 +85,16 @@ type AppContextValue = {
   /** 지금 실제로 적용된 밝기 */
   scheme: Scheme;
   palette: Palette;
+  /**
+   * 밝기를 바꾸는 중이면 그 내용이 들어 있어요. 아니면 null이에요.
+   * 화면 맨 위를 이 색으로 덮어서 색이 갈리는 순간을 가려요.
+   * 실제로 덮고 걷는 건 _layout.tsx의 SchemeFade가 해요.
+   */
+  schemeSwap: { to: Scheme; color: string } | null;
+  /** 다 덮였을 때 불러요. 그때 색을 갈아요. */
+  commitScheme: () => void;
+  /** 막을 다 걷었을 때 불러요. */
+  endScheme: () => void;
   now: Date;
   /** 내가 고른 학교와 반. 아직 안 골랐으면 null */
   school: MySchool | null;
@@ -171,10 +181,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const role: Role | null = me?.role ?? null;
   const [accent, setAccentState] = useState<string>(DEFAULT_THEME);
   const [schemePref, setSchemePrefState] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
-  const setSchemePref = useCallback((pref: SchemePref) => {
-    setSchemePrefState(pref);
-    void saveSchemePref(pref);
-  }, []);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [swaps, setSwapsState] = useState<SubjectSwaps>({});
   const [allergies, setAllergiesState] = useState<Allergies>([]);
@@ -289,6 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMyEventsState(e);
       // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
       if (color) setAccentState(readAccent(color));
+      // 앱을 켤 때는 덮지 않아요. 처음 그리는 화면이라 바뀌는 게 아니에요.
       if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
       setSetupSeen(seen);
     });
@@ -427,6 +434,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const scheme: Scheme = schemePref === 'system' ? systemScheme : schemePref;
 
   const palette = useMemo(() => buildPalette(accent, scheme), [accent, scheme]);
+
+  /*
+   * 밝기를 바꿀 때 스르르 넘어가게 해요.
+   *
+   * 색을 갈아끼우면 화면이 한 프레임에 통째로 뒤집혀요. 어두운 데서 쓰다가
+   * 밝게로 바꾸면 눈이 한 번 놀라요.
+   *
+   * 색을 천천히 바꾸는 건 방법이 없어요. 팔레트는 그냥 색 문자열이고, 화면
+   * 수십 군데가 그걸 그대로 style에 넣어 쓰거든요. 전부 애니메이션 값으로
+   * 바꾸는 건 앱을 다시 쓰는 일이에요.
+   *
+   * 그래서 바뀌는 순간만 가려요. 바뀔 색으로 칠한 막을 화면 위에 깔고
+   *   1. 막을 덮어요      — 화면이 바뀔 색으로 잠기고
+   *   2. 그 밑에서 색을 갈아요 — 보이지 않아요
+   *   3. 막을 걷어요      — 새 화면이 떠올라요
+   * 눈에는 한 번 저물고 다시 밝아지는 것처럼 보여요.
+   *
+   * 여기는 "무슨 색으로 덮을지"만 들고 있어요. 덮고 걷는 건 화면 쪽 일이라
+   * _layout.tsx의 SchemeFade가 맡아요.
+   */
+  const [schemeSwap, setSchemeSwap] = useState<{ to: Scheme; color: string; pref: SchemePref } | null>(
+    null,
+  );
+
+  const setSchemePref = useCallback(
+    (pref: SchemePref) => {
+      void saveSchemePref(pref);
+      const next: Scheme = pref === 'system' ? readSystemScheme() : pref;
+      // 실제로 보이는 밝기가 그대로면 덮을 이유가 없어요.
+      // ('시스템'에서 '밝게'로 옮겼는데 폰도 밝은 화면이던 경우요.)
+      if (next === scheme) {
+        setSchemePrefState(pref);
+        return;
+      }
+      setSchemeSwap({ to: next, color: buildPalette(accent, next).bg, pref });
+    },
+    [accent, scheme],
+  );
+
+  const commitScheme = useCallback(() => {
+    if (schemeSwap) setSchemePrefState(schemeSwap.pref);
+  }, [schemeSwap]);
+
+  const endScheme = useCallback(() => setSchemeSwap(null), []);
 
   const setAccent = useCallback((hex: string) => {
     setAccentState(hex);
@@ -570,6 +621,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       schemePref,
       setSchemePref,
       scheme,
+      schemeSwap,
+      commitScheme,
+      endScheme,
       palette,
       now,
       school,
@@ -607,6 +661,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     schemePref,
     setSchemePref,
     scheme,
+    schemeSwap,
+    commitScheme,
+    endScheme,
     palette,
     now,
     school,
