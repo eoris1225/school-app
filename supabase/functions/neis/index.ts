@@ -288,16 +288,26 @@ async function handle(req: Request, url: URL): Promise<Response> {
       const from = readDate(q.get('from'), 'from');
       const to = readDate(q.get('to') ?? q.get('from'), 'to');
       checkRange(from, to);
-      const grade = readInt(q.get('grade'), 'grade', 1, 6);
-      const cls = q.get('class');
-      if (!cls) throw new BadRequest('class가 필요해요');
+      /*
+       * 학년과 반은 없어도 돼요. 안 주면 그 학교 모든 반이 한 번에 와요.
+       *
+       * 선생님 시간표에 써요. NEIS 시간표에는 담당 교사 칸이 아예 없어서
+       * "이 선생님 시간표"를 물어볼 방법이 없어요. 학교 전체를 받아 과목으로
+       * 골라내는 게 유일한 길이에요. 반을 하나씩 부르면 스물네 번 다녀와야 해요.
+       *
+       * 둘 중 하나만 주는 건 막아요. 학년만 주면 그 학년 전체가 오는데,
+       * 부르는 쪽이 반을 빠뜨린 실수일 가능성이 높아요.
+       */
+      const gradeRaw = q.get('grade');
+      const clsRaw = q.get('class');
+      if (!gradeRaw !== !clsRaw) {
+        throw new BadRequest('grade와 class는 둘 다 주거나 둘 다 빼주세요');
+      }
+      const grade = gradeRaw ? readInt(gradeRaw, 'grade', 1, 6) : undefined;
+      const cls = clsRaw ?? undefined;
       const year = readInt(q.get('year') ?? String(new Date().getFullYear()), 'year', 2000, 2100);
       const term = readInt(q.get('term') ?? '0', 'term', 0, 2) || termOf(from);
-      const lessons = await fetchLessons(
-        school,
-        { year, term, grade, cls, from, to },
-        KEY,
-      );
+      const lessons = await fetchLessons(school, { year, term, grade, cls, from, to }, KEY);
       return json({ lessons }, 200, true);
     }
 
@@ -528,7 +538,11 @@ async function handle(req: Request, url: URL): Promise<Response> {
         throw new BadRequest('보낸 내용을 읽을 수 없어요');
       }
 
-      const v: { swaps?: Record<string, string>; setupSeen?: boolean } = {};
+      const v: {
+        swaps?: Record<string, string>;
+        setupSeen?: boolean;
+        teach?: { classes: string[]; edits: Record<string, string> };
+      } = {};
 
       if (body.swaps !== undefined) {
         const raw = body.swaps;
@@ -552,7 +566,46 @@ async function handle(req: Request, url: URL): Promise<Response> {
         v.setupSeen = body.setupSeen;
       }
 
-      if (v.swaps === undefined && v.setupSeen === undefined) {
+      /*
+       * 선생님 시간표 설정. 들어가는 반 목록과 직접 고친 칸이에요.
+       *
+       * 반 이름은 '2-3' 모양만 받아요. 고친 칸의 열쇠는 교시 바꾸기와 같은
+       * '월-6' 모양이고, 값이 빈 글자면 "이 칸은 내 수업 아님" 이에요.
+       */
+      if (body.teach !== undefined) {
+        const raw = body.teach;
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+          throw new BadRequest('선생님 시간표 설정이 이상해요');
+        }
+        const t = raw as Record<string, unknown>;
+
+        const list = t.classes === undefined ? [] : t.classes;
+        if (!Array.isArray(list)) throw new BadRequest('반 목록이 이상해요');
+        if (list.length > 60) throw new BadRequest('반이 너무 많아요');
+        const classes: string[] = [];
+        for (const c of list) {
+          const one = String(c);
+          if (!/^\d-[0-9A-Za-z가-힣]{1,10}$/.test(one)) throw new BadRequest('반 이름이 이상해요');
+          classes.push(one);
+        }
+
+        const rawEdits = t.edits === undefined ? {} : t.edits;
+        if (typeof rawEdits !== 'object' || rawEdits === null || Array.isArray(rawEdits)) {
+          throw new BadRequest('고친 칸이 이상해요');
+        }
+        const pairs = Object.entries(rawEdits as Record<string, unknown>);
+        if (pairs.length > 100) throw new BadRequest('고친 칸이 너무 많아요');
+        const edits: Record<string, string> = {};
+        for (const [k, val] of pairs) {
+          if (!/^[가-힣]{1}-\d{1,2}$/.test(k)) throw new BadRequest('교시 열쇠가 이상해요');
+          if (typeof val !== 'string' || val.length > 40) throw new BadRequest('칸 내용이 이상해요');
+          edits[k] = val;
+        }
+
+        v.teach = { classes, edits };
+      }
+
+      if (v.swaps === undefined && v.setupSeen === undefined && v.teach === undefined) {
         throw new BadRequest('바꿀 것이 없어요');
       }
       return json({ me: await setSettings(me.id, v) });

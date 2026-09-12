@@ -6,7 +6,9 @@ import { Text } from '@/components/text';
 import { subjectArt } from '@/components/emoji';
 import { Reveal, Tap } from '@/components/motion';
 import { WeekGrid } from '@/components/week-grid';
-import { Chip, ChipRow, Divider, Empty, ErrorNote, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
+import { Sheet } from '@/components/sheet';
+import { TeachGrid } from '@/components/teach-grid';
+import { Button, Chip, ChipRow, Divider, Empty, ErrorNote, Field, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
   BELL,
   classLabel,
@@ -17,26 +19,33 @@ import {
   type ClassId,
   type Weekday,
 } from '@/data/mock';
-import { getClasses, getLessons } from '@/lib/api';
+import { getClasses, getLessons, getSchoolLessons } from '@/lib/api';
 import { byWeekday, sameNameSlots, withSwaps } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
 import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
 import { slotKey } from '@/lib/my-settings';
-import { holidayName, readSubject } from '@/lib/subject';
+import { holidayName, readSubject, subjectGroup } from '@/lib/subject';
+import { cellsAt, clashes, teachCount, teacherWeek } from '@/lib/teacher-week';
 import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
-  const { palette, now, school, swaps } = useApp();
+  const { palette, now, school, swaps, role, me, teach, setTeachClasses, setTeachEdit } = useApp();
   const today = weekdayOf(now);
   const nowPeriod = currentPeriod(now);
+  const teacher = role === 'teacher';
 
   // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
   const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
   const [cls, setCls] = useState<ClassId>(myClass);
-  const [mode, setMode] = useState<'day' | 'week'>('day');
+  // 선생님은 '내 수업'에서 시작해요. 자기 시간표가 먼저 궁금하니까요.
+  const [mode, setMode] = useState<'day' | 'week' | 'teach'>(teacher ? 'teach' : 'day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
+  // 칸을 고치는 팝업. 어느 칸인지와 적고 있는 내용이에요.
+  const [editing, setEditing] = useState<{ day: Weekday; period: number } | null>(null);
+  const [draft, setDraft] = useState('');
+  const [pickClasses, setPickClasses] = useState(false);
 
   // 한 주치를 한 번에 받아둬요. 요일이나 하루/한 주를 눌러도 다시 부르지 않아요.
   const dates = weekDates(now);
@@ -67,12 +76,39 @@ export default function TimetableScreen() {
   const week = mine ? withSwaps(raw, swaps) : raw;
   const holiday = holidayName(week[day].filter(Boolean));
 
+  /*
+   * 선생님 시간표예요.
+   *
+   * 학교 전체 시간표를 한 번에 받아와서 내 교과군 칸만 뽑아요. NEIS에는
+   * 담당 교사 칸이 아예 없어서 "내 시간표 주세요"가 성립하지 않아요.
+   * 반을 하나씩 부르면 스물네 번 다녀와야 하는데 이건 한 번이에요.
+   * 규칙은 lib/teacher-week.ts 에 모아뒀고 따로 재봤어요
+   * (scripts/check-teacher-week.ts).
+   */
+  const all = useRemote(`school-timetable:${school?.code}:${dates.월}`, () =>
+    teacher ? getSchoolLessons(dates.월, dates.금, school ?? undefined) : Promise.resolve([]),
+  );
+  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 이름을 맞춰보면 하나도 안 걸려서
+  // 교과군으로 봐요. 수학 선생님이면 수학 교과군을 다 내 수업으로요.
+  const myGroups = new Set((me?.subjects ?? []).map((x) => subjectGroup(x)));
+  const myWeek = teacherWeek(all.data ?? [], dates, myGroups, teach);
+  const total = teachCount(myWeek);
+  const overlap = clashes(myWeek);
+
   return (
     <Screen>
       <Header subtitle={classLabel(cls)} title="시간표" />
 
-      {/* 다른 반 시간표도 볼 수 있어요. 반이 스물네 개라 한 줄로 늘어놓으면
-          못 찾으니 학년과 반을 나눠서 골라요. */}
+      {/*
+        다른 반 시간표도 볼 수 있어요. 반이 스물네 개라 한 줄로 늘어놓으면
+        못 찾으니 학년과 반을 나눠서 골라요.
+
+        '내 수업'에서는 안 보여줘요. 거기서는 어느 반을 보는지가 아니라
+        내가 어디 들어가는지가 궁금한 거예요. 반 고르기는 이 화면 아래쪽에
+        따로 있어요.
+      */}
+      {mode !== 'teach' ? (
+        <>
       <View style={styles.classPicker}>
         <ChipRow>
           {allGrades.map((g) => (
@@ -105,17 +141,94 @@ export default function TimetableScreen() {
           </Tap>
         </View>
       ) : null}
+        </>
+      ) : null}
 
       <Segmented
         value={mode}
         onChange={setMode}
-        options={[
-          { value: 'day', label: '하루' },
-          { value: 'week', label: '한 주' },
-        ]}
+        options={
+          teacher
+            ? [
+                { value: 'teach' as const, label: '내 수업' },
+                { value: 'day' as const, label: '하루' },
+                { value: 'week' as const, label: '한 주' },
+              ]
+            : [
+                { value: 'day' as const, label: '하루' },
+                { value: 'week' as const, label: '한 주' },
+              ]
+        }
       />
 
-      {mode === 'day' ? (
+      {mode === 'teach' ? (
+        all.loading ? (
+          <Loading text="학교 시간표를 불러오는 중이에요" rows={4} />
+        ) : all.error ? (
+          <ErrorNote text={all.error} onRetry={all.retryable ? all.retry : undefined} />
+        ) : myGroups.size === 0 ? (
+          <Empty
+            art="warn"
+            text="담당 과목을 먼저 골라주세요"
+            hint="내 정보에서 맡은 과목을 고르면 그 과목 수업을 모아서 보여드려요."
+          />
+        ) : (
+          <>
+            <Text style={[styles.teachHelp, { color: palette.sub }]}>
+              {total
+                ? `이번 주 내 수업 ${total}개예요. 칸을 누르면 고칠 수 있어요.`
+                : '이번 주에 내 교과군 수업이 없어요. 칸을 눌러 직접 넣을 수도 있어요.'}
+            </Text>
+
+            {/*
+              같은 교시에 두 반이 걸렸어요. 선생님은 한 번에 한 반에만
+              들어가니, 같은 과목 선생님이 여러 분이라는 뜻이에요.
+              감추지 않고 알려주고 좁히는 길을 같이 줘요.
+            */}
+            {overlap > 0 ? (
+              <Text style={[styles.teachWarn, { color: palette.sunday }]}>
+                {overlap}군데에서 같은 교시에 두 반이 겹쳐요. NEIS는 어느 선생님이 어느 반에
+                들어가는지 알려주지 않아요. 아래에서 내가 들어가는 반만 골라주세요.
+              </Text>
+            ) : null}
+
+            <View style={styles.teachRow}>
+              <Tap
+                onPress={() => setPickClasses(true)}
+                accessibilityRole="button"
+                depth={0.04}
+                style={[styles.teachPick, { backgroundColor: palette.tint }]}>
+                <Text style={[styles.teachPickText, { color: palette.accentDeep }]}>
+                  {teach.classes.length ? `들어가는 반 ${teach.classes.length}개` : '들어가는 반 고르기'}
+                </Text>
+              </Tap>
+              {Object.keys(teach.edits).length ? (
+                <Tap
+                  onPress={() => setTeachClasses(teach.classes)}
+                  accessibilityRole="button"
+                  depth={0.04}
+                  style={styles.teachReset}>
+                  <Text style={[styles.teachPickText, { color: palette.sub }]}>
+                    고친 칸 {Object.keys(teach.edits).length}개
+                  </Text>
+                </Tap>
+              ) : null}
+            </View>
+
+            <TeachGrid
+              week={myWeek}
+              settings={teach}
+              today={today}
+              nowPeriod={nowPeriod}
+              onPick={(d, period) => {
+                const has = cellsAt(myWeek, d, period);
+                setDraft(has.length && has[0].added ? has[0].subject : '');
+                setEditing({ day: d, period });
+              }}
+            />
+          </>
+        )
+      ) : mode === 'day' ? (
         <>
           <View style={styles.dayTabs} accessibilityRole="tablist">
             {WEEKDAYS.map((d) => {
@@ -258,6 +371,94 @@ export default function TimetableScreen() {
           }
         />
       )}
+
+      {/*
+        칸 하나를 고치는 팝업이에요.
+        NEIS가 선택과목 블록에 대표 과목 하나만 적고, 회의나 보강은 아예
+        없어요. 그걸 메울 수 있는 자리가 이거예요.
+      */}
+      <Sheet
+        visible={!!editing}
+        onClose={() => setEditing(null)}
+        title={editing ? `${editing.day}요일 ${editing.period}교시` : ''}>
+        {editing ? (
+          <>
+            <Text style={[styles.teachHelp, { color: palette.sub }]}>
+              {cellsAt(myWeek, editing.day, editing.period).length
+                ? '시간표에 있는 그대로예요. 내 수업이 아니거나 다른 반이면 고쳐주세요.'
+                : '비어 있는 칸이에요. 회의나 보강처럼 시간표에 없는 것도 적을 수 있어요.'}
+            </Text>
+            <Field
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="예: 2-6 선택B 역학과 에너지"
+              maxLength={40}
+              accessibilityLabel="이 칸에 들어갈 내용"
+              style={styles.teachInput}
+            />
+            <Button
+              label={draft.trim() ? `‘${draft.trim()}’로 두기` : '내용을 적어주세요'}
+              icon="check"
+              disabled={!draft.trim()}
+              onPress={() => {
+                setTeachEdit(editing.day, editing.period, draft.trim());
+                setEditing(null);
+              }}
+            />
+            <View style={styles.teachGap} />
+            <Button
+              label="내 수업 아니에요"
+              variant="secondary"
+              onPress={() => {
+                setTeachEdit(editing.day, editing.period, '');
+                setEditing(null);
+              }}
+            />
+            {teach.edits[slotKey(editing.day, editing.period)] !== undefined ? (
+              <>
+                <View style={styles.teachGap} />
+                <Button
+                  label="시간표 그대로 되돌리기"
+                  variant="secondary"
+                  onPress={() => {
+                    setTeachEdit(editing.day, editing.period, null);
+                    setEditing(null);
+                  }}
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </Sheet>
+
+      {/* 들어가는 반 고르기. 안 고르면 그 과목 수업이 전부 보여요. */}
+      <Sheet visible={pickClasses} onClose={() => setPickClasses(false)} title="들어가는 반">
+        <Text style={[styles.teachHelp, { color: palette.sub }]}>
+          내가 수업에 들어가는 반만 골라주세요. 아무것도 안 고르면 내 교과군 수업이 전부 보여요.
+          같은 과목 선생님이 여러 분이면 좁혀야 내 시간표가 돼요.
+        </Text>
+        <View style={styles.teachClasses}>
+          {(rooms.data ?? []).map((r) => {
+            const id = `${r.grade}-${r.cls}`;
+            const on = teach.classes.includes(id);
+            return (
+              <Chip
+                key={id}
+                label={`${r.grade}-${r.cls}`}
+                selected={on}
+                onPress={() =>
+                  setTeachClasses(
+                    on ? teach.classes.filter((x) => x !== id) : [...teach.classes, id],
+                  )
+                }
+              />
+            );
+          })}
+        </View>
+        {teach.classes.length ? (
+          <Button label="전부 지우기" variant="secondary" onPress={() => setTeachClasses([])} />
+        ) : null}
+      </Sheet>
     </Screen>
   );
 }
@@ -267,6 +468,16 @@ const styles = StyleSheet.create({
   classPicker: { marginBottom: 8 },
   backRow: { alignItems: 'flex-start', marginBottom: 8 },
   backText: { fontSize: 13, fontWeight: '700', paddingVertical: 8 },
+
+  teachHelp: { fontSize: 13, lineHeight: 20, marginBottom: 12 },
+  teachWarn: { fontSize: 13, lineHeight: 20, fontWeight: '600', marginBottom: 12 },
+  teachRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  teachPick: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 20 },
+  teachReset: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 4 },
+  teachPickText: { fontSize: 13, fontWeight: '700' },
+  teachInput: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
+  teachGap: { height: 8 },
+  teachClasses: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
 
   dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   dayTab: { flex: 1, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

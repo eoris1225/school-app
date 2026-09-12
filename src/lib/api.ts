@@ -163,6 +163,28 @@ export async function getLessons(
   return lessons;
 }
 
+/**
+ * 그 학교 모든 반의 시간표를 한 번에 받아와요.
+ *
+ * 선생님 시간표에 써요. NEIS 시간표에는 담당 교사 칸이 아예 없어서
+ * "이 선생님 시간표"를 물어볼 방법이 없어요. 학교 전체를 받아 과목으로
+ * 골라내는 게 유일한 길이에요. 반을 하나씩 부르면 스물네 번 다녀와야
+ * 하는데 이건 한 번이에요.
+ */
+export async function getSchoolLessons(
+  from: string,
+  to = from,
+  school?: SchoolRef,
+): Promise<Lesson[]> {
+  const { lessons } = await call<{ lessons: Lesson[] }>({
+    kind: 'timetable',
+    from,
+    to,
+    ...at(school),
+  });
+  return lessons;
+}
+
 /** 학사일정. */
 export async function getEvents(from: string, to: string, school?: SchoolRef): Promise<SchoolEvent[]> {
   const { events } = await call<{ events: SchoolEvent[] }>({ kind: 'schedule', from, to, ...at(school) });
@@ -267,6 +289,12 @@ export type Me = {
   swaps: Record<string, string>;
   /** 가입 안내를 한 번 지나갔는지 */
   setupSeen: boolean;
+  /**
+   * 선생님 시간표 설정이에요.
+   *   classes  내가 들어가는 반 ('2-3' 모양). 비어 있으면 전체예요.
+   *   edits    칸을 직접 고친 것. 빈 글자는 "내 수업 아님" 이에요.
+   */
+  teach: { classes: string[]; edits: Record<string, string> };
 };
 
 /*
@@ -280,6 +308,20 @@ export type Me = {
  * 그래서 들어오는 자리에서 한 번 다듬어요. 없는 건 빈 값으로 봐요.
  * 서버가 올라가면 저절로 값이 채워지고, 그 전까지는 기기에 있는 걸 써요.
  */
+/** 선생님 시간표 설정을 다듬어요. 없으면 비운 걸로 봐요. */
+function readTeach(raw: unknown): Me['teach'] {
+  const v = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {};
+  const edits: Record<string, string> = {};
+  if (v.edits && typeof v.edits === 'object' && !Array.isArray(v.edits)) {
+    for (const [k, x] of Object.entries(v.edits as Record<string, unknown>)) {
+      if (typeof x === 'string') edits[k] = x;
+    }
+  }
+  return { classes: Array.isArray(v.classes) ? v.classes.map(String) : [], edits };
+}
+
 function readMe(raw: unknown): Me | null {
   if (!raw || typeof raw !== 'object') return null;
   const m = raw as Record<string, unknown>;
@@ -309,6 +351,7 @@ function readMe(raw: unknown): Me | null {
     no: typeof m.no === 'number' ? m.no : null,
     swaps,
     setupSeen: m.setupSeen === true,
+    teach: readTeach(m.teach),
   };
 }
 
@@ -377,6 +420,7 @@ export async function saveSchoolToAccount(v: {
 export async function saveMySettings(v: {
   swaps?: Record<string, string>;
   setupSeen?: boolean;
+  teach?: { classes: string[]; edits: Record<string, string> };
 }): Promise<Me> {
   const { me } = await call<{ me: unknown }>({ kind: 'my-settings' }, { method: 'POST', body: v });
   return readMe(me) as Me;

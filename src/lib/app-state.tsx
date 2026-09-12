@@ -14,6 +14,7 @@ import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
 import { toYmd } from '@/lib/time';
 import { clearRemoteCache, primeRemote } from '@/lib/use-remote';
 import { subjectGroup } from '@/lib/subject';
+import type { TeachSettings } from '@/lib/teacher-week';
 import { getMe } from '@/lib/api';
 import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
 import {
@@ -30,6 +31,7 @@ import {
   saveSchemePref,
   saveSetupSeen,
   saveSwaps,
+  slotKey,
   type Allergies,
   type MyEvent,
   type SubjectSwaps,
@@ -137,6 +139,15 @@ type AppContextValue = {
   askQuestion: (subject: string, text: string, teacher?: string) => Promise<string | null>;
   /** 선생님을 다시 학생으로 되돌려요. 잘 되면 null이에요. */
   becomeStudent: () => Promise<string | null>;
+  /**
+   * 선생님 시간표 설정이에요.
+   *   classes  내가 들어가는 반. 비어 있으면 전체예요.
+   *   edits    칸을 직접 고친 것. 빈 글자는 "내 수업 아님" 이에요.
+   */
+  teach: TeachSettings;
+  setTeachClasses: (classes: string[]) => void;
+  /** 칸 하나를 고쳐요. to가 빈 글자면 "내 수업 아님", null이면 원래대로요. */
+  setTeachEdit: (day: string, period: number, to: string | null) => void;
   sendMessage: (threadId: string, text: string, photo?: { uri: string }) => Promise<string | null>;
   /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
   dropThread: (threadId: string) => Promise<string | null>;
@@ -188,6 +199,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [schemePref, setSchemePrefState] = useState<SchemePref>(DEFAULT_SCHEME_PREF);
   const [allEvents, setAllEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
   const [swaps, setSwapsState] = useState<SubjectSwaps>({});
+  const [teach, setTeachState] = useState<TeachSettings>({ classes: [], edits: {} });
   const [allergies, setAllergiesState] = useState<Allergies>([]);
   const [myEvents, setMyEventsState] = useState<MyEvent[]>([]);
   // 달력을 다시 읽게 만드는 값이에요. 등록·삭제 뒤에 올려요.
@@ -333,6 +345,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [me],
   );
 
+  /*
+   * 선생님 시간표 설정이에요.
+   *
+   * 계정에만 담아요. 기기에는 안 둬요. 학생의 교시 바꾸기와 달리 이건
+   * 로그인한 선생님만 쓰는 값이고, 로그인 전에는 만들 일이 아예 없어요.
+   */
+  const pushTeach = useCallback(
+    (next: TeachSettings) => {
+      setTeachState(next);
+      if (me) saveMySettings({ teach: next }).catch(() => {});
+    },
+    [me],
+  );
+
+  const setTeachClasses = useCallback(
+    (classes: string[]) => {
+      pushTeach({ classes: [...new Set(classes)].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true })), edits: teach.edits });
+    },
+    [pushTeach, teach.edits],
+  );
+
+  const setTeachEdit = useCallback(
+    (day: string, period: number, to: string | null) => {
+      const edits = { ...teach.edits };
+      // null은 "고친 걸 취소" 예요. 빈 글자는 "이 칸은 내 수업 아님" 이고요.
+      if (to === null) delete edits[slotKey(day, period)];
+      else edits[slotKey(day, period)] = to.trim();
+      pushTeach({ classes: teach.classes, edits });
+    },
+    [pushTeach, teach.classes, teach.edits],
+  );
+
   const setAllergies = useCallback((list: Allergies) => {
     const sorted = [...new Set(list)].sort((a, b) => a - b);
     setAllergiesState(sorted);
@@ -372,6 +416,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pullLocal = useCallback(async () => {
     setSwapsState(await loadSwaps());
     setSetupSeen(await loadSetupSeen());
+    setTeachState({ classes: [], edits: {} });
   }, []);
 
   const pull = useCallback(async (who: Me) => {
@@ -407,6 +452,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       setSwapsState({});
     }
+
+    setTeachState(who.teach);
 
     // 계정과 기기 중 한쪽이라도 봤으면 본 거예요. 다시 물어볼 이유가 없어요.
     const seen = who.setupSeen || (await loadSetupSeen());
@@ -745,6 +792,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reloadThreads,
       askQuestion,
       becomeStudent,
+      teach,
+      setTeachClasses,
+      setTeachEdit,
       sendMessage,
       dropThread,
       badgeCount,
@@ -786,6 +836,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     canDelete,
     askQuestion,
     becomeStudent,
+    teach,
+    setTeachClasses,
+    setTeachEdit,
     sendMessage,
     dropThread,
   ]);
