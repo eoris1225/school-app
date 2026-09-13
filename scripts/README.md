@@ -59,6 +59,7 @@ cd supabase/functions && deno test --allow-env --allow-read _shared/
 npm run build:web
 node scripts/browser-photo.mjs     # 사진 고르고 줄이고 보내기
 node scripts/browser-return.mjs    # 탭에 돌아오면 낡은 내용이 갈리는지
+node scripts/browser-live.mjs      # 쪽지가 새로고침 없이 갈리는지
 
 # 진짜 서버
 TEACHER_CODE=선생님코드 node scripts/live-check.mjs
@@ -76,6 +77,11 @@ TEACHER_CODE=선생님코드 node scripts/live-check.mjs
 줄일 때 안 정하는 쪽에 `null` 을 넘겨서 난 거예요. 타입도 문서도 null 을
 받는다고 하는데 웹 구현은 `undefined` 만 걸러내요. **폰에서는 멀쩡했고
 웹에서 사진 보낼 때만 터졌어요.** 흉내로는 안 잡혀요.
+
+`browser-live.mjs` 는 **기다리기만 해서** 갈리는지 봐요. 서버 답을 도중에
+바꿔놓고 아무것도 안 누르고 기다려요. 갈리면 새로고침이 필요 없다는 뜻이에요.
+화면을 떠난 뒤에는 그만 물어보는지도 같이 재요. 안 보는 화면 때문에 배터리와
+데이터를 쓰면 안 되니까요.
 
 `browser-return.mjs` 는 **낡은 화면**을 봐요. 탭 화면은 한 번 열리면 안
 닫혀서, 처음 받아온 값이 계속 남아요. 화면은 멀쩡해 보이고 내용만 낡은
