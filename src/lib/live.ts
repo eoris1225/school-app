@@ -80,3 +80,46 @@ export function usePoll(refresh: () => void, everyMs: number): void {
     }, [everyMs]),
   );
 }
+
+/**
+ * 어느 화면에 있든 일정하게 다시 받아와요. 화면과 상관없는 것에 써요.
+ *
+ * `usePoll` 과 다른 점은 "보고 있는 화면"을 안 따진다는 거예요. 탭 배지가
+ * 그래요. 안 읽은 쪽지 개수는 홈에 있든 급식에 있든 맞아야 하는데,
+ * 쪽지함을 보고 있을 때만 갱신되면 거기 들어가기 전에는 배지가 안 올라와요.
+ * 그러면 새 쪽지가 온 걸 알 방법이 없어요.
+ *
+ * 대신 느긋하게 물어봐요. 배지는 몇 초 늦어도 아무 일 안 나요. 앱을
+ * 내려놓으면 멈추고, 다시 열면 그 사이에 온 게 있으니 바로 한 번 봐요.
+ */
+export function useHeartbeat(refresh: () => void, everyMs: number): void {
+  const latest = useRef(refresh);
+  useEffect(() => {
+    latest.current = refresh;
+  });
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+    const start = () => {
+      stop();
+      timer = setInterval(() => latest.current(), everyMs);
+    };
+
+    if (AppState.currentState === 'active') start();
+    const watch = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        latest.current();
+        start();
+      } else stop();
+    });
+
+    return () => {
+      stop();
+      watch.remove();
+    };
+  }, [everyMs]);
+}

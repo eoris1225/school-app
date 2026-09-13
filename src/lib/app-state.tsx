@@ -58,6 +58,7 @@ import {
 } from '@/lib/api';
 
 import { checkBells, type Bells } from '@/lib/bells';
+import { useHeartbeat } from '@/lib/live';
 
 import {
   buildPalette,
@@ -912,6 +913,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const reloadThreads = useCallback(() => setThreadsNonce((n) => n + 1), []);
+
+  /*
+   * 어느 화면에 있든 1분마다 쪽지를 다시 봐요.
+   *
+   * 탭 배지 때문이에요. 안 읽은 개수는 홈에 있든 급식에 있든 맞아야 하는데,
+   * 쪽지함을 보고 있을 때만 갱신되면 거기 들어가기 전에는 배지가 안 올라와요.
+   * 그러면 새 쪽지가 온 걸 알 방법이 없어요.
+   *
+   * 1분인 건 배지가 몇 초 늦어도 아무 일 안 나서예요. 쪽지 안에서는 5초,
+   * 목록을 보고 있을 때는 20초로 더 자주 봐요. 보고 있는 화면일수록 자주요.
+   *
+   * 로그인 안 했으면 아래 effect 가 아예 안 물어봐요. 여기서 신호만 줘요.
+   */
+  useHeartbeat(reloadThreads, 60000);
 
   const askQuestion = useCallback(
     async (subject: string, text: string, teacher?: string): Promise<string | null> => {

@@ -101,11 +101,12 @@ const msg = (from, author, text, at) => ({ id: `m${at}`, from, author, text, at,
 const asked = msg('student', '이채율', '수행평가 범위가 어디까지예요?', '2026-09-13T08:12:00Z');
 /** 서버가 지금 아는 대화. 검사 도중에 답을 얹어요. */
 let messages = [asked];
+let unread = false;
 const thread = () => ({
   id: 't1', subject: '수학', student: { name: '이채율', cls: '2-3', no: 12 },
   teacher: { id: 'u2', name: '허유미' },
   last: messages[messages.length - 1], count: messages.length,
-  unread: false, pending: messages.length === 1, at: messages[messages.length - 1].at,
+  unread, pending: messages.length === 1, at: messages[messages.length - 1].at,
 });
 
 let reads = 0;
@@ -150,6 +151,14 @@ await page.route('**/functions/v1/neis*', (r) => {
 
 const text = () => page.evaluate(() => document.body.innerText);
 
+/*
+ * 시계를 가짜로 걸어요.
+ *
+ * 탭 배지는 1분마다 챙겨봐요. 진짜로 1분을 기다리면 검사 한 번에 1분이
+ * 날아가요. 가짜 시계를 걸면 시간을 앞으로 감을 수 있어요.
+ */
+await page.clock.install({ time: new Date('2026-09-14T10:20:00') });
+
 await page.goto(`${BASE}${PREFIX}/`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(3000);
 await page.getByRole('tab', { name: /커뮤니티/ }).last().click();
@@ -178,6 +187,27 @@ console.log('\n=== 화면을 떠나면 그만 물어보는지 ===');
   await page.waitForTimeout(9000);
   // 목록 화면은 20초마다라서 9초 동안은 한 번도 안 와야 맞아요.
   ok(reads === before, `쪽지 화면을 떠나니 그만 물어봄 (${reads - before}번 더 물어봄)`);
+}
+
+console.log('\n=== 딴 탭에 있어도 새 쪽지 배지가 뜨는지 ===');
+{
+  // 쪽지함이 아니라 홈에 있어요. 여기서는 목록을 안 보고 있어요.
+  await page.getByRole('tab', { name: /^홈/ }).last().click();
+  await page.waitForTimeout(2000);
+
+  const before = await page.getByRole('tab', { name: /커뮤니티/ }).last().getAttribute('aria-label');
+  ok(!/새 소식/.test(before ?? ''), `아직 배지 없음 (${before})`);
+
+  // 선생님이 답을 보낸 셈이에요. 화면은 아무도 안 건드려요.
+  messages = [...messages, msg('teacher', '허유미', '새로 온 답이에요.', '2026-09-13T11:00:00Z')];
+  unread = true;
+
+  // 1분 하트비트를 기다려요. 시계를 감아서요.
+  await page.clock.fastForward('01:10');
+  await page.waitForTimeout(2500);
+
+  const after = await page.getByRole('tab', { name: /커뮤니티/ }).last().getAttribute('aria-label');
+  ok(/새 소식/.test(after ?? ''), `딴 탭에 있어도 배지가 뜸 (${after})`);
 }
 
 await browser.close();
