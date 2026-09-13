@@ -24,17 +24,9 @@ export function classLabel(c: ClassId) {
   return `${grade}학년 ${cls}반`;
 }
 
-export const BELL = [
-  { period: 1, start: '08:40', end: '09:30' },
-  { period: 2, start: '09:40', end: '10:30' },
-  { period: 3, start: '10:40', end: '11:30' },
-  { period: 4, start: '11:40', end: '12:30' },
-  { period: 5, start: '13:30', end: '14:20' },
-  { period: 6, start: '14:30', end: '15:20' },
-  { period: 7, start: '15:30', end: '16:20' },
-];
-
-export const LUNCH = { start: '12:30', end: '13:30', afterPeriod: 4 };
+// 교시 시각(몇 시에 종이 치는지)은 여기 없어요. 학교마다 달라서 학교 설정으로
+// 뺐어요. src/lib/bells.ts 를 보세요. 예전에는 여기에 박아뒀는데 그 값은
+// 어느 학교 것도 아니었어요.
 
 
 /** NEIS 급식 데이터에 쓰이는 알레르기 번호 */

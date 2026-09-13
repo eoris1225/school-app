@@ -18,7 +18,7 @@ import { disablePush, enablePush, pushState, type PushState } from '@/lib/push';
 
 export default function ProfileScreen() {
   const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
-  const { allergies, setAllergies, becomeStudent } = useApp();
+  const { allergies, setAllergies, becomeStudent, bells } = useApp();
   const teacher = role === 'teacher';
   // 학생으로 되돌리기는 한 번 더 물어봐요. 담당 과목이 비워지고 쪽지함이 바뀌어요.
   const [dropping, setDropping] = useState(false);
@@ -172,6 +172,27 @@ export default function ProfileScreen() {
       />
       <View style={styles.gap} />
       <Button label="다른 학교로 바꾸기" icon="next" variant="secondary" onPress={changeSchool} />
+
+      {/*
+        교시 시각은 NEIS에 없어서 사람이 넣어야 해요. 학교에 한 번만 넣으면
+        그 학교 학생 전부가 써요. 그래서 선생님한테만 보여드려요.
+      */}
+      {teacher ? (
+        <>
+          <SectionTitle title="교시 시각" value={bells ? `${bells.periods.length}교시` : undefined} />
+          <Text style={[styles.help, { color: palette.sub }]}>
+            {bells
+              ? '우리 학교 시각이 들어 있어요. 바뀌었으면 여기서 고쳐요.'
+              : '아직 아무도 안 넣었어요. 넣으면 학생 화면에 지금 몇 교시인지 떠요. NEIS에는 이 정보가 없어서 지어낼 수가 없어요.'}
+          </Text>
+          <Button
+            label={bells ? '교시 시각 고치기' : '교시 시각 넣기'}
+            icon="next"
+            variant="secondary"
+            onPress={() => router.push('/bell-times')}
+          />
+        </>
+      ) : null}
 
       <SectionTitle title="계정" />
 

@@ -1,4 +1,5 @@
-import { BELL, LUNCH, WEEKDAYS, type Weekday } from '@/data/mock';
+import { WEEKDAYS, type Weekday } from '@/data/mock';
+import { toMin, type Bells } from '@/lib/bells';
 
 export const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -28,30 +29,37 @@ export function dday(ymd: string, now: Date) {
   return diff > 0 ? `D-${diff}` : '지남';
 }
 
-const toMin = (hhmm: string) => {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-};
-
 export type SchoolStatus =
   | { kind: 'weekend' }
+  /** 학교가 교시 시각을 안 넣었어요. 지금이 몇 교시인지 알 길이 없어요. */
+  | { kind: 'unknown' }
   | { kind: 'before' }
   | { kind: 'class'; period: number }
   | { kind: 'break'; next: number }
   | { kind: 'lunch'; next: number }
   | { kind: 'after' };
 
-/** 지금이 몇 교시인지, 쉬는 시간인지 알려줘요. */
-export function schoolStatus(now: Date): SchoolStatus {
+/**
+ * 지금이 몇 교시인지, 쉬는 시간인지 알려줘요.
+ *
+ * 교시 시각은 학교가 넣어둔 것만 써요. 안 넣었으면 'unknown' 이에요.
+ * 흔한 값으로 때려맞히면 "지금 3교시" 라고 우기는 앱이 돼요. 그 학교는
+ * 그때가 4교시일 수도 있고요. 모를 때는 모른다고 하는 게 맞아요.
+ */
+export function schoolStatus(now: Date, bells: Bells | null): SchoolStatus {
   if (!weekdayOf(now)) return { kind: 'weekend' };
+  if (!bells || bells.periods.length === 0) return { kind: 'unknown' };
+
   const t = now.getHours() * 60 + now.getMinutes();
-  if (t < toMin(BELL[0].start)) return { kind: 'before' };
-  for (let i = 0; i < BELL.length; i++) {
-    const bell = BELL[i];
+  const periods = bells.periods;
+  if (t < toMin(periods[0].start)) return { kind: 'before' };
+
+  for (let i = 0; i < periods.length; i++) {
+    const bell = periods[i];
     if (t >= toMin(bell.start) && t < toMin(bell.end)) return { kind: 'class', period: bell.period };
-    const next = BELL[i + 1];
+    const next = periods[i + 1];
     if (next && t >= toMin(bell.end) && t < toMin(next.start)) {
-      return bell.period === LUNCH.afterPeriod
+      return bell.period === bells.lunchAfter
         ? { kind: 'lunch', next: next.period }
         : { kind: 'break', next: next.period };
     }
@@ -59,9 +67,9 @@ export function schoolStatus(now: Date): SchoolStatus {
   return { kind: 'after' };
 }
 
-/** 지금 진행 중인 교시 번호. 수업 중이 아니면 0 */
-export function currentPeriod(now: Date) {
-  const s = schoolStatus(now);
+/** 지금 진행 중인 교시 번호. 수업 중이 아니거나 모르면 0 */
+export function currentPeriod(now: Date, bells: Bells | null) {
+  const s = schoolStatus(now, bells);
   return s.kind === 'class' ? s.period : 0;
 }
 

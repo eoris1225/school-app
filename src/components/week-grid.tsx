@@ -3,11 +3,12 @@ import { StyleSheet, View } from 'react-native';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { subjectTone } from '@/constants/tones';
-import { BELL, LUNCH, WEEKDAYS, type Weekday } from '@/data/mock';
+import { WEEKDAYS, type Weekday } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { slotKey, type SubjectSwaps } from '@/lib/my-settings';
 import { readSubject } from '@/lib/subject';
-import type { Week } from '@/lib/timetable';
+import { lunchAfter } from '@/lib/bells';
+import { rowsOf, type Week } from '@/lib/timetable';
 
 /*
  * 한 주 시간표 컬러표예요.
@@ -38,7 +39,10 @@ export function WeekGrid({
   /** 바꾼 칸에 점을 찍어요. */
   swaps?: SubjectSwaps;
 }) {
-  const { palette } = useApp();
+  const { palette, bells } = useApp();
+  // 줄 수는 시간표가 정해요. 점심 줄은 학교가 넣어둔 시각표가 있을 때만 그려요.
+  const rows = rowsOf(week);
+  const lunch = lunchAfter(bells);
 
   return (
     <View>
@@ -51,9 +55,9 @@ export function WeekGrid({
         ))}
       </View>
 
-      {BELL.map((bell, i) => (
-        <View key={bell.period}>
-          {bell.period === LUNCH.afterPeriod + 1 ? (
+      {Array.from({ length: rows }, (_, i) => i + 1).map((period, i) => (
+        <View key={period}>
+          {lunch > 0 && period === lunch + 1 ? (
             <View style={[styles.lunch, { borderTopColor: palette.line }]}>
               <Text style={[styles.lunchText, { color: palette.sub }]}>점심시간</Text>
             </View>
@@ -61,17 +65,17 @@ export function WeekGrid({
           <View style={styles.row}>
             <View style={styles.periodCell}>
               <Text numeric style={[styles.period, { color: palette.sub }]}>
-                {bell.period}
+                {period}
               </Text>
             </View>
             {WEEKDAYS.map((d) => {
               const subject = week[d][i];
               // 그 반에 그 교시가 없으면 빈 칸으로 둬요.
               if (!subject) return <View key={d} style={styles.cellEmpty} />;
-              const isNow = d === today && bell.period === nowPeriod;
-              const changed = !!swaps && swaps[slotKey(d, bell.period)] !== undefined;
+              const isNow = d === today && period === nowPeriod;
+              const changed = !!swaps && swaps[slotKey(d, period)] !== undefined;
               const st = subjectTone(subject, palette.scheme);
-              const label = `${d}요일 ${bell.period}교시 ${readSubject(subject).name}${isNow ? ', 지금 수업 중' : ''}${changed ? ', 바꿈' : ''}${onPick ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`;
+              const label = `${d}요일 ${period}교시 ${readSubject(subject).name}${isNow ? ', 지금 수업 중' : ''}${changed ? ', 바꿈' : ''}${onPick ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`;
 
               const inside = (
                 <>
@@ -103,7 +107,7 @@ export function WeekGrid({
               return (
                 <Tap
                   key={d}
-                  onPress={() => onPick(d, bell.period)}
+                  onPress={() => onPick(d, period)}
                   accessibilityRole="button"
                   accessibilityLabel={label}
                   depth={0.06}

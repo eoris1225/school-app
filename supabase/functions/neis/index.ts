@@ -13,6 +13,7 @@
  *   GET ?kind=schedule&from=2026-09-01&to=2026-09-30
  *   GET ?kind=classes
  *   GET ?kind=school&name=서일여자고등학교
+ *   GET ?kind=bells            그 학교 교시 시각 (없으면 null)
  */
 
 import {
@@ -36,6 +37,7 @@ import {
   ThreadError,
 } from '../_shared/threads.ts';
 import { countSubs, PushError, pushPublicKey, pushReady, removeSub, saveSub } from '../_shared/push.ts';
+import { BellsError, checkBells, loadBells, shapeBells, storeBells } from '../_shared/bells.ts';
 import {
   createAssessment,
   DbError,
@@ -601,6 +603,48 @@ async function handle(req: Request, url: URL): Promise<Response> {
       throw new BadRequest('알림은 GET, POST, DELETE만 돼요');
     }
 
+    /*
+     * 교시 시각표예요. 몇 시에 종이 치는지요.
+     *
+     * NEIS에는 이게 없어요. 시간표 API는 학년·반·교시·과목명만 줘요.
+     * 그래서 그 학교 선생님이 한 번 넣으면 그 학교 학생 전부가 써요.
+     * 안 넣은 학교는 null 이에요. 앱은 그때 시각을 아예 안 보여줘요.
+     *
+     * 읽는 건 아무나 돼요. 학교 시간표만큼도 비밀이 아니에요.
+     * 넣는 건 그 학교 선생님만요.
+     */
+    case 'bells': {
+      if (req.method === 'GET') return json({ bells: await loadBells(school) }, 200, true);
+      if (req.method !== 'POST') throw new BadRequest('교시 시각은 GET, POST만 돼요');
+
+      const me = await requireTeacherLogin(req);
+      /*
+       * 앱이 보낸 학교는 안 봐요. 내 계정에 적힌 학교만 고칠 수 있어요.
+       * 보낸 값을 믿으면 아무 학교 코드나 적어서 남의 학교 시간표 시각을
+       * 바꿔놓을 수 있어요. 쪽지에서 쓰는 것과 같은 규칙이에요.
+       */
+      if (!me.school) throw new BadRequest('학교를 먼저 골라주세요');
+
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+
+      const shape = shapeBells(body);
+      if (!shape) throw new BadRequest('교시 시각을 다시 넣어주세요');
+      const bad = checkBells(shape);
+      if (bad) throw new BadRequest(bad);
+
+      const saved = await storeBells(
+        { office: me.school.office, code: me.school.code },
+        shape,
+        { id: me.id, name: me.name },
+      );
+      return json({ bells: saved });
+    }
+
     case 'my-settings': {
       if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
       const me = await whoami(req);
@@ -794,6 +838,7 @@ export const KINDS = [
   'promote',
   'demote',
   'push',
+  'bells',
 ] as const;
 
 /** 3월~8월이면 1학기, 9월~2월이면 2학기로 봐요. */
@@ -822,6 +867,10 @@ Deno.serve(async (req) => {
     if (e instanceof AuthError) return json({ error: e.message }, 401);
     // 쪽지 규칙에 걸린 거예요. 서버 잘못이 아니니 400으로 알려줘요.
     if (e instanceof ThreadError) return json({ error: e.message }, 400);
+    if (e instanceof BellsError) {
+      console.error('교시 시각 오류', e.message);
+      return json({ error: '교시 시각을 처리하지 못했어요', db: e.status }, 502);
+    }
     if (e instanceof PushError) {
       console.error('알림 오류', e.message);
       return json({ error: '알림 설정을 저장하지 못했어요' }, 502);

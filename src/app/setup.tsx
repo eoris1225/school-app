@@ -212,7 +212,7 @@ function AllergyStep({ onNext }: { onNext: () => void }) {
  * 목록 서른 줄은 아무도 안 읽지만, 표 한 장은 봐요.
  */
 function SubjectStep({ onNext }: { onNext: () => void }) {
-  const { palette, school, now, swaps } = useApp();
+  const { palette, school, now, swaps, bells } = useApp();
   const today = weekdayOf(now);
   const dates = weekDates(now);
 
@@ -242,7 +242,7 @@ function SubjectStep({ onNext }: { onNext: () => void }) {
           <WeekGrid
             week={week}
             today={today}
-            nowPeriod={currentPeriod(now)}
+            nowPeriod={currentPeriod(now, bells)}
             swaps={swaps}
             onPick={(d, period) =>
               router.push({

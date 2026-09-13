@@ -42,8 +42,10 @@ import {
   demoteToStudent,
   editAssessment,
   getAssessments,
+  getBells,
   getEvents,
   getThreads,
+  saveBells,
   saveMySettings,
   removeAssessment,
   removeThread,
@@ -52,6 +54,8 @@ import {
   type Assessment,
   type Thread,
 } from '@/lib/api';
+
+import { checkBells, type Bells } from '@/lib/bells';
 
 import {
   buildPalette,
@@ -106,6 +110,17 @@ type AppContextValue = {
   setSchool: (school: MySchool) => void;
   /** 저장해둔 학교를 읽어오는 중인지. 다 읽기 전엔 시작 화면을 보여주지 않아요. */
   schoolLoading: boolean;
+  /**
+   * 그 학교 교시 시각표. 아직 아무도 안 넣었으면 null이에요.
+   *
+   * null 이면 화면에서 시각을 아예 안 보여줘요. 흔한 값으로 때워 넣으면
+   * 그 학교와 다른 시각을 당당하게 띄우게 돼요. src/lib/bells.ts 참고.
+   */
+  bells: Bells | null;
+  /** 교시 시각표를 아직 받아오는 중인지 */
+  bellsLoading: boolean;
+  /** 교시 시각표를 넣어요. 선생님만 돼요. 잘 되면 null이에요. */
+  setBells: (bells: Bells) => Promise<string | null>;
   /** 내 역할에서 보이는 일정 (학생은 내 학년/반 일정만) */
   events: SchoolEvent[];
   /** 수행평가를 서버에 등록해요. 실패하면 왜 안 됐는지 문구를 돌려줘요. */
@@ -228,6 +243,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, []);
+
+  /*
+   * 그 학교 교시 시각표를 받아와요.
+   *
+   * 학교가 정해지는 순간 받아둬요. 홈 히어로("지금 3교시")와 시간표가 둘 다
+   * 쓰는 값이라 화면에서 따로 부르면 두 번 다녀오거든요.
+   *
+   * 못 받아와도 앱은 돌아가야 해요. 시각만 안 보일 뿐이에요.
+   */
+  /*
+   * 그 학교 교시 시각표를 받아와요.
+   *
+   * 학교가 정해지는 순간 받아둬요. 홈 히어로("지금 3교시")와 시간표가 둘 다
+   * 쓰는 값이라 화면에서 따로 부르면 두 번 다녀오거든요.
+   *
+   * 어느 학교 것인지까지 같이 담아둬요. 학교를 바꾸면 잠깐 옛 학교 시각이
+   * 남는데, 그 사이에 "지금 3교시"가 틀린 채로 떠요. 코드를 같이 보면
+   * 아직 안 온 것과 온 것이 구별돼요. 받아오는 중이라고 말하려고 상태를
+   * 또 만들지 않아도 되고요.
+   *
+   * 못 받아와도 앱은 돌아가야 해요. 시각만 안 보일 뿐이에요.
+   */
+  const [gotBells, setGotBells] = useState<{ code: string; bells: Bells | null } | null>(null);
+  useEffect(() => {
+    if (!school) return;
+    let alive = true;
+    const code = school.code;
+    getBells(school)
+      .then((got) => {
+        if (alive) setGotBells({ code, bells: got });
+      })
+      .catch(() => {
+        if (alive) setGotBells({ code, bells: null });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [school]);
+
+  const mineBells = school && gotBells?.code === school.code ? gotBells : null;
+  const bells = mineBells?.bells ?? null;
+  const bellsLoading = Boolean(school) && mineBells === null;
+
+  const setBells = useCallback(
+    async (next: Bells): Promise<string | null> => {
+      if (!school) return '학교를 먼저 골라주세요';
+      if (role !== 'teacher') return '선생님만 넣을 수 있어요';
+      // 화면에서도 한 번 보지만 여기서 또 봐요. 서버도 또 봐요.
+      // 이상한 값이 담기면 그 학교 전체가 틀린 시각을 보게 돼요.
+      const bad = checkBells(next);
+      if (bad) return bad;
+      try {
+        const saved = await saveBells(next, school);
+        setGotBells({ code: school.code, bells: saved ?? next });
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '교시 시각을 담지 못했어요';
+      }
+    },
+    [school, role],
+  );
 
   const reloadEvents = useCallback(() => setEventsNonce((n) => n + 1), []);
 
@@ -840,6 +916,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       school,
       setSchool,
       schoolLoading,
+      bells,
+      bellsLoading,
+      setBells,
       events,
       addEvent,
       removeEvent,
@@ -885,6 +964,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     school,
     setSchool,
     schoolLoading,
+    bells,
+    bellsLoading,
+    setBells,
     allEvents,
     threads,
     threadsLoading,
