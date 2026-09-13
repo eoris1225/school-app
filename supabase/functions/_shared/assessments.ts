@@ -121,6 +121,52 @@ export async function createAssessment(
 }
 
 /**
+ * 이미 올린 것을 고쳐요. 고친 줄을 돌려주고, 못 고쳤으면 null이에요.
+ *
+ * 수정이 없으면 오타 하나에 지우고 처음부터 다시 넣어야 해요. 날짜 맞추고
+ * 반 고르고 준비물 안내를 500자까지 다시 타이핑하는 거예요. 그럴 바에
+ * 그냥 틀린 채로 두게 되고, 그러면 학생이 틀린 걸 보게 돼요.
+ *
+ * 지우기와 같은 규칙이에요. 올린 사람만, 주인이 없는 예전 줄은 아무나요.
+ */
+export async function updateAssessment(
+  school: { office: string; code: string },
+  id: string,
+  item: NewAssessment,
+  byId: string,
+): Promise<Assessment | null> {
+  const q = new URLSearchParams({
+    id: `eq.${id}`,
+    school_office: `eq.${school.office}`,
+    school_code: `eq.${school.code}`,
+  });
+  const who = `or=(created_by.eq.${byId},created_by.is.null)`;
+  const res = await fetch(`${table('')}?${q}&${who}`, {
+    method: 'PATCH',
+    headers: { ...headers(), prefer: 'return=representation' },
+    body: JSON.stringify({
+      date: item.date,
+      title: item.title,
+      subject: item.subject,
+      detail: item.detail,
+      grades: item.grades,
+      classes: item.classes,
+      /*
+       * 주인이 없던 예전 줄은 고치는 사람이 주인이 돼요.
+       * 안 그러면 계속 아무나 고칠 수 있는 줄로 남아요.
+       */
+      created_by: byId,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new DbError(`일정을 고치지 못했어요 (${res.status}) ${detail.slice(0, 120)}`);
+  }
+  const rows = (await res.json()) as Record<string, unknown>[];
+  return rows.length ? toAssessment(rows[0]) : null;
+}
+
+/**
  * 지운 개수를 돌려줘요. 0이면 못 지웠다는 뜻이에요.
  *
  * 올린 사람만 지울 수 있어요. 예전에 올라간 줄은 주인이 없어서 아무 선생님이나

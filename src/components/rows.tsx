@@ -20,10 +20,13 @@ import { dday, fromYmd, shortTime } from '@/lib/time';
 export function EventRow({
   event,
   onDelete,
+  onEdit,
   showDday = true,
 }: {
   event: SchoolEvent;
   onDelete?: () => void;
+  /** 고치기. 올린 사람에게만 넘겨줘요. */
+  onEdit?: () => void;
   showDday?: boolean;
 }) {
   const { palette, now, me } = useApp();
@@ -99,6 +102,21 @@ export function EventRow({
       </View>
       {showDday ? (
         <Text style={[styles.dday, { color: d === '오늘' ? palette.accent : palette.accentDeep }]}>{d}</Text>
+      ) : null}
+      {/*
+        고치기를 지우기 왼쪽에 둬요. 오타 하나에 지우고 처음부터 다시 넣는 게
+        지금까지의 유일한 길이었어요.
+      */}
+      {onEdit ? (
+        <Tap
+          onPress={onEdit}
+          accessibilityRole="button"
+          accessibilityLabel={`${event.title} 일정 고치기`}
+          hitSlop={8}
+          depth={0.1}
+          style={[styles.deleteBtn, { borderColor: palette.line }]}>
+          <Icon name="edit" size={20} color={palette.sub} />
+        </Tap>
       ) : null}
       {onDelete ? (
         <Tap

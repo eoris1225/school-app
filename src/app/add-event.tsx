@@ -21,18 +21,40 @@ function toggle<T>(list: T[], value: T): T[] {
 }
 
 export default function AddEventScreen() {
-  const params = useLocalSearchParams<{ date?: string }>();
-  const { palette, role, now, addEvent, school, me, events, teach } = useApp();
-  // 내 담당 과목을 처음부터 골라둬요. 과목 선생님이 제일 자주 쓰는 값이에요.
+  /*
+   * id 가 오면 고치는 화면이에요. 없으면 새로 올리는 화면이고요.
+   * 두 화면은 칸이 똑같아요. 따로 만들면 한쪽만 고치는 일이 생겨요.
+   */
+  const params = useLocalSearchParams<{ date?: string; id?: string }>();
+  const { palette, role, now, addEvent, updateEvent, school, me, events, teach } = useApp();
+  const editing = events.find((e) => e.id === params.id) ?? null;
+  /*
+   * 수행평가에 붙일 과목 이름이에요.
+   *
+   * 예전에는 교과군 열두 개 중에서만 골랐어요. 미적분Ⅰ을 맡은 선생님도
+   * '수학'으로만 달 수 있었죠. 그러면 학생 달력에 수학 수행평가가 세 개
+   * 뜨는데 뭐가 뭔지 모르겠어요. 내가 맡은 과목 이름을 앞에 둬요.
+   *
+   * 교과군도 뒤에 남겨둬요. 여러 과목에 걸친 수행평가도 있고, 과목 목록을
+   * 못 받아온 학교도 있으니까요.
+   *
+   * 색은 어느 쪽을 골라도 같아요. tones가 교과군으로 색을 정하거든요.
+   * '미적분Ⅰ'도 수학 색으로 나와요.
+   */
+  const groupNames: readonly string[] = TEACHABLE;
+  const myNames = (me?.teaches ?? []).filter((t) => !groupNames.includes(t));
+  const subjectOptions = [...myNames, ...TEACHABLE];
   const myFirstSubject: string =
-    me?.subjects.find((s) => (TEACHABLE as readonly string[]).includes(s)) ?? TEACHABLE[0];
-  const [kind, setKind] = useState<EventKind>('academic');
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(() => (params.date ? fromYmd(params.date) : now));
-  const [grades, setGrades] = useState<number[]>([]);
-  const [classes, setClasses] = useState<string[]>([]);
-  const [subject, setSubject] = useState<string>(myFirstSubject);
-  const [detail, setDetail] = useState('');
+    myNames[0] ?? me?.subjects.find((s) => groupNames.includes(s)) ?? TEACHABLE[0];
+  const [kind, setKind] = useState<EventKind>(editing?.kind ?? 'academic');
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [date, setDate] = useState(() =>
+    editing ? fromYmd(editing.date) : params.date ? fromYmd(params.date) : now,
+  );
+  const [grades, setGrades] = useState<number[]>(editing?.grades ?? []);
+  const [classes, setClasses] = useState<string[]>(editing?.classes ?? []);
+  const [subject, setSubject] = useState<string>(editing?.subject ?? myFirstSubject);
+  const [detail, setDetail] = useState(editing?.detail ?? '');
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [pickDate, setPickDate] = useState(false);
@@ -94,10 +116,23 @@ export default function AddEventScreen() {
     ),
   ].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
 
+  if (params.id && !editing) {
+    return (
+      <Screen bottomInset>
+        <BackHeader title="일정 고치기" />
+        <Empty
+          art="warn"
+          text="그 일정을 찾지 못했어요"
+          hint="이미 지워졌거나, 다른 곳에서 바뀌었을 수 있어요."
+        />
+      </Screen>
+    );
+  }
+
   if (role !== 'teacher') {
     return (
       <Screen bottomInset>
-        <BackHeader title="일정 추가" />
+        <BackHeader title={params.id ? '일정 고치기' : '일정 추가'} />
         <Empty
           art="warn"
           text="일정은 선생님만 추가할 수 있어요"
@@ -124,7 +159,7 @@ export default function AddEventScreen() {
   const sameDay = onDay(toYmd(date));
 
   const draft = {
-    id: 'preview',
+    id: editing?.id ?? 'preview',
     date: toYmd(date),
     title: title.trim() || '일정 제목',
     kind,
@@ -137,7 +172,7 @@ export default function AddEventScreen() {
   const save = async () => {
     setSaving(true);
     setFailed(null);
-    const problem = await addEvent({
+    const body = {
       date: draft.date,
       title: title.trim(),
       kind,
@@ -145,7 +180,8 @@ export default function AddEventScreen() {
       detail: detail.trim() || undefined,
       grades,
       classes,
-    });
+    };
+    const problem = editing ? await updateEvent(editing.id, body) : await addEvent(body);
     setSaving(false);
     // 잘 됐을 때만 화면을 닫아요. 안 됐으면 왜 안 됐는지 보여줘야죠.
     if (problem) setFailed(problem);
@@ -154,7 +190,10 @@ export default function AddEventScreen() {
 
   return (
     <Screen bottomInset>
-      <BackHeader title="일정 추가" subtitle="학생 달력에 바로 보여요" />
+      <BackHeader
+        title={editing ? '일정 고치기' : '일정 추가'}
+        subtitle={editing ? '고치면 학생 달력에도 바로 바뀌어요' : '학생 달력에 바로 보여요'}
+      />
 
       <Text style={[styles.label, { color: palette.text }]}>종류</Text>
       <Segmented
@@ -337,7 +376,7 @@ export default function AddEventScreen() {
           <Text style={[styles.label, { color: palette.text }]}>과목</Text>
           <View style={styles.chips}>
             <ChipRow>
-              {TEACHABLE.map((s) => (
+              {subjectOptions.map((s) => (
                 <Chip key={s} label={s} colored selected={subject === s} onPress={() => setSubject(s)} />
               ))}
             </ChipRow>
@@ -357,7 +396,7 @@ export default function AddEventScreen() {
       ) : null}
 
       <Button
-        label={saving ? '등록하는 중이에요' : '일정 등록'}
+        label={saving ? '저장하는 중이에요' : editing ? '고친 내용 저장' : '일정 등록'}
         icon="check"
         disabled={!title.trim() || saving}
         onPress={save}

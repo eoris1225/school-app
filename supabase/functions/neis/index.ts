@@ -39,6 +39,7 @@ import {
   createAssessment,
   DbError,
   deleteAssessment,
+  updateAssessment,
   listAssessments,
 } from '../_shared/assessments.ts';
 import {
@@ -89,7 +90,7 @@ const KEY = Deno.env.get('NEIS_API_KEY');
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
-  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+  'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 };
 
 /**
@@ -346,6 +347,17 @@ async function handle(req: Request, url: URL): Promise<Response> {
         );
       }
 
+      if (req.method === 'PATCH') {
+        const me = await requireWriter(req);
+        const id = q.get('id');
+        if (!id) throw new BadRequest('id가 필요해요');
+        const body = await readBody(req);
+        const updated = await updateAssessment(school, id, body, me.id);
+        // 남의 것이면 아무것도 안 고쳐져요. 지우기와 같은 말로 답해요.
+        if (!updated) throw new BadRequest('내가 올린 일정만 고칠 수 있어요');
+        return json({ assessment: updated });
+      }
+
       if (req.method === 'DELETE') {
         const me = await requireWriter(req);
         const id = q.get('id');
@@ -360,7 +372,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
         return json({ deleted: gone });
       }
 
-      throw new BadRequest('수행평가는 GET, POST, DELETE만 돼요');
+      throw new BadRequest('수행평가는 GET, POST, PATCH, DELETE만 돼요');
     }
 
     /*

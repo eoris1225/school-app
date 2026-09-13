@@ -206,11 +206,33 @@ function StudentCommunity() {
 /* ---------------- 선생님: 쪽지함 ---------------- */
 
 function TeacherInbox() {
-  const { threads, threadsLoading, me } = useApp();
+  const { palette, threads, threadsLoading, me } = useApp();
   const [tab, setTab] = useState<'pending' | 'done' | 'all'>('pending');
+  const [find, setFind] = useState('');
   const pending = threads.filter(isPending);
   const done = threads.filter((t) => !isPending(t));
-  const list = tab === 'pending' ? pending : tab === 'done' ? done : threads;
+  const byTab = tab === 'pending' ? pending : tab === 'done' ? done : threads;
+
+  /*
+   * 찾기예요.
+   *
+   * 반이 스물넷이고 한 반에 스물몇 명이에요. 시험 기간에는 대기만 서른 개가
+   * 쌓여요. 그걸 손가락으로 굴려서 "2학년 3반 이채율"을 찾으라는 건 좀 그래요.
+   *
+   * 이름·반·내용을 다 봐요. '2-3'으로도 '3반'으로도 찾아지게요. 선생님마다
+   * 머릿속에 있는 말이 다르거든요.
+   */
+  const q = find.trim().toLowerCase();
+  const list = q
+    ? byTab.filter((t) => {
+        const cls = t.student.cls;
+        const room = cls ? `${cls} ${classLabel(cls)}` : '';
+        return [t.student.name, room, t.subject, t.last?.text ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(q);
+      })
+    : byTab;
 
   return (
     <Screen>
@@ -233,12 +255,29 @@ function TeacherInbox() {
           { value: 'all', label: '전체' },
         ]}
       />
+      {/* 쪽지가 몇 개 없으면 찾기 칸이 자리만 차지해요. */}
+      {threads.length > 5 ? (
+        <Field
+          value={find}
+          onChangeText={setFind}
+          placeholder="이름, 반, 내용으로 찾기"
+          accessibilityLabel="쪽지 찾기"
+          style={[styles.find, { backgroundColor: palette.surface }]}
+        />
+      ) : null}
+
       {threadsLoading ? <Loading text="쪽지를 불러오는 중이에요" rows={3} /> : null}
       {!threadsLoading && list.length === 0 ? (
         <Empty
           art="inbox"
-          text={tab === 'pending' ? '답변을 기다리는 쪽지가 없어요' : '쪽지가 없어요'}
-          hint={tab === 'pending' ? '새 쪽지가 오면 여기에 쌓여요.' : undefined}
+          text={
+            q
+              ? `‘${find.trim()}’로 찾은 쪽지가 없어요`
+              : tab === 'pending'
+                ? '답변을 기다리는 쪽지가 없어요'
+                : '쪽지가 없어요'
+          }
+          hint={q ? '이름이나 반으로도 찾을 수 있어요.' : tab === 'pending' ? '새 쪽지가 오면 여기에 쌓여요.' : undefined}
         />
       ) : null}
       {list.map((t) => (
@@ -263,4 +302,5 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sent: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 12 },
+  find: { borderRadius: 16, height: 48, paddingHorizontal: 16, marginBottom: 4 },
 });

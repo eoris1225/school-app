@@ -83,7 +83,7 @@ export class ApiError extends Error {
 }
 
 type CallOptions = {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
 };
 
@@ -263,6 +263,24 @@ export async function addAssessment(
   const r = await call<{ assessment: Assessment }>(
     { kind: 'assessments', ...at(school) },
     { method: 'POST', body: item },
+  );
+  return r.assessment;
+}
+
+/**
+ * 이미 올린 일정을 고쳐요. 올린 사람만 돼요.
+ *
+ * 수정이 없으면 오타 하나에 지우고 처음부터 다시 넣어야 해요. 준비물 안내를
+ * 500자까지 다시 타이핑하라는 건 좀 그렇잖아요.
+ */
+export async function editAssessment(
+  id: string,
+  item: NewAssessment,
+  school?: SchoolRef,
+): Promise<Assessment> {
+  const r = await call<{ assessment: Assessment }>(
+    { kind: 'assessments', id, ...at(school) },
+    { method: 'PATCH', body: item },
   );
   return r.assessment;
 }
