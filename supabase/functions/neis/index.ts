@@ -35,6 +35,7 @@ import {
   startThread,
   ThreadError,
 } from '../_shared/threads.ts';
+import { countSubs, pushPublicKey, pushReady, removeSub, saveSub } from '../_shared/push.ts';
 import {
   createAssessment,
   DbError,
@@ -549,6 +550,57 @@ async function handle(req: Request, url: URL): Promise<Response> {
      * 교시 바꾸기와 "안내 봤음" 표시요. 다른 기기에서 로그인해도 따라와요.
      * 알레르기는 일부러 안 받아요. 화면에 이 기기에만 담긴다고 적어뒀어요.
      */
+    /*
+     * 알림 받을 곳을 켜고 꺼요.
+     *
+     *   GET     켤 수 있는지, 공개 열쇠, 지금 몇 군데서 받는지
+     *   POST    이 기기에서 받기 시작
+     *   DELETE  이 기기에서 그만 받기
+     *
+     * 공개 열쇠는 감출 게 아니에요. 브라우저가 구독할 때 쓰라고 있는 값이에요.
+     * 앱에 박아두지 않고 서버가 주는 건, 열쇠를 바꿨을 때 앱을 다시 안 내도
+     * 되게 하려고요.
+     */
+    case 'push': {
+      const me = await whoami(req);
+      if (!me) throw new AuthError('로그인이 필요해요');
+
+      if (req.method === 'GET') {
+        return json({ ready: pushReady(), key: pushPublicKey(), count: await countSubs(me.id) });
+      }
+
+      if (!pushReady()) throw new BadRequest('알림이 아직 준비되지 않았어요');
+
+      let body: Record<string, unknown>;
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        throw new BadRequest('보낸 내용을 읽을 수 없어요');
+      }
+
+      const endpoint = typeof body.endpoint === 'string' ? body.endpoint.trim() : '';
+      // 구독 주소는 푸시 서버가 준 https 주소예요. 딴 데로 보내면 안 돼요.
+      if (!/^https:\/\/[^\s]{10,600}$/.test(endpoint)) throw new BadRequest('알림 주소가 이상해요');
+
+      if (req.method === 'DELETE') {
+        await removeSub(me.id, endpoint);
+        return json({ count: await countSubs(me.id) });
+      }
+
+      if (req.method === 'POST') {
+        const p256dh = typeof body.p256dh === 'string' ? body.p256dh : '';
+        const auth = typeof body.auth === 'string' ? body.auth : '';
+        if (!p256dh || !auth || p256dh.length > 200 || auth.length > 100) {
+          throw new BadRequest('알림 열쇠가 이상해요');
+        }
+        const agent = typeof body.agent === 'string' ? body.agent.slice(0, 120) : undefined;
+        await saveSub(me.id, { endpoint, p256dh, auth, agent });
+        return json({ count: await countSubs(me.id) });
+      }
+
+      throw new BadRequest('알림은 GET, POST, DELETE만 돼요');
+    }
+
     case 'my-settings': {
       if (req.method !== 'POST') throw new BadRequest('POST로 불러주세요');
       const me = await whoami(req);

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Tap } from '@/components/motion';
@@ -14,6 +14,7 @@ import { useRemote } from '@/lib/use-remote';
 import { addDays, toYmd } from '@/lib/time';
 import { useApp } from '@/lib/app-state';
 import { ro } from '@/lib/korean';
+import { disablePush, enablePush, pushState, type PushState } from '@/lib/push';
 
 export default function ProfileScreen() {
   const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
@@ -108,6 +109,8 @@ export default function ProfileScreen() {
         시스템으로 두면 폰 설정을 따라가요. 어두운 곳에서는 어둡게가 눈이 편해요.
       </Text>
       <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
+
+      <PushSwitch />
 
       {!teacher ? (
         <>
@@ -355,6 +358,75 @@ function SubjectPicker() {
         disabled={!ready || busy}
         onPress={save}
       />
+    </>
+  );
+}
+
+/**
+ * 알림을 켜고 끄는 칸이에요.
+ *
+ * 스위치 하나지만 다룰 상태가 많아요. 못 하는 브라우저, 서버에 열쇠가 없는 때,
+ * 브라우저 설정에서 막아둔 때. 그냥 "안 돼요" 라고만 하면 고칠 방법이 없어서,
+ * 왜 안 되는지를 그때그때 적어줘요.
+ *
+ * 특히 아이폰은 홈 화면에 추가해야만 돼요. 그걸 모르면 "이 앱 알림 고장났네"
+ * 하고 끝나요.
+ */
+function PushSwitch() {
+  const { palette } = useApp();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  const look = useCallback(() => {
+    pushState()
+      .then(setState)
+      .catch(() => setState({ kind: 'unsupported', why: '알림 상태를 알 수 없어요' }));
+  }, []);
+
+  useEffect(look, [look]);
+
+  const flip = async () => {
+    setBusy(true);
+    setFailed(null);
+    // 사람이 누른 이 자리에서 바로 물어봐야 해요. 미루면 브라우저가 거절해요.
+    const problem = state?.kind === 'on' ? await disablePush() : await enablePush();
+    setBusy(false);
+    if (problem) setFailed(problem);
+    look();
+  };
+
+  if (!state) return null;
+
+  const on = state.kind === 'on';
+  const can = state.kind === 'on' || state.kind === 'off';
+
+  return (
+    <>
+      <SectionTitle title="알림" value={on && state.count > 1 ? `${state.count}곳` : undefined} />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        {state.kind === 'unsupported'
+          ? state.why
+          : state.kind === 'notready'
+            ? '알림이 아직 준비되지 않았어요. 학교 담당 선생님께 말씀해주세요.'
+            : state.kind === 'blocked'
+              ? '브라우저 설정에서 알림이 막혀 있어요. 주소창 옆 자물쇠를 눌러 허용으로 바꿔주세요.'
+              : on
+                ? '쪽지에 답이 달리면 알려드려요. 이 기기에서만 꺼져요.'
+                : '쪽지에 답이 달리면 알려드릴게요. 앱을 안 열어도 와요.'}
+      </Text>
+
+      {can ? (
+        <Button
+          label={busy ? '잠시만요' : on ? '알림 끄기' : '알림 받기'}
+          variant={on ? 'secondary' : 'primary'}
+          icon={on ? 'close' : 'check'}
+          disabled={busy}
+          onPress={flip}
+        />
+      ) : null}
+
+      {failed ? <ErrorNote text={failed} /> : null}
     </>
   );
 }
