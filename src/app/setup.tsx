@@ -175,7 +175,7 @@ function AllergyStep({ onNext }: { onNext: () => void }) {
     <Card
       art="warn"
       title="못 먹는 재료가 있어요?"
-      body="골라두면 급식에서 그 재료가 든 메뉴를 눈에 띄게 표시해줘요. 이 기기에만 담기고 아무에게도 안 보여요."
+      body="골라두면 급식에서 그 재료가 든 메뉴를 눈에 띄게 표시해줘요. 선생님도 다른 학생도 볼 수 없어요. 폰을 바꿔도 따라와요."
       nextLabel={allergies.length ? `${allergies.length}개 골랐어요` : '없어요'}
       onNext={onNext}
       onSkip={onNext}>
@@ -250,7 +250,7 @@ function SubjectStep({ onNext }: { onNext: () => void }) {
                 params: {
                   day: d,
                   period: String(period),
-                  subject: raw[d][period - 1],
+                  subject: raw[d][period - 1] ?? '',
                   same: sameNameSlots(raw, d, period, raw[d][period - 1]).join(','),
                 },
               })

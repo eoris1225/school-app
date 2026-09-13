@@ -21,6 +21,7 @@ import {
   type SchoolEvent,
   type Weekday,
 } from '@/data/mock';
+import { allergyHits } from '@/lib/my-settings';
 import { isPending, useApp } from '@/lib/app-state';
 import { currentPeriod, dday, formatDay, fromYmd, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
 import { useLayout } from '@/lib/layout';
@@ -121,11 +122,14 @@ function Dots({ states }: { states: DotState[] }) {
 function Head({
   title,
   value,
+  tone,
   action,
   onAction,
 }: {
   title: string;
   value?: string;
+  /** 'warn' 이면 값을 눈에 띄는 색으로 적어요. 챙겨야 할 것이 있을 때만요. */
+  tone?: 'warn';
   action?: string;
   onAction?: () => void;
 }) {
@@ -136,7 +140,13 @@ function Head({
         {title}
       </Text>
       {value ? (
-        <Text numeric style={[styles.headValue, { color: palette.sub }]}>
+        <Text
+          numeric={tone !== 'warn'}
+          style={[
+            styles.headValue,
+            { color: tone === 'warn' ? palette.sunday : palette.sub },
+            tone === 'warn' && styles.headValueWarn,
+          ]}>
           {value}
         </Text>
       ) : null}
@@ -157,30 +167,69 @@ function Line() {
 }
 
 /** 일정 한 줄: 왼쪽에 D-day, 오른쪽에 제목 */
-function EventRow({ event, last }: { event: SchoolEvent; last: boolean }) {
+/**
+ * 다가오는 일정 한 줄이에요.
+ *
+ * `sameDay` 는 그 날 몇 개가 몰렸는지예요. 같은 날 것 중 맨 위 줄에만 적어요.
+ * 예전에는 D-2가 세 줄 나란히 떠도 "이 날 세 개"라고는 아무도 말을 안 했어요.
+ * 학생이 눈으로 세야 했죠. 선생님한테는 몰렸다고 알려주면서 정작 힘든 쪽에는
+ * 안 알려주고 있었어요.
+ *
+ * 줄을 새로 만들지 않아요. 홈은 빽빽해지면 안 돼요. 이미 있는 D-day 딱지
+ * 옆에 숫자만 붙여요.
+ */
+function EventRow({
+  event,
+  last,
+  sameDay = 1,
+  first = true,
+}: {
+  event: SchoolEvent;
+  last: boolean;
+  sameDay?: number;
+  first?: boolean;
+}) {
   const { palette, now } = useApp();
   const d = dday(event.date, now);
   const today = d === '오늘';
   const t = subjectTone(event.kind === 'assessment' ? (event.subject ?? '수행평가') : '학사일정', palette.scheme);
+  const piled = sameDay > 1 && first;
+  const detail = event.detail?.trim();
 
   return (
     <>
       <Tap
         onPress={() => router.push('/calendar')}
         accessibilityRole="button"
-        accessibilityLabel={`${event.title}, ${d}, 달력 열기`}
+        accessibilityLabel={`${event.title}, ${d}${piled ? `, 이 날 ${sameDay}개` : ''}${detail ? ', 챙길 것 있음' : ''}, 달력 열기`}
         depth={0.015}
         style={styles.eventRow}>
-        <View style={[styles.ddayChip, { backgroundColor: today ? t.fg : t.bg }]}>
-          <Text numeric={!today} style={[styles.ddayText, { color: today ? '#FFFFFF' : t.fg }]}>
-            {d}
-          </Text>
-        </View>
+        {/* 같은 날 두 번째 줄부터는 딱지를 비워둬요. 날짜가 같다는 게 보여요. */}
+        {first ? (
+          <View style={styles.ddayCol}>
+            <View style={[styles.ddayChip, { backgroundColor: today ? t.fg : t.bg }]}>
+              <Text numeric={!today} style={[styles.ddayText, { color: today ? '#FFFFFF' : t.fg }]}>
+                {d}
+              </Text>
+            </View>
+            {/* 몇 개 몰렸는지는 딱지 아래에 적어요. 오른쪽 과목 이름을 밀어내면
+                정작 무슨 과목인지가 안 보여요. */}
+            {piled ? (
+              <Text style={[styles.ddayCount, { color: palette.sunday }]}>이 날 {sameDay}개</Text>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.ddayCol} />
+        )}
         <View style={styles.fill}>
           <Text style={[styles.eventTitle, { color: palette.text }]} numberOfLines={1}>
             {event.title}
           </Text>
         </View>
+        {/* 챙길 게 적혀 있으면 알려줘요. 준비물은 전날 밤에 보는 거예요. */}
+        {detail ? (
+          <Text style={[styles.eventNote, { color: palette.accentDeep }]}>챙길 것</Text>
+        ) : null}
         <Text style={[styles.eventKind, { color: t.fg }]} numberOfLines={1}>
           {event.kind === 'assessment' ? (event.subject ?? '수행평가') : '학사일정'}
         </Text>
@@ -246,7 +295,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
 }
 
 function StudentHome() {
-  const { palette, now, events, threads, school, swaps, me } = useApp();
+  const { palette, now, events, threads, school, swaps, me, allergies } = useApp();
   const { compact, tile } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
@@ -295,12 +344,59 @@ function StudentHome() {
     </View>
   );
 
+  /*
+   * 내가 못 먹는 재료가 든 메뉴예요.
+   *
+   * 급식 화면에는 이미 표시하고 있었는데 홈에는 없었어요. 그런데 아침에
+   * 여는 건 홈이에요. 홈만 보고 "아 오늘 카레네" 하고 넘어가면 표시한
+   * 보람이 없어요. DESIGN.md 에도 "알레르기처럼 놓치면 곤란한 건 반드시
+   * 보이게" 라고 적어뒀고요.
+   *
+   * 줄은 안 늘려요. 이미 있는 메뉴 줄 안에서 그 메뉴만 색을 달리하고,
+   * 오른쪽 kcal 자리를 "조심 2개"로 바꿔요. 홈은 빽빽해지면 안 돼요.
+   */
+  const risky = new Set(
+    (meal?.items ?? []).filter((m) => allergyHits(m.allergy, allergies).length > 0).map((m) => m.name),
+  );
+
   const mealBlock = (
     <>
-      <Head title="오늘 점심" value={meal ? `${meal.kcal}kcal` : undefined} action="급식" onAction={() => router.push('/meal')} />
+      <Head
+        title="오늘 점심"
+        value={
+          risky.size
+            ? `조심 ${risky.size}개`
+            : meal
+              ? `${meal.kcal}kcal`
+              : undefined
+        }
+        tone={risky.size ? 'warn' : undefined}
+        action="급식"
+        onAction={() => router.push('/meal')}
+      />
       <Text style={[styles.body, { color: palette.sub }]} numberOfLines={compact ? 2 : 3}>
-        {meal ? meal.items.map((m) => m.name).join(' · ') : '오늘은 급식이 없어요'}
+        {meal
+          ? meal.items.map((m, i) => (
+              <Text
+                key={m.name}
+                style={
+                  risky.has(m.name)
+                    ? { color: palette.sunday, fontWeight: '700' }
+                    : undefined
+                }>
+                {i > 0 ? ' · ' : ''}
+                {m.name}
+                {/* 색만으로 알리면 색을 못 가리는 사람이 놓쳐요. 별표도 붙여요. */}
+                {risky.has(m.name) ? '*' : ''}
+              </Text>
+            ))
+          : '오늘은 급식이 없어요'}
       </Text>
+      {risky.size ? (
+        <Text style={[styles.mealWarn, { color: palette.sunday }]}>
+          * 내가 못 먹는 재료가 들어 있어요
+        </Text>
+      ) : null}
     </>
   );
 
@@ -310,7 +406,15 @@ function StudentHome() {
       {upcoming.length === 0 ? (
         <Text style={[styles.body, { color: palette.sub }]}>예정된 일정이 없어요</Text>
       ) : (
-        upcoming.slice(0, 4).map((e, i, arr) => <EventRow key={e.id} event={e} last={i === arr.length - 1} />)
+        upcoming.slice(0, 4).map((e, i, arr) => (
+          <EventRow
+            key={e.id}
+            event={e}
+            last={i === arr.length - 1}
+            sameDay={upcoming.filter((x) => x.date === e.date).length}
+            first={arr.findIndex((x) => x.date === e.date) === i}
+          />
+        ))
       )}
     </>
   );
@@ -439,7 +543,15 @@ function TeacherHome() {
       {upcoming.length === 0 ? (
         <Text style={[styles.body, { color: palette.sub }]}>예정된 일정이 없어요</Text>
       ) : (
-        upcoming.slice(0, 4).map((e, i, arr) => <EventRow key={e.id} event={e} last={i === arr.length - 1} />)
+        upcoming.slice(0, 4).map((e, i, arr) => (
+          <EventRow
+            key={e.id}
+            event={e}
+            last={i === arr.length - 1}
+            sameDay={upcoming.filter((x) => x.date === e.date).length}
+            first={arr.findIndex((x) => x.date === e.date) === i}
+          />
+        ))
       )}
     </>
   );
@@ -499,6 +611,7 @@ const styles = StyleSheet.create({
 
   head: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 8 },
   headTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3, flexShrink: 1 },
+  headValueWarn: { fontWeight: '700' },
   headValue: { fontSize: 13, fontWeight: '600', flex: 1 },
   headAction: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   headActionText: { fontSize: 13, fontWeight: '600' },
@@ -507,6 +620,7 @@ const styles = StyleSheet.create({
   classPeriod: { fontSize: 13, fontWeight: '800', width: 48 },
   classWhere: { flex: 1, fontSize: 15, fontWeight: '600' },
   classTime: { fontSize: 12 },
+  mealWarn: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   body: { fontSize: 15, lineHeight: 23, fontWeight: '500' },
   line: { height: 1, opacity: 0.7 },
 
@@ -514,6 +628,9 @@ const styles = StyleSheet.create({
   ddayChip: { minWidth: 48, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center' },
   ddayText: { fontSize: 12, fontWeight: '700' },
   eventTitle: { fontSize: 15, fontWeight: '600' },
+  ddayCol: { width: 56, alignItems: 'flex-start' },
+  ddayCount: { fontSize: 11, fontWeight: '700', marginTop: 2, marginLeft: 2 },
+  eventNote: { fontSize: 12, fontWeight: '700' },
   eventKind: { fontSize: 12, fontWeight: '600' },
 
 });

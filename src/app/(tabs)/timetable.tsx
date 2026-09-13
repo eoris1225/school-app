@@ -39,6 +39,8 @@ export default function TimetableScreen() {
   // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
   const myClass = `${school?.grade ?? 1}-${school?.cls ?? '1'}`;
   const [cls, setCls] = useState<ClassId>(myClass);
+  // 다른 반 시간표 고르기를 펴둘지. 평소에는 접어둬요.
+  const [openClass, setOpenClass] = useState(false);
   // 선생님은 '내 수업'에서 시작해요. 자기 시간표가 먼저 궁금하니까요.
   const [mode, setMode] = useState<'day' | 'week' | 'teach'>(teacher ? 'teach' : 'day');
   const [day, setDay] = useState<Weekday>(today ?? '월');
@@ -74,7 +76,7 @@ export default function TimetableScreen() {
   // 다른 반 시간표를 볼 때는 바꾸지 않아요. 남의 반까지 내 기준으로
   // 바꾸면 잘못된 정보가 돼요.
   const week = mine ? withSwaps(raw, swaps) : raw;
-  const holiday = holidayName(week[day].filter(Boolean));
+  const holiday = holidayName(week[day].filter((x): x is string => !!x));
 
   /*
    * 선생님 시간표예요.
@@ -127,7 +129,24 @@ export default function TimetableScreen() {
         내가 어디 들어가는지가 궁금한 거예요. 반 고르기는 이 화면 아래쪽에
         따로 있어요.
       */}
-      {mode !== 'teach' ? (
+      {/*
+        다른 반 시간표는 접어둬요.
+        학생은 거의 늘 자기 반만 봐요. 그런데 학년 칩 셋에 반 칩 여덟이 항상
+        떠 있으면 화면 위 다섯 줄을 남의 반 고르기가 먹어요. 눌렀을 때만 펴요.
+      */}
+      {mode !== 'teach' && !openClass && cls === myClass ? (
+        <View style={styles.backRow}>
+          <Tap
+            onPress={() => setOpenClass(true)}
+            accessibilityRole="button"
+            hitSlop={10}
+            depth={0.05}>
+            <Text style={[styles.backText, { color: palette.accentDeep }]}>다른 반 시간표 보기</Text>
+          </Tap>
+        </View>
+      ) : null}
+
+      {mode !== 'teach' && (openClass || cls !== myClass) ? (
         <>
       <View style={styles.classPicker}>
         <ChipRow>
@@ -154,13 +173,20 @@ export default function TimetableScreen() {
           ))}
         </ChipRow>
       </View>
-      {cls !== myClass ? (
-        <View style={styles.backRow}>
-          <Tap onPress={() => setCls(myClass)} accessibilityRole="button" hitSlop={10} depth={0.05}>
-            <Text style={[styles.backText, { color: palette.accentDeep }]}>내 반으로 돌아가기</Text>
-          </Tap>
-        </View>
-      ) : null}
+      <View style={styles.backRow}>
+        <Tap
+          onPress={() => {
+            setCls(myClass);
+            setOpenClass(false);
+          }}
+          accessibilityRole="button"
+          hitSlop={10}
+          depth={0.05}>
+          <Text style={[styles.backText, { color: palette.accentDeep }]}>
+            {cls !== myClass ? '내 반으로 돌아가기' : '접기'}
+          </Text>
+        </Tap>
+      </View>
         </>
       ) : null}
 
@@ -276,6 +302,19 @@ export default function TimetableScreen() {
             })}
           </View>
 
+          {/*
+            눌러서 바꿀 수 있다는 걸 알려줘요.
+            선택과목 학생은 시간표에 '일본 문화'라고 적혀 있어도 실제로는 다른
+            과목을 들어요. 그걸 바꿀 수 있다는 걸 지금까지는 손가락으로 눌러봐야
+            알았어요. 읽어주기 라벨에만 적혀 있었거든요. 한 줄 적어둬요.
+            바꾼 게 하나라도 있으면 이미 아는 거라 안 보여줘요.
+          */}
+          {mine && !holiday && Object.keys(swaps).length === 0 ? (
+            <Text style={[styles.swapHint, { color: palette.sub }]}>
+              내가 듣는 과목과 다르면 그 줄을 눌러서 바꿔요.
+            </Text>
+          ) : null}
+
           <View>
             {/* 추석 같은 날은 NEIS가 1교시부터 끝까지 같은 말로 채워서 줘요.
                 그대로 그리면 "1교시 추석, 2교시 추석..." 이 되니 한 줄로 보여줘요. */}
@@ -293,11 +332,56 @@ export default function TimetableScreen() {
               />
             ) : (
             week[day].map((shown, i, arr) => {
-              if (!shown) return null;
-              // 점심 뒤 첫 수업이 어느 줄인지. 그 위에 점심시간을 끼워 넣어요.
-              const lunchAt = arr.findIndex((r, k) => !!r && k + 1 > LUNCH.afterPeriod);
-              const afterLunch = lunchAt === i;
+              /*
+               * 빈 교시도 자리를 남겨요.
+               *
+               * 예전에는 통째로 건너뛰었어요. 그러면 4교시 다음에 바로 6교시가
+               * 나와서 "5교시 왜 없지, 앱이 고장났나?" 싶어요. 실제로 서일여고
+               * 수요일은 5교시가 NEIS에 없어요. 없는 건 없다고 말해줘야죠.
+               *
+               * 다만 뒤쪽 빈 교시는 안 그려요. 7교시까지 있는 날이 있고 5교시에
+               * 끝나는 날이 있는데, 끝난 뒤에 빈 줄을 세 개 그리면 그것대로
+               * 이상해요. 마지막 수업 뒤는 그냥 끝이에요.
+               */
+              const lastLesson = arr.reduce((acc, r, k) => (r ? k : acc), -1);
+              if (!shown && i > lastLesson) return null;
               const period = i + 1;
+              /*
+               * 점심시간을 끼워 넣을 자리예요.
+               *
+               * 예전에는 "점심 뒤 첫 수업"을 찾았어요. 그런데 빈 교시도 그리게
+               * 되면서 어긋났어요. 5교시가 비어 있으면 그 줄이 점심 위에 떠요.
+               * 5교시 시각은 13:30인데 12:30 점심보다 앞에 나오는 거예요.
+               * 수업이 있든 없든 자리는 정해져 있으니 교시로 바로 정해요.
+               */
+              const lunchAt = LUNCH.afterPeriod <= lastLesson ? LUNCH.afterPeriod : -1;
+              const afterLunch = lunchAt === i;
+              const lunchRow = afterLunch ? (
+                <View style={[styles.lunch, { borderColor: palette.line }]}>
+                  <Text style={[styles.lunchText, { color: palette.sub }]}>
+                    점심시간 {LUNCH.start}부터 {LUNCH.end}까지
+                  </Text>
+                </View>
+              ) : null;
+
+              if (!shown) {
+                return (
+                  <Reveal key={`${cls}:${day}:${period}`} delay={i * 45} distance={10}>
+                    {lunchRow}
+                    <View style={[styles.periodRow, styles.emptyRow]}>
+                      <Text style={[styles.periodTag, { color: palette.sub }]}>{period}교시</Text>
+                      <Text style={[styles.emptyText, { color: palette.sub }]}>
+                        시간표에 없어요
+                      </Text>
+                      <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
+                        {BELL[i].start}–{BELL[i].end}
+                      </Text>
+                    </View>
+                    {i < lastLesson && i + 1 !== lunchAt ? <Divider /> : null}
+                  </Reveal>
+                );
+              }
+
               // 시간표에 적힌 원래 이름. 바꾸는 화면에 이걸 넘겨줘요.
               const original = raw[day][i];
               const subject = readSubject(shown);
@@ -309,13 +393,7 @@ export default function TimetableScreen() {
                 // 요일이나 반을 바꾸면 key가 달라져서 줄이 다시 올라와요.
                 // 내용만 조용히 갈리면 바뀐 걸 눈치채기 어려워요.
                 <Reveal key={`${cls}:${day}:${period}`} delay={i * 45} distance={10}>
-                  {afterLunch ? (
-                    <View style={[styles.lunch, { borderColor: palette.line }]}>
-                      <Text style={[styles.lunchText, { color: palette.sub }]}>
-                        점심시간 {LUNCH.start}부터 {LUNCH.end}까지
-                      </Text>
-                    </View>
-                  ) : null}
+                  {lunchRow}
                   {/* 내 반일 때만 눌러서 내가 듣는 과목으로 바꿀 수 있어요. */}
                   <Tap
                     onPress={
@@ -360,7 +438,8 @@ export default function TimetableScreen() {
                     {swapped ? <Tag label="바꿈" /> : null}
                     {isNow ? <Tag label="지금" tone="solid" /> : null}
                   </Tap>
-                  {i < arr.length - 1 && arr.findIndex((r, k) => !!r && k > i) !== lunchAt ? <Divider /> : null}
+                  {/* 마지막 줄과 점심 바로 앞에는 구분선을 안 그려요. */}
+                  {i < lastLesson && i + 1 !== lunchAt ? <Divider /> : null}
                 </Reveal>
               );
             })
@@ -387,7 +466,8 @@ export default function TimetableScreen() {
                     params: {
                       day: d,
                       period: String(period),
-                      subject: raw[d][period - 1],
+                      // 빈 칸을 눌렀으면 적어 넣는 화면으로 가요. 원래 이름이 없어요.
+                      subject: raw[d][period - 1] ?? '',
                       same: sameNameSlots(raw, d, period, raw[d][period - 1]).join(','),
                     },
                   })
@@ -554,6 +634,9 @@ const styles = StyleSheet.create({
   dayTabText: { fontSize: 15, fontWeight: '800' },
 
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, marginHorizontal: -12, borderRadius: 16 },
+  swapHint: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
+  emptyRow: { paddingVertical: 10, opacity: 0.7 },
+  emptyText: { flex: 1, fontSize: 13 },
   subjectRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   periodTag: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
   subject: { fontSize: 15, fontWeight: '800' },

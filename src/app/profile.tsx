@@ -114,7 +114,7 @@ export default function ProfileScreen() {
           <SectionTitle title="알레르기" value={allergies.length ? `${allergies.length}개` : undefined} />
           <Text style={[styles.help, { color: palette.sub }]}>
             못 먹는 재료를 골라두면 급식에서 그 메뉴를 눈에 띄게 표시해줘요.
-            이 기기에만 담기고 아무에게도 보이지 않아요.
+            선생님도 다른 학생도 볼 수 없어요. 폰을 바꿔도 따라와요.
           </Text>
           <View style={styles.allergyGrid}>
             {ALLERGENS.map((name, i) => {
@@ -249,8 +249,10 @@ function SubjectPicker() {
   // 한 주치면 그 학기에 열리는 과목이 거의 다 나와요.
   const to = toYmd(now);
   const from = toYmd(addDays(now, -7));
-  const remote = useRemote(`school-subjects:${school?.code}:${from}`, () =>
-    getSchoolSubjects(from, to, school ?? undefined),
+  // 학생이 코드를 적기 전에는 안 불러요. 쓸데없는 왕복이에요.
+  const wantSubjects = teacher || code.trim().length > 0;
+  const remote = useRemote(`school-subjects:${school?.code}:${from}:${wantSubjects}`, () =>
+    wantSubjects ? getSchoolSubjects(from, to, school ?? undefined) : Promise.resolve([]),
   );
   const options = remote.data?.length ? remote.data : [...TEACHABLE];
 
@@ -296,6 +298,14 @@ function SubjectPicker() {
         />
       ) : null}
 
+      {/*
+        과목 고르기는 코드를 넣은 뒤에 보여줘요.
+        학생 화면에 담당 과목 칩이 스무 개 넘게 펼쳐져 있으면 "이게 뭐지?"
+        싶고, 화면만 길어져요. 학교 과목 목록을 받아오는 것도 학생에게는
+        쓸데없는 왕복이라 코드를 적기 전에는 안 불러요.
+      */}
+      {!teacher && !code.trim() ? null : (
+        <>
       <Text style={[styles.help, { color: palette.sub }]}>
         {remote.loading
           ? '우리 학교 과목을 불러오는 중이에요'
@@ -330,6 +340,8 @@ function SubjectPicker() {
           {`${groups.join(', ')}${ro(groups[groups.length - 1])} 온 쪽지를 받아요`}
         </Text>
       ) : null}
+        </>
+      )}
 
       {failed ? <ErrorNote text={failed} /> : null}
       {done ? (

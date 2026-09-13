@@ -5,10 +5,12 @@ import { StyleSheet, View } from 'react-native';
 import { ThreadRow } from '@/components/rows';
 import { Text } from '@/components/text';
 import { Button, Chip, ChipRow, Empty, ErrorNote, Field, Header, Loading, Screen, SectionTitle, Segmented } from '@/components/ui';
-import { TEACHABLE } from '@/lib/subject';
-import { classLabel } from '@/data/mock';
-import { getSubjectTeachers, type TeacherPick, type Thread } from '@/lib/api';
+import { readSubject, subjectGroup, TEACHABLE } from '@/lib/subject';
+import { classLabel, WEEKDAYS } from '@/data/mock';
+import { getLessons, getSubjectTeachers, type TeacherPick, type Thread } from '@/lib/api';
 import { isPending, useApp } from '@/lib/app-state';
+import { byWeekday, withSwaps } from '@/lib/timetable';
+import { weekDates } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
 
 export default function CommunityScreen() {
@@ -49,8 +51,33 @@ function describe(list: TeacherPick[]): Map<string, string> {
 /* ---------------- 학생: 질문 보내기 + 내 질문 ---------------- */
 
 function StudentCommunity() {
-  const { palette, threads, threadsLoading, askQuestion } = useApp();
+  const { palette, threads, threadsLoading, askQuestion, school, now, swaps } = useApp();
   const [subject, setSubject] = useState<string | null>(null);
+
+  /*
+   * 내가 듣는 과목을 먼저 보여줘요.
+   *
+   * 예전에는 교과군 열둘(국어·수학·영어…)만 골랐어요. 그런데 학생 머릿속에
+   * 있는 건 '미적분Ⅰ', '독서와 작문' 이에요. '이거 수학인가 뭔가' 를 한 번
+   * 더 생각하게 만들 이유가 없어요.
+   *
+   * 보낼 때는 교과군으로 바꿔서 보내요. 쪽지는 교과군으로 오가거든요.
+   * '미적분Ⅰ' 로 물어봐도 수학 선생님께 가요.
+   */
+  const dates = weekDates(now);
+  const lessons = useRemote(`timetable:${school?.code}:${school?.grade}-${school?.cls}:${dates.월}`, () =>
+    school ? getLessons(school.grade, school.cls, dates.월, dates.금, school) : Promise.resolve([]),
+  );
+  // 시간표 화면과 같은 길로 만들어요. 거기서 바꿔둔 과목이 여기에도 나와야죠.
+  const mySubjects = [
+    ...new Set(
+      WEEKDAYS.flatMap((d) => withSwaps(byWeekday(lessons.data ?? [], dates), swaps)[d])
+        .filter((x): x is string => !!x)
+        .map((x) => readSubject(x))
+        .filter((x) => !x.holiday && !['창체', '기타'].includes(x.group))
+        .map((x) => x.name),
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'ko'));
   const [teacher, setTeacher] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -65,8 +92,13 @@ function StudentCommunity() {
    * 그때는 예전처럼 그 과목 선생님 모두에게 가도록 둬요. 고를 게 없는데
    * 고르라고 막아 세우면 질문을 아예 못 보내잖아요.
    */
-  const staff = useRemote(`teachers:${subject ?? ''}`, () =>
-    subject ? getSubjectTeachers(subject) : Promise.resolve([]),
+  /*
+   * 고른 게 '미적분Ⅰ' 처럼 구체적인 과목일 수 있어요. 선생님을 찾을 때도,
+   * 실제로 보낼 때도 교과군으로 바꿔서 써요. 쪽지는 교과군으로 오가거든요.
+   */
+  const group = subject ? subjectGroup(subject) : null;
+  const staff = useRemote(`teachers:${group ?? ''}`, () =>
+    group ? getSubjectTeachers(group) : Promise.resolve([]),
   );
   const list = staff.data ?? [];
   const picked = list.find((t) => t.id === teacher) ?? null;
@@ -76,7 +108,7 @@ function StudentCommunity() {
     if (!subject || !canSend) return;
     setBusy(true);
     setFailed(null);
-    const problem = await askQuestion(subject, text.trim(), teacher ?? undefined);
+    const problem = await askQuestion(group ?? subject, text.trim(), teacher ?? undefined);
     setBusy(false);
     if (problem) {
       setFailed(problem);
@@ -85,7 +117,7 @@ function StudentCommunity() {
     setSentTo(
       picked
         ? `${picked.name} 선생님께 쪽지를 보냈어요`
-        : `${subject} 선생님께 쪽지를 보냈어요`,
+        : `${group ?? subject} 선생님께 쪽지를 보냈어요`,
     );
     setText('');
     setSubject(null);
@@ -98,12 +130,19 @@ function StudentCommunity() {
 
       <SectionTitle title="선생님께 질문하기" />
       <Text style={[styles.help, { color: palette.sub }]}>
-        과목을 고르면 그 과목 선생님께 쪽지가 전달돼요.
+        {mySubjects.length
+          ? '내가 듣는 과목이에요. 고르면 그 과목 선생님께 쪽지가 전달돼요.'
+          : '과목을 고르면 그 과목 선생님께 쪽지가 전달돼요.'}
       </Text>
 
+      {/*
+        내가 듣는 과목을 앞에 두고, 교과군 열둘은 뒤에 남겨요.
+        시간표에 없는 걸 물어볼 수도 있고 (진로 상담처럼), 시간표를 아직 못
+        받아온 학교도 있어요. 고를 게 아예 없으면 질문을 못 보내잖아요.
+      */}
       <View style={styles.subjects}>
         <ChipRow>
-          {TEACHABLE.map((s) => (
+          {[...mySubjects, ...TEACHABLE.filter((t) => !mySubjects.includes(t))].map((s) => (
             <Chip
               key={s}
               label={s}

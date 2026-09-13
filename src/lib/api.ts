@@ -310,6 +310,14 @@ export type Me = {
   no: number | null;
   /** 교시마다 내가 실제로 듣는 과목. '월-6' 처럼 생긴 열쇠예요. */
   swaps: Record<string, string>;
+  /**
+   * 못 먹는 재료 번호들. 1번 난류, 2번 우유처럼 교육부가 정한 번호예요.
+   *
+   * 서버가 앱보다 낡으면 안 와요. 그때는 빈 표로 보고 기기에 있는 걸 써요.
+   * 여기서 비워버리면 알레르기가 사라진 것처럼 보여서 위험해요.
+   * 그래서 app-state 가 "서버가 모르면 기기 것을 그대로" 로 다뤄요.
+   */
+  allergies: number[];
   /** 가입 안내를 한 번 지나갔는지 */
   setupSeen: boolean;
   /**
@@ -373,6 +381,11 @@ function readMe(raw: unknown): Me | null {
     cls: typeof m.cls === 'string' && m.cls ? m.cls : null,
     no: typeof m.no === 'number' ? m.no : null,
     swaps,
+    allergies: Array.isArray(m.allergies)
+      ? [...new Set(m.allergies.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 19))].sort(
+          (a, b) => a - b,
+        )
+      : [],
     setupSeen: m.setupSeen === true,
     teach: readTeach(m.teach),
   };
@@ -444,6 +457,7 @@ export async function saveMySettings(v: {
   swaps?: Record<string, string>;
   setupSeen?: boolean;
   teach?: { classes: string[]; edits: Record<string, string> };
+  allergies?: number[];
 }): Promise<Me> {
   const { me } = await call<{ me: unknown }>({ kind: 'my-settings' }, { method: 'POST', body: v });
   return readMe(me) as Me;

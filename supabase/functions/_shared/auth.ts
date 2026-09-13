@@ -36,6 +36,8 @@ export type Me = {
   no: number | null;
   /** 교시마다 내가 실제로 듣는 과목. '월-6' 처럼 생긴 열쇠예요. */
   swaps: Record<string, string>;
+  /** 못 먹는 재료 번호들. 1번 난류, 2번 우유처럼 교육부가 정한 번호예요. */
+  allergies: number[];
   /** 가입 안내를 한 번 지나갔는지 */
   setupSeen: boolean;
   /**
@@ -87,6 +89,17 @@ function toSwaps(raw: unknown): Record<string, string> {
   return out;
 }
 
+/**
+ * 알레르기 번호를 읽어요.
+ *
+ * 교육부가 정한 1~19번만 받아요. 엉뚱한 숫자가 들어와도 화면이 안 깨지게요.
+ */
+function toAllergies(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const out = raw.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 19);
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+
 /** 선생님 시간표 설정을 읽어요. 이상한 게 들어 있으면 비운 걸로 봐요. */
 function toTeach(raw: unknown): Me['teach'] {
   const v = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
@@ -119,6 +132,7 @@ function toMe(row: Record<string, unknown>): Me {
     cls: grade !== null && cls ? `${grade}-${cls}` : null,
     no: row.student_no === null || row.student_no === undefined ? null : Number(row.student_no),
     swaps: toSwaps(row.swaps),
+    allergies: toAllergies(row.allergies),
     setupSeen: row.setup_seen === true,
     teach: toTeach(row.teach),
   };
@@ -126,7 +140,7 @@ function toMe(row: Record<string, unknown>): Me {
 
 const PROFILE_COLS =
   'id,role,name,subjects,teaches,school_office,school_code,school_name,office_name,' +
-  'grade,cls,student_no,swaps,setup_seen,teach';
+  'grade,cls,student_no,swaps,setup_seen,teach,allergies';
 
 async function profileOf(id: string): Promise<Me | null> {
   const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
@@ -183,15 +197,26 @@ export async function setSchool(
  * 다시 하라는 건 좀 그래요. 안내를 봤는지도 같이 담아요. 새 기기마다
  * 가입 안내가 다시 뜨면 이상하잖아요.
  *
- * 알레르기는 일부러 안 옮겨요. 화면에 "이 기기에만 담기고 아무에게도 보이지
- * 않아요" 라고 적어뒀어요. 그 약속을 지켜야죠.
+ * 알레르기도 담아요. 예전에는 일부러 뺐어요. 화면에 "이 기기에만 담겨요" 라고
+ * 적어뒀거든요. 그런데 폰을 바꾸면 사라진다는 뜻이기도 해요. 못 먹는 걸 잘못
+ * 먹으면 큰일 나는 정보를, 기기를 옮겼다고 다시 고르게 하는 건 위험해요.
+ *
+ * 대신 약속을 고쳐 적었어요. "선생님도 다른 학생도 볼 수 없어요" 로요.
+ * 지킬 수 있는 약속이에요. profiles 표는 본인 줄만 읽게 걸려 있고, 남의
+ * 알레르기를 내보내는 길은 어디에도 없어요.
  */
 export async function setSettings(
   id: string,
-  v: { swaps?: Record<string, string>; setupSeen?: boolean; teach?: Me['teach'] },
+  v: {
+    swaps?: Record<string, string>;
+    setupSeen?: boolean;
+    teach?: Me['teach'];
+    allergies?: number[];
+  },
 ): Promise<Me> {
   const body: Record<string, unknown> = {};
   if (v.swaps !== undefined) body.swaps = v.swaps;
+  if (v.allergies !== undefined) body.allergies = v.allergies;
   if (v.setupSeen !== undefined) body.setup_seen = v.setupSeen;
   if (v.teach !== undefined) body.teach = v.teach;
 

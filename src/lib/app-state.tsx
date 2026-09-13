@@ -301,18 +301,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /*
    * 이 기기에만 있는 설정을 읽어와요.
    *
-   * 교시 바꾸기와 "안내 봤음"은 여기서 안 읽어요. 그 둘은 계정에도 있어서
-   * 누가 이기는지 정해야 하거든요. 여기서 읽으면 로그인 확인과 경쟁이 붙어요.
-   * 새 기기에서 로그인하면 이 effect가 빈 값을 먼저 읽고, 그 뒤에 계정에서
-   * 내려온 값을 덮어쓰거나 반대로 덮여요. 어느 쪽이 이길지 모르는 거예요.
-   * 그래서 그 둘은 로그인 확인이 끝난 뒤 한 곳에서만 정해요 (아래 pull).
+   * 교시 바꾸기·"안내 봤음"·알레르기는 여기서 안 읽어요. 셋 다 계정에도
+   * 있어서 누가 이기는지 정해야 하거든요. 여기서 읽으면 로그인 확인과 경쟁이
+   * 붙어요. 새 기기에서 로그인하면 이 effect가 빈 값을 먼저 읽고, 그 뒤에
+   * 계정에서 내려온 값을 덮어쓰거나 반대로 덮여요. 어느 쪽이 이길지 몰라요.
+   * 그래서 셋은 로그인 확인이 끝난 뒤 한 곳에서만 정해요 (아래 pull).
    */
   useEffect(() => {
     let alive = true;
-    Promise.all([loadAllergies(), loadMyEvents(), loadAccent(), loadSchemePref()]).then(
-      ([a, e, color, pref]) => {
+    Promise.all([loadMyEvents(), loadAccent(), loadSchemePref()]).then(
+      ([e, color, pref]) => {
         if (!alive) return;
-        setAllergiesState(a);
         setMyEventsState(e);
         // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
         if (color) setAccentState(readAccent(color));
@@ -380,10 +379,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [pushTeach, teach.classes, teach.edits],
   );
 
+  /*
+   * 못 먹는 재료를 골라요.
+   *
+   * 기기에도 담고 계정에도 올려요. 기기에 담는 건 인터넷이 끊겨도 급식 화면이
+   * 제대로 보이게 하려고요. 계정에 올리는 건 폰을 바꿔도 따라오게 하려고요.
+   * 못 먹는 걸 잘못 먹으면 큰일 나는데, 기기를 옮겼다고 다시 고르게 하면
+   * 안 고르고 지나가는 사람이 생겨요.
+   */
   const setAllergies = useCallback((list: Allergies) => {
     const sorted = [...new Set(list)].sort((a, b) => a - b);
     setAllergiesState(sorted);
     void saveAllergies(sorted);
+    // 로그인 안 했으면 기기에만 남아요. 다음에 로그인할 때 올라가요 (pull).
+    saveMySettings({ allergies: sorted }).catch(() => {});
   }, []);
 
   const addMyEvent = useCallback((date: string, title: string) => {
@@ -419,6 +428,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pullLocal = useCallback(async () => {
     setSwapsState(await loadSwaps());
     setSetupSeen(await loadSetupSeen());
+    setAllergiesState(await loadAllergies());
     setTeachState({ classes: [], edits: {} });
   }, []);
 
@@ -457,6 +467,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     setTeachState(who.teach);
+
+    /*
+     * 알레르기도 교시 바꾸기와 같은 규칙이에요. 계정에 있으면 그걸 쓰고,
+     * 기기에만 있으면 계정으로 올려요.
+     *
+     * 다만 "비었다"를 다루는 게 달라요. 교시 바꾸기는 비어 있는 게 흔한
+     * 상태지만, 알레르기는 비우는 게 곧 "이제 다 먹어도 돼요"라서 함부로
+     * 덮으면 안 돼요. 그래서 한쪽이라도 값이 있으면 그걸 살려요.
+     */
+    const localAllergy = await loadAllergies();
+    if (who.allergies.length > 0) {
+      setAllergiesState(who.allergies);
+      void saveAllergies(who.allergies);
+    } else if (localAllergy.length > 0) {
+      setAllergiesState(localAllergy);
+      saveMySettings({ allergies: localAllergy }).catch(() => {});
+    } else {
+      setAllergiesState([]);
+    }
 
     // 계정과 기기 중 한쪽이라도 봤으면 본 거예요. 다시 물어볼 이유가 없어요.
     const seen = who.setupSeen || (await loadSetupSeen());
