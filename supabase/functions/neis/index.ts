@@ -33,6 +33,7 @@ import {
   readThread,
   removeThread,
   reply,
+  setAnswered,
   startThread,
   ThreadError,
 } from '../_shared/threads.ts';
@@ -517,11 +518,28 @@ async function handle(req: Request, url: URL): Promise<Response> {
         const body = await readMessage(req, false);
         return json({ message: await reply(me, id, body.text) }, 201);
       }
+      /*
+       * 답변완료로 표시하거나 되돌려요. 선생님만요.
+       *
+       * 끝났는지를 계산으로 정하지 않아요. "잠깐만요" 도 답이라서, 답이
+       * 있는지로 세면 그 순간 끝난 게 돼버려요. 끝났는지는 선생님만 알아요.
+       */
+      if (req.method === 'PATCH') {
+        let body: { done?: unknown };
+        try {
+          body = (await req.json()) as typeof body;
+        } catch {
+          throw new BadRequest('보낸 내용을 읽을 수 없어요');
+        }
+        if (typeof body.done !== 'boolean') throw new BadRequest('done은 true나 false여야 해요');
+        return json({ thread: await setAnswered(me, id, body.done) });
+      }
+
       if (req.method === 'DELETE') {
         await removeThread(me, id);
         return json({ deleted: true });
       }
-      throw new BadRequest('쪽지는 GET, POST, DELETE만 돼요');
+      throw new BadRequest('쪽지는 GET, POST, PATCH, DELETE만 돼요');
     }
 
     // 선생님으로 올려요. 코드는 여기서 한 번만 확인해요.

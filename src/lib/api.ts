@@ -564,8 +564,16 @@ export type Thread = {
   last: ThreadMessage | null;
   count: number;
   unread: boolean;
-  /** 선생님 답변이 아직 없으면 true */
+  /**
+   * 아직 답변대기면 true.
+   *
+   * 선생님이 "답변완료" 를 누를 때까지 true예요. 답이 몇 줄 달렸는지로
+   * 정하지 않아요. "잠깐만요, 찾아보고 알려줄게요" 도 답이거든요.
+   * 학생이 한 줄 더 보내면 다시 true 로 돌아와요.
+   */
   pending: boolean;
+  /** 답변완료를 누른 선생님 이름. 아직 대기면 null이에요. */
+  answeredBy: string | null;
   at: string;
 };
 
@@ -573,6 +581,20 @@ export type Thread = {
 export async function getThreads(): Promise<Thread[]> {
   const { threads } = await call<{ threads: Thread[] }>({ kind: 'threads' });
   return threads;
+}
+
+/**
+ * 답변완료로 표시하거나 되돌려요. 선생님만 돼요.
+ *
+ * 되돌리기도 되게 뒀어요. 잘못 눌렀을 때 길이 없으면 그 쪽지는 영영 대기
+ * 목록에서 사라져요. 되돌릴 수 없는 버튼은 누르기가 무서워요.
+ */
+export async function markAnswered(id: string, done: boolean): Promise<Thread> {
+  const { thread } = await call<{ thread: Thread }>(
+    { kind: 'thread', id },
+    { method: 'PATCH', body: { done } },
+  );
+  return thread;
 }
 
 /** 쪽지 하나를 전부 읽어요. 여는 순간 읽음으로 표시돼요. */
