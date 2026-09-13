@@ -12,6 +12,7 @@ import { isPending, useApp } from '@/lib/app-state';
 import { byWeekday, withSwaps } from '@/lib/timetable';
 import { weekDates } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
+import { useReturn } from '@/lib/use-return';
 
 export default function CommunityScreen() {
   const { role } = useApp();
@@ -102,6 +103,15 @@ function StudentCommunity() {
   const staff = useRemote(`teachers:${group ?? ''}`, () =>
     group ? getSubjectTeachers(group) : Promise.resolve([]),
   );
+  /*
+   * 탭으로 돌아올 때마다 선생님 목록을 다시 받아와요.
+   *
+   * 그 사이에 선생님이 가입했거나 담당 과목을 바꿨을 수 있어요. 안 그러면
+   * "아직 가입하지 않았어요"가 계속 떠 있어요. 담아둔 걸 먼저 보여주고
+   * 뒤에서 갈아치우는 거라 화면이 깜빡이지는 않아요.
+   */
+  useReturn(staff.retry);
+
   const list = staff.data ?? [];
   const picked = list.find((t) => t.id === teacher) ?? null;
   const detail = describe(list);
@@ -260,7 +270,9 @@ function StudentCommunity() {
 /* ---------------- 선생님: 쪽지함 ---------------- */
 
 function TeacherInbox() {
-  const { palette, threads, threadsLoading, me } = useApp();
+  const { palette, threads, threadsLoading, me, reloadThreads } = useApp();
+  // 쪽지함도 같아요. 탭에 돌아올 때마다 새 쪽지가 있는지 다시 봐요.
+  useReturn(reloadThreads);
   const [tab, setTab] = useState<'pending' | 'done' | 'all'>('pending');
   const [find, setFind] = useState('');
   const pending = threads.filter(isPending);

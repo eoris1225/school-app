@@ -24,7 +24,7 @@
 | | 무엇을 보나 | 못 잡는 것 |
 |---|---|---|
 | `check-*.ts` (deno) | 계산 규칙. 시각, 과목 분류, 한글 조사 | 화면, 서버 |
-| `browser-photo.mjs` (playwright) | 실제로 그려진 화면, 캔버스, 좌표 | 진짜 서버 |
+| `browser-*.mjs` (playwright) | 실제로 그려진 화면, 캔버스, 좌표, 탭을 오가는 것 | 진짜 서버 |
 | `live-check.mjs` | **진짜 서버.** 표 권한, 칸 이름, method 목록 | — |
 
 라이브 검사가 따로 있는 이유가 있어요. 브라우저 검사는 서버를 흉내내는데,
@@ -55,9 +55,10 @@ deno run --allow-read scripts/check-palette.ts
 # 서버 쪽 (deno) — GitHub Actions 도 이걸 돌려요
 cd supabase/functions && deno test --allow-env --allow-read _shared/
 
-# 브라우저 (사진 고르고 줄이기)
+# 브라우저
 npm run build:web
-node scripts/browser-photo.mjs
+node scripts/browser-photo.mjs     # 사진 고르고 줄이고 보내기
+node scripts/browser-return.mjs    # 탭에 돌아오면 낡은 내용이 갈리는지
 
 # 진짜 서버
 TEACHER_CODE=선생님코드 node scripts/live-check.mjs
@@ -75,6 +76,11 @@ TEACHER_CODE=선생님코드 node scripts/live-check.mjs
 줄일 때 안 정하는 쪽에 `null` 을 넘겨서 난 거예요. 타입도 문서도 null 을
 받는다고 하는데 웹 구현은 `undefined` 만 걸러내요. **폰에서는 멀쩡했고
 웹에서 사진 보낼 때만 터졌어요.** 흉내로는 안 잡혀요.
+
+`browser-return.mjs` 는 **낡은 화면**을 봐요. 탭 화면은 한 번 열리면 안
+닫혀서, 처음 받아온 값이 계속 남아요. 화면은 멀쩡해 보이고 내용만 낡은
+거라 제일 알아채기 어려워요. 서버 답을 도중에 바꿔놓고 탭을 나갔다 들어와서
+갈리는지 재요.
 
 `TEACHER_CODE` 는 Supabase 대시보드 > Edge Functions > Secrets 에 있어요.
 **영문·숫자만 돼요.** 한글로 넣으면 HTTP 헤더에 못 실려서 조용히 실패해요.
