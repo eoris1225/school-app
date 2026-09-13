@@ -42,7 +42,9 @@ jobs:
         run: npx tsc --noEmit
 
       - name: 웹으로 내보내기
-        run: npx expo export --platform web
+        # 내보낸 뒤에 "홈 화면에 추가" 정보를 넣는 것까지 한 번에 해요.
+        # (scripts/add-pwa-tags.mjs 가 왜 따로 필요한지는 그 파일에 적어뒀어요)
+        run: npm run build:web
 
       - name: 새로고침해도 안 깨지게 준비
         # 한 장짜리 앱(SPA)이라 /meal 같은 주소로 새로고침하면 GitHub Pages가
