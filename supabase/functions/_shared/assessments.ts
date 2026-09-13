@@ -20,6 +20,11 @@ export type Assessment = {
   detail: string | null;
   grades: number[];
   classes: string[];
+  /**
+   * 누가 올렸는지. 이 칸이 생기기 전에 올라간 것은 null이에요.
+   * 계정을 지운 선생님이면 id만 비고 이름은 남아요.
+   */
+  by: { id: string | null; name: string } | null;
 };
 
 export type NewAssessment = {
@@ -48,6 +53,9 @@ const headers = () => ({
 
 /** 응답에서 우리가 쓰는 것만 꺼내요. 표 칸이 늘어도 앱은 안 흔들려요. */
 function toAssessment(row: Record<string, unknown>): Assessment {
+  const ownerId = row.created_by === null || row.created_by === undefined ? null : String(row.created_by);
+  const ownerName = row.created_by_name === null || row.created_by_name === undefined
+    ? '' : String(row.created_by_name);
   return {
     id: String(row.id),
     date: String(row.date),
@@ -56,6 +64,8 @@ function toAssessment(row: Record<string, unknown>): Assessment {
     detail: row.detail === null || row.detail === undefined ? null : String(row.detail),
     grades: Array.isArray(row.grades) ? row.grades.map(Number) : [],
     classes: Array.isArray(row.classes) ? row.classes.map(String) : [],
+    // 둘 다 없으면 주인을 모르는 예전 줄이에요.
+    by: ownerId || ownerName ? { id: ownerId, name: ownerName } : null,
   };
 }
 
@@ -65,7 +75,7 @@ export async function listAssessments(
   to: string,
 ): Promise<Assessment[]> {
   const q = new URLSearchParams({
-    select: 'id,date,title,subject,detail,grades,classes',
+    select: 'id,date,title,subject,detail,grades,classes,created_by,created_by_name',
     school_office: `eq.${school.office}`,
     school_code: `eq.${school.code}`,
     date: `gte.${from}`,
@@ -83,6 +93,8 @@ export async function listAssessments(
 export async function createAssessment(
   school: { office: string; code: string },
   item: NewAssessment,
+  /** 올리는 사람. 나중에 이 사람만 지울 수 있게 하려고 같이 담아요. */
+  by: { id: string; name: string },
 ): Promise<Assessment> {
   const res = await fetch(table(''), {
     method: 'POST',
@@ -96,6 +108,8 @@ export async function createAssessment(
       detail: item.detail,
       grades: item.grades,
       classes: item.classes,
+      created_by: by.id,
+      created_by_name: by.name,
     }),
   });
   if (!res.ok) {
@@ -106,10 +120,19 @@ export async function createAssessment(
   return toAssessment(rows[0]);
 }
 
-/** 지운 개수를 돌려줘요. 0이면 그런 수행평가가 없었다는 뜻이에요. */
+/**
+ * 지운 개수를 돌려줘요. 0이면 못 지웠다는 뜻이에요.
+ *
+ * 올린 사람만 지울 수 있어요. 예전에 올라간 줄은 주인이 없어서 아무 선생님이나
+ * 지울 수 있게 둬요. 안 그러면 아무도 못 지우는 줄이 영영 남아요.
+ *
+ * 조건을 앱이 아니라 여기서 걸어요. 앱에서 버튼만 감추면 주소를 직접 부르는
+ * 것까지는 못 막아요. 같은 학교 선생님이라도 남의 수행평가를 지우면 안 돼요.
+ */
 export async function deleteAssessment(
   school: { office: string; code: string },
   id: string,
+  byId: string,
 ): Promise<number> {
   // 학교까지 같이 걸어요. 남의 학교 것을 id만으로 지우면 안 되니까요.
   const q = new URLSearchParams({
@@ -117,7 +140,9 @@ export async function deleteAssessment(
     school_office: `eq.${school.office}`,
     school_code: `eq.${school.code}`,
   });
-  const res = await fetch(`${table('')}?${q}`, {
+  // 내가 올린 것이거나, 주인이 없는 예전 줄일 때만요.
+  const who = `or=(created_by.eq.${byId},created_by.is.null)`;
+  const res = await fetch(`${table('')}?${q}&${who}`, {
     method: 'DELETE',
     headers: { ...headers(), prefer: 'return=representation' },
   });

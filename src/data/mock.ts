@@ -63,20 +63,41 @@ export type SchoolEvent = {
   grades: number[];
   /** 해당되는 반들. 비어 있으면 고른 학년 전체예요. */
   classes: string[];
+  /**
+   * 이 일정을 올린 선생님. NEIS 학사일정과 예전에 올라간 것은 없어요.
+   * 이게 있어야 "내가 올린 것"만 골라 보고, 남의 것은 못 지우게 할 수 있어요.
+   */
+  by?: { id: string | null; name: string };
 };
 
 /** '전체' / '2·3학년' / '2학년 1·3반' 처럼 누구에게 보이는지 한 줄로 적어요. */
 export function targetLabel(e: Pick<SchoolEvent, 'grades' | 'classes'>): string {
   if (e.grades.length === 0) return '전체';
   const grade = `${e.grades.join('·')}학년`;
-  return e.classes.length === 0 ? grade : `${grade} ${e.classes.join('·')}반`;
+  if (e.classes.length === 0) return grade;
+  // 반을 '2-1' 처럼 학년까지 적어뒀으면 그대로 보여줘요. 그게 더 정확해요.
+  if (e.classes.some(isRoomId)) return e.classes.join('·');
+  return `${grade} ${e.classes.join('·')}반`;
 }
 
-/** 이 일정이 나에게 보이는 것인지. 학년과 반이 둘 다 맞아야 해요. */
+/** '2-1' 처럼 학년까지 붙은 반 이름인지 */
+const isRoomId = (c: string) => c.includes('-');
+
+/**
+ * 이 일정이 나에게 보이는 것인지.
+ *
+ * 반을 적는 방법이 두 가지예요.
+ *   '1'   학년 칸과 짝지어 봐요. 2학년에 1·3반이면 2-1과 2-3이에요.
+ *   '2-1' 그 반 하나예요.
+ *
+ * 두 번째가 나중에 생겼어요. 1-5와 2-1에만 들어가는 선생님이 첫 번째 방법으로는
+ * 그걸 적을 수가 없거든요. 학년 [1,2] × 반 [5,1] 이 되면서 1-1과 2-5까지
+ * 딸려 들어가요. 예전에 올라간 일정도 그대로 보여야 해서 둘 다 봐요.
+ */
 export function showsTo(e: Pick<SchoolEvent, 'grades' | 'classes'>, grade: number, cls: string): boolean {
   if (e.grades.length > 0 && !e.grades.includes(grade)) return false;
-  if (e.classes.length > 0 && !e.classes.includes(cls)) return false;
-  return true;
+  if (e.classes.length === 0) return true;
+  return e.classes.some((c) => (isRoomId(c) ? c === `${grade}-${cls}` : c === cls));
 }
 
 /**

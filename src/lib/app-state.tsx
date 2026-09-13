@@ -13,7 +13,6 @@ import { Appearance } from 'react-native';
 import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
 import { toYmd } from '@/lib/time';
 import { clearRemoteCache, primeRemote } from '@/lib/use-remote';
-import { subjectGroup } from '@/lib/subject';
 import type { TeachSettings } from '@/lib/teacher-week';
 import { getMe } from '@/lib/api';
 import { signOut as authSignOut, watchSession, type Me } from '@/lib/auth';
@@ -170,6 +169,7 @@ function fromAssessment(a: Assessment): SchoolEvent {
     detail: a.detail ?? undefined,
     grades: a.grades,
     classes: a.classes,
+    by: a.by ?? undefined,
   };
 }
 
@@ -726,20 +726,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /**
    * 누가 무엇을 지울 수 있는지 한 곳에서 정해요.
    *
-   * 수행평가는 그 과목 선생님만 지울 수 있어요. 국어 선생님이 수학 수행평가를
-   * 지우면 안 되니까요. 과목 이름이 '미적분Ⅰ' 처럼 와도 맞도록 교과군으로 봐요.
+   * 올린 사람만 지울 수 있어요. 예전에는 "같은 과목 선생님이면"이었는데,
+   * 그러면 수학 선생님 여섯 분이 서로의 수행평가를 지울 수 있어요. 실수로
+   * 지우면 학생 달력에서 그냥 사라져요.
    *
    * NEIS에서 온 학사일정은 우리가 만든 게 아니라 아무도 못 지워요.
-   * 선생님이 직접 올린 학사일정은 선생님이면 지울 수 있어요.
    */
   const canDelete = useCallback(
     (event: SchoolEvent) => {
       if (role !== 'teacher') return false;
       if (event.id.startsWith('neis:')) return false;
-      if (event.kind !== 'assessment') return true;
-      if (!event.subject) return false;
-      const mine = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
-      return mine.has(subjectGroup(event.subject));
+      // 주인을 아는 일정은 올린 사람만 지워요. 서버에서도 같은 규칙으로 막아요.
+      // 여기서만 막으면 주소를 직접 부르는 건 못 막거든요.
+      if (event.by) return event.by.id === me?.id;
+      // 이 칸이 생기기 전에 올라간 일정이에요. 주인을 알 수가 없어요.
+      // 아무도 못 지우게 두면 영영 남으니 선생님이면 지울 수 있게 둬요.
+      return true;
     },
     [role, me],
   );

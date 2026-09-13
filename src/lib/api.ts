@@ -235,6 +235,8 @@ export type Assessment = {
   detail: string | null;
   grades: number[];
   classes: string[];
+  /** 올린 선생님. 이 칸이 생기기 전에 올라간 것은 null이에요. */
+  by: { id: string | null; name: string } | null;
 };
 
 export async function getAssessments(
@@ -251,8 +253,11 @@ export async function getAssessments(
   return r.assessments;
 }
 
+/** 올릴 때 보내는 것. 주인은 서버가 로그인한 사람으로 적어요. */
+export type NewAssessment = Omit<Assessment, 'id' | 'by'>;
+
 export async function addAssessment(
-  item: Omit<Assessment, 'id'>,
+  item: NewAssessment,
   school?: SchoolRef,
 ): Promise<Assessment> {
   const r = await call<{ assessment: Assessment }>(
