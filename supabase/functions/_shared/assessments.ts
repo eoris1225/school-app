@@ -36,7 +36,18 @@ export type NewAssessment = {
   classes: string[];
 };
 
-export class DbError extends Error {}
+/**
+ * 표를 건드리다 생긴 오류예요.
+ *
+ * 표가 돌려준 상태 번호를 같이 들고 다녀요. 화면에는 자세한 내용을 안 보여주지만
+ * 번호 하나는 알려줘요. "안 됐어요"만 뜨면 무엇이 잘못됐는지 알 길이 없어요.
+ * 번호는 표 구조를 드러내지 않으면서 원인을 좁혀줘요.
+ */
+export class DbError extends Error {
+  constructor(message: string, readonly status = 0) {
+    super(message);
+  }
+}
 
 function table(path: string): string {
   if (!URL_BASE || !SERVICE_KEY) {
@@ -85,7 +96,7 @@ export async function listAssessments(
   const url = `${table('')}?${q}&date=lte.${to}`;
 
   const res = await fetch(url, { headers: headers() });
-  if (!res.ok) throw new DbError(`수행평가를 읽지 못했어요 (${res.status})`);
+  if (!res.ok) throw new DbError(`수행평가를 읽지 못했어요 (${res.status})`, res.status);
   const rows = (await res.json()) as Record<string, unknown>[];
   return rows.map(toAssessment);
 }
@@ -114,7 +125,7 @@ export async function createAssessment(
   });
   if (!res.ok) {
     const detail = await res.text();
-    throw new DbError(`수행평가를 담지 못했어요 (${res.status}) ${detail.slice(0, 120)}`);
+    throw new DbError(`수행평가를 담지 못했어요 (${res.status}) ${detail.slice(0, 200)}`, res.status);
   }
   const rows = (await res.json()) as Record<string, unknown>[];
   return toAssessment(rows[0]);
@@ -160,7 +171,7 @@ export async function updateAssessment(
   });
   if (!res.ok) {
     const detail = await res.text();
-    throw new DbError(`일정을 고치지 못했어요 (${res.status}) ${detail.slice(0, 120)}`);
+    throw new DbError(`일정을 고치지 못했어요 (${res.status}) ${detail.slice(0, 200)}`, res.status);
   }
   const rows = (await res.json()) as Record<string, unknown>[];
   return rows.length ? toAssessment(rows[0]) : null;
@@ -192,7 +203,7 @@ export async function deleteAssessment(
     method: 'DELETE',
     headers: { ...headers(), prefer: 'return=representation' },
   });
-  if (!res.ok) throw new DbError(`수행평가를 지우지 못했어요 (${res.status})`);
+  if (!res.ok) throw new DbError(`수행평가를 지우지 못했어요 (${res.status})`, res.status);
   const rows = (await res.json()) as unknown[];
   return rows.length;
 }

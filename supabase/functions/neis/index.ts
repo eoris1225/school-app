@@ -712,7 +712,9 @@ Deno.serve(async (req) => {
     if (e instanceof ThreadError) return json({ error: e.message }, 400);
     if (e instanceof DbError) {
       console.error('DB 오류', e.message);
-      return json({ error: '수행평가를 처리하지 못했어요' }, 502);
+      // 자세한 내용은 기록에만 남겨요. 화면에는 상태 번호만 줘요. 번호만으로도
+      // "표가 거절했나 / 못 닿았나"가 갈려서 원인을 좁힐 수 있어요.
+      return json({ error: '수행평가를 처리하지 못했어요', db: e.status }, 502);
     }
     if (e instanceof NeisError) {
       console.error('NEIS 오류', e.code, e.message);
