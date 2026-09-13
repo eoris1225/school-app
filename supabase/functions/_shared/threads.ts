@@ -15,6 +15,7 @@
  */
 
 import type { Me } from './auth.ts';
+import { notify } from './push.ts';
 
 const URL_BASE = Deno.env.get('SUPABASE_URL');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -339,8 +340,12 @@ export async function startThread(
 /** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
 export async function reply(me: Me, id: string, text: string, imagePath?: string): Promise<Message> {
   // 볼 수 있는 쪽지인지 먼저 봐요. 남의 쪽지에 끼어들면 안 되니까요.
-  const rows = await ask(`${rest('threads')}?select=id&id=eq.${id}&${scope(me)}`);
+  // 알림을 보내려면 누구 쪽지인지도 알아야 해서 같이 받아와요.
+  const rows = await ask(
+    `${rest('threads')}?select=id,subject,student_id,student_name,teacher_id&id=eq.${id}&${scope(me)}`,
+  );
   if (rows.length === 0) throw new ThreadError('그런 쪽지가 없어요');
+  const row = rows[0];
 
   const made = await ask(rest('messages'), {
     method: 'POST',
@@ -362,8 +367,61 @@ export async function reply(me: Me, id: string, text: string, imagePath?: string
     body: JSON.stringify({ [other]: true, updated_at: new Date().toISOString() }),
   });
 
+  /*
+   * 상대편에게 알림을 보내요.
+   *
+   * 학생한테는 이게 제일 큰 알림이에요. 지금까지는 선생님이 답을 달아도
+   * 학생이 앱을 열어봐야만 알았어요. 하루 종일 모르고 지나가기도 하고요.
+   *
+   * 보내다 잘못돼도 답장은 그대로 저장돼요. 알림은 덤이라서, 알림이 안 갔다고
+   * 답장까지 실패하면 안 돼요.
+   */
+  void notifyOther(me, row, text).catch(() => {});
+
   const one = toMessage(made[0]);
   return one.image ? { ...one, image: await signedUrl(one.image) } : one;
+}
+
+/**
+ * 답을 단 사람 말고 상대편에게 알려요.
+ *
+ * 선생님이 달았으면 그 학생 한 사람에게요.
+ * 학생이 달았으면 그 쪽지를 보는 선생님에게요. 콕 집어 보낸 쪽지면 그분만,
+ * 아니면 그 과목을 맡은 선생님 모두에게 가요. 쪽지함에 보이는 사람과 알림을
+ * 받는 사람이 같아야 해요. 안 그러면 "알림은 안 왔는데 쪽지함에는 있네" 가 돼요.
+ */
+async function notifyOther(me: Me, row: Record<string, unknown>, text: string): Promise<void> {
+  const subject = String(row.subject ?? '');
+  const preview = text.trim().slice(0, 60);
+
+  if (me.role === 'teacher') {
+    const to = row.student_id ? String(row.student_id) : '';
+    if (!to) return;
+    await notify(to, {
+      title: `${me.name} 선생님이 답했어요`,
+      body: preview,
+      path: '/community',
+      tag: `thread-${String(row.id)}`,
+    });
+    return;
+  }
+
+  const who = String(row.student_name ?? '학생');
+  const note = {
+    title: `${who} 학생이 ${subject} 질문을 보냈어요`,
+    body: preview,
+    path: '/community',
+    tag: `thread-${String(row.id)}`,
+  };
+
+  if (row.teacher_id) {
+    await notify(String(row.teacher_id), note);
+    return;
+  }
+
+  // 콕 집어 보낸 게 아니면 그 과목 선생님 모두예요. 쪽지함 규칙과 같아요.
+  const staff = await listTeachers(me, subject);
+  await Promise.all(staff.map((t) => notify(t.id, note)));
 }
 
 /**

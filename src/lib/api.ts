@@ -453,6 +453,39 @@ export async function saveSchoolToAccount(v: {
  * 다시 하라는 건 좀 그래요. 알레르기는 안 보내요. 화면에 이 기기에만
  * 담긴다고 적어뒀으니 그 약속은 지켜야죠.
  */
+/* ---------------- 알림 ---------------- */
+
+export type PushInfo = {
+  /** 서버에 열쇠가 들어 있는지. 없으면 알림을 못 켜요. */
+  ready: boolean;
+  /** 구독할 때 쓰는 공개 열쇠. 감출 값이 아니에요. */
+  key: string;
+  /** 지금 몇 군데서 알림을 받고 있는지 (폰, 노트북...) */
+  count: number;
+};
+
+export async function getPushInfo(): Promise<PushInfo> {
+  return await call<PushInfo>({ kind: 'push' });
+}
+
+export async function subscribePush(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  agent?: string;
+}): Promise<number> {
+  const { count } = await call<{ count: number }>({ kind: 'push' }, { method: 'POST', body: sub });
+  return count;
+}
+
+export async function unsubscribePush(endpoint: string): Promise<number> {
+  const { count } = await call<{ count: number }>(
+    { kind: 'push' },
+    { method: 'DELETE', body: { endpoint } },
+  );
+  return count;
+}
+
 export async function saveMySettings(v: {
   swaps?: Record<string, string>;
   setupSeen?: boolean;
