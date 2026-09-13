@@ -34,22 +34,69 @@ import { blankBells, checkBells, MAX_PERIODS, tidyTime, toMin, type Bells } from
 /** 한 줄에 담는 값. 다듬기 전이라 '0810' 같은 것도 잠깐 들어 있어요. */
 type Row = { period: number; start: string; end: string };
 
-/** 기본 수업 시간이에요. 시작만 넣으면 끝을 이만큼 뒤로 채워드려요. */
+/*
+ * 처음 채워드릴 때 쓰는 길이예요.
+ *
+ * 한 교시 50분에 쉬는 시간 10분. 우리나라 고등학교에서 제일 흔한 모양이에요.
+ * 점심은 한 시간으로 잡고요.
+ *
+ * 이건 **넣는 화면에서만** 쓰는 값이에요. 학생 화면에는 안 나가요. 선생님이
+ * 보고 저장을 눌러야 그때 올라가요. 그러니까 지어낸 값을 보여주는 게 아니라,
+ * 빈 칸 열네 개를 마주하지 않게 먼저 적어드리는 거예요.
+ *
+ * 여기에 특정 학교 시각을 박아두면 안 돼요. 그러면 다른 학교 선생님이
+ * 확인 없이 저장했을 때 남의 학교 종소리가 그 학교 학생 화면에 떠요.
+ * 그래서 시작 시각은 안 정해둬요. 그건 선생님이 치는 한 칸이에요.
+ */
 const LESSON_MINUTES = 50;
+const BREAK_MINUTES = 10;
+const LUNCH_MINUTES = 60;
 
 const pad = (n: number) => String(n).padStart(2, '0');
+const hhmm = (t: number) => `${pad(Math.floor(t / 60) % 24)}:${pad(t % 60)}`;
 
 /** '08:10' 에 50분을 더해 '09:00' */
-function plus(hhmm: string, minutes: number): string {
-  const t = toMin(hhmm) + minutes;
-  return `${pad(Math.floor(t / 60) % 24)}:${pad(t % 60)}`;
+const plus = (at: string, minutes: number) => hhmm(toMin(at) + minutes);
+
+/**
+ * 1교시 시작 하나로 표를 쭉 깔아요.
+ *
+ * 점심이 있는 교시 뒤에만 더 길게 쉬어요. 나머지는 10분씩이고요.
+ */
+function spread(rows: Row[], firstStart: string, lunchAfter: number): Row[] {
+  let at = toMin(firstStart);
+  return rows.map((r) => {
+    const end = at + LESSON_MINUTES;
+    const line = { period: r.period, start: hhmm(at), end: hhmm(end) };
+    at = end + (r.period === lunchAfter ? LUNCH_MINUTES : BREAK_MINUTES);
+    return line;
+  });
+}
+
+/** 1교시 시작 말고는 아무것도 안 적힌 표인지. 그럴 때만 통째로 깔아요. */
+const onlyFirstStart = (rows: Row[]) =>
+  rows.every((r, i) => (i === 0 ? !r.end.trim() : !r.start.trim() && !r.end.trim()));
+
+/** 손 안 대고 깔린 그대로인지. 그럴 때만 점심 자리를 따라 다시 깔아요. */
+function untouched(rows: Row[], lunchAfter: number): boolean {
+  const first = tidyTime(rows[0]?.start ?? '');
+  if (!first) return false;
+  const same = spread(rows, first, lunchAfter);
+  return rows.every((r, i) => r.start === same[i].start && r.end === same[i].end);
 }
 
 export default function BellTimesScreen() {
   const { palette, role, bells, bellsLoading, setBells } = useApp();
 
   const [rows, setRows] = useState<Row[]>(() => bells?.periods ?? blankBells());
-  const [lunch, setLunch] = useState(() => bells?.lunchAfter ?? 0);
+  /*
+   * 점심 자리는 4교시 뒤를 미리 골라둬요.
+   *
+   * 시각과 달리 이건 "몇 번째 칸"이라 학교마다 크게 다르지 않고, 무엇보다
+   * 화면에 보이는 채로 고를 수 있어요. 틀리면 칩 하나 누르면 되고요.
+   * 이것도 저장을 눌러야 나가는 값이에요.
+   */
+  const [lunch, setLunchState] = useState(() => bells?.lunchAfter ?? 4);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -78,11 +125,29 @@ export default function BellTimesScreen() {
   const leaveStart = (i: number) => {
     const fixed = tidyTime(rows[i].start);
     if (!fixed) return;
+    // 1교시만 적고 나머지가 텅 비어 있으면 표를 통째로 깔아드려요.
+    if (i === 0 && onlyFirstStart(rows)) {
+      setRows(spread(rows, fixed, lunch));
+      return;
+    }
     setRows((list) =>
       list.map((r, k) =>
         k === i ? { ...r, start: fixed, end: r.end.trim() ? r.end : plus(fixed, LESSON_MINUTES) } : r,
       ),
     );
+  };
+
+  /*
+   * 점심 자리를 옮기면 표도 따라 움직여요. 단, 손 안 댄 표만요.
+   *
+   * 깔아드린 표는 점심 자리를 보고 깐 거라, 자리를 옮겼는데 시각이 그대로면
+   * 점심이 사라진 자리에 구멍이 남아요. 반대로 선생님이 한 칸이라도 고쳤으면
+   * 절대 안 건드려요. 고쳐놓은 걸 화면이 되돌리는 게 제일 나빠요.
+   */
+  const setLunch = (next: number) => {
+    const first = tidyTime(rows[0]?.start ?? '');
+    if (first && untouched(rows, lunch)) setRows(spread(rows, first, next));
+    setLunchState(next);
   };
 
   const leaveEnd = (i: number) => {
@@ -91,13 +156,22 @@ export default function BellTimesScreen() {
   };
 
   const addRow = () =>
-    setRows((list) => [...list, { period: list.length + 1, start: '', end: '' }]);
+    setRows((list) => {
+      // 앞 교시가 끝나는 시각을 이어받아요. 또 처음부터 칠 이유가 없어요.
+      const last = list[list.length - 1];
+      const from = last ? tidyTime(last.end) : null;
+      const start = from ? plus(from, last.period === lunch ? LUNCH_MINUTES : BREAK_MINUTES) : '';
+      return [
+        ...list,
+        { period: list.length + 1, start, end: start ? plus(start, LESSON_MINUTES) : '' },
+      ];
+    });
 
   const dropRow = () =>
     setRows((list) => {
       const next = list.slice(0, -1);
       // 점심이 사라진 교시 뒤를 가리키고 있으면 같이 내려요.
-      setLunch((l) => Math.min(l, next.length));
+      setLunchState((l) => Math.min(l, next.length));
       return next;
     });
 
@@ -173,8 +247,8 @@ export default function BellTimesScreen() {
       ))}
 
       <Text style={[styles.hint, { color: palette.sub }]}>
-        시작 시각을 넣고 다음 칸으로 넘어가면 끝나는 시각을 {LESSON_MINUTES}분 뒤로 채워드려요.
-        다르면 고쳐주세요.
+        1교시 시작만 넣으면 나머지를 {LESSON_MINUTES}분 수업 · {BREAK_MINUTES}분 쉬는 시간으로
+        쭉 채워드려요. 다른 데는 고치면 되고, 고친 칸은 다시 안 건드려요.
       </Text>
 
       <View style={styles.buttons}>
@@ -202,16 +276,23 @@ export default function BellTimesScreen() {
       <Text style={[styles.body, { color: palette.sub }]}>
         몇 교시 뒤인지만 골라주세요. 시각은 그 교시가 끝나는 때부터 다음 교시가 시작할 때까지예요.
       </Text>
+      {/*
+        미리 골라둔 '4교시'가 화면 밖으로 밀려 있었어요. 뭐가 골라져 있는지
+        보려면 옆으로 밀어야 했죠. 골라진 걸 안 보여주는 고르개는 고장난
+        거예요. '뒤'를 떼고 '없음'을 끝으로 보내서 흔한 자리를 앞에 뒀어요.
+        ("몇 교시 뒤인지"는 바로 위 설명에 적혀 있어요)
+      */}
       <ChipRow>
-        <Chip label="없음" selected={lunch === 0} onPress={() => setLunch(0)} />
         {rows.map((r) => (
           <Chip
             key={r.period}
-            label={`${r.period}교시 뒤`}
+            label={`${r.period}교시`}
+            say={`점심은 ${r.period}교시 뒤`}
             selected={lunch === r.period}
             onPress={() => setLunch(r.period)}
           />
         ))}
+        <Chip label="없음" say="점심 자리 안 그림" selected={lunch === 0} onPress={() => setLunch(0)} />
       </ChipRow>
 
       {/*

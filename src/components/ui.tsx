@@ -229,6 +229,7 @@ export function Chip({
   onPress,
   /** 켜면 label을 과목 이름으로 보고 과목별 포인트 색을 입혀요. */
   colored = false,
+  say,
 }: {
   label: string;
   /**
@@ -241,6 +242,15 @@ export function Chip({
   selected: boolean;
   onPress: () => void;
   colored?: boolean;
+  /**
+   * 읽어줄 말. 안 주면 label 을 그대로 읽어요.
+   *
+   * 칸이 좁아서 줄인 글씨가 혼자서는 말이 안 될 때 쓰세요. 점심 자리를
+   * 고르는 칩이 '4교시' 라고만 적혀 있는데, 그것만 들으면 4교시가 점심이라는
+   * 건지 뭔지 알 수가 없어요. 옆 글씨를 같이 보는 눈과 달리 귀는 칩 하나만
+   * 들으니까요.
+   */
+  say?: string;
 }) {
   const { palette } = useApp();
   const t = colored ? subjectTone(label, palette.scheme) : null;
@@ -257,7 +267,7 @@ export function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       depth={0.05}
-      accessibilityLabel={detail ? `${label}, ${detail}` : label}
+      accessibilityLabel={say ?? (detail ? `${label}, ${detail}` : label)}
       style={[styles.chip, detail ? styles.chipTall : null, selected ? on : off]}>
       <Text style={[styles.chipText, { color }]}>{label}</Text>
       {detail ? (
