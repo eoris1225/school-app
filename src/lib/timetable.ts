@@ -1,9 +1,16 @@
 import type { Lesson } from '@/lib/api';
-import { WEEKDAYS, type Weekday } from '@/data/mock';
+import { BELL, WEEKDAYS, type Weekday } from '@/data/mock';
 import { applySwap, type SubjectSwaps } from '@/lib/my-settings';
 
-/** 요일마다 교시 순서대로 늘어놓은 과목 이름. 없는 교시는 빈 자리예요. */
-export type Week = Record<Weekday, string[]>;
+/**
+ * 요일마다 교시 순서대로 늘어놓은 과목 이름. 수업이 없는 교시는 null이에요.
+ *
+ * null 로 채워두는 게 중요해요. 예전에는 그 자리를 아예 비워뒀는데, 그러면
+ * 구멍 뚫린 배열이 돼요. 자바스크립트의 map 과 forEach 는 구멍을 건너뛰어요.
+ * 그래서 "5교시가 비었어요" 를 그리려고 해도 그 자리에 아예 안 들러요.
+ * 조용히 지나가서 찾기도 어려웠어요.
+ */
+export type Week = Record<Weekday, (string | null)[]>;
 
 /**
  * 서버가 준 교시 목록을 요일별로 펴요.
@@ -13,7 +20,8 @@ export type Week = Record<Weekday, string[]>;
  */
 export function byWeekday(lessons: Lesson[], dates: Record<Weekday, string>): Week {
   const week = {} as Week;
-  for (const day of WEEKDAYS) week[day] = [];
+  // 교시 수만큼 null 로 채워둬요. 구멍을 남기지 않으려고요.
+  for (const day of WEEKDAYS) week[day] = Array.from({ length: BELL.length }, () => null);
 
   // 날짜 -> 요일을 한 번만 만들어두고 찾아요.
   const dayOf = new Map<string, Weekday>();
@@ -21,7 +29,10 @@ export function byWeekday(lessons: Lesson[], dates: Record<Weekday, string>): We
 
   for (const lesson of lessons) {
     const day = dayOf.get(lesson.date);
-    if (day) week[day][lesson.period - 1] = lesson.subject;
+    // 학교가 8교시까지 올리는 날이 있을 수 있어요. 그때는 자리를 늘려요.
+    if (!day) continue;
+    while (week[day].length < lesson.period) week[day].push(null);
+    week[day][lesson.period - 1] = lesson.subject;
   }
   return week;
 }
@@ -42,7 +53,14 @@ export function withSwaps(week: Week, swaps: SubjectSwaps): Week {
 }
 
 /** 그 주에서 같은 과목 이름이 나오는 다른 교시들. '화-7' 모양이에요. */
-export function sameNameSlots(week: Week, day: Weekday, period: number, subject: string): string[] {
+export function sameNameSlots(
+  week: Week,
+  day: Weekday,
+  period: number,
+  subject: string | null,
+): string[] {
+  // 빈 교시끼리는 "같은 이름"이 아니에요. null 을 넘기면 아무것도 안 걸려요.
+  if (!subject) return [];
   const out: string[] = [];
   for (const d of WEEKDAYS) {
     week[d].forEach((s, i) => {

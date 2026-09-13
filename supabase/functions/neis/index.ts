@@ -565,6 +565,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
         swaps?: Record<string, string>;
         setupSeen?: boolean;
         teach?: { classes: string[]; edits: Record<string, string> };
+        allergies?: number[];
       } = {};
 
       if (body.swaps !== undefined) {
@@ -587,6 +588,24 @@ async function handle(req: Request, url: URL): Promise<Response> {
       if (body.setupSeen !== undefined) {
         if (typeof body.setupSeen !== 'boolean') throw new BadRequest('setupSeen이 이상해요');
         v.setupSeen = body.setupSeen;
+      }
+
+      /*
+       * 못 먹는 재료 번호예요. 교육부가 정한 1~19번이고 그 밖은 안 받아요.
+       * 스무 개를 다 고를 수는 있으니 개수는 안 막아요.
+       */
+      if (body.allergies !== undefined) {
+        const raw = body.allergies;
+        if (!Array.isArray(raw)) throw new BadRequest('알레르기가 이상해요');
+        const nums: number[] = [];
+        for (const n of raw) {
+          const one = Number(n);
+          if (!Number.isInteger(one) || one < 1 || one > 19) {
+            throw new BadRequest('알레르기 번호가 이상해요');
+          }
+          nums.push(one);
+        }
+        v.allergies = [...new Set(nums)].sort((a, b) => a - b);
       }
 
       /*
