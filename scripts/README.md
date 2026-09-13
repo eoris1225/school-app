@@ -24,7 +24,7 @@
 | | 무엇을 보나 | 못 잡는 것 |
 |---|---|---|
 | `check-*.ts` (deno) | 계산 규칙. 시각, 과목 분류, 한글 조사 | 화면, 서버 |
-| 브라우저 검사 (playwright) | 실제로 그려진 화면과 좌표 | 진짜 서버 |
+| `browser-photo.mjs` (playwright) | 실제로 그려진 화면, 캔버스, 좌표 | 진짜 서버 |
 | `live-check.mjs` | **진짜 서버.** 표 권한, 칸 이름, method 목록 | — |
 
 라이브 검사가 따로 있는 이유가 있어요. 브라우저 검사는 서버를 흉내내는데,
@@ -53,9 +53,26 @@ deno run --allow-read scripts/check-palette.ts
 # 서버 쪽 (deno) — GitHub Actions 도 이걸 돌려요
 cd supabase/functions && deno test --allow-env --allow-read _shared/
 
+# 브라우저 (사진 고르고 줄이기)
+npm run build:web
+node scripts/browser-photo.mjs
+
 # 진짜 서버
 TEACHER_CODE=선생님코드 node scripts/live-check.mjs
 ```
+
+`browser-photo.mjs` 는 playwright 가 있어야 해요. 저장소 의존성에는 안
+넣었어요 (브라우저까지 따라와서 무거워요). 없으면 `npm i -D playwright`
+하세요. 서버와 시험용 사진은 스크립트가 알아서 만들고 치워요.
+
+사진 줄이기를 왜 브라우저에서 보냐면, 그 버그가 캔버스에만 살거든요.
+
+    Failed to execute 'createImageData' on 'CanvasRenderingContext2D':
+    The source height is zero or not a number.
+
+줄일 때 안 정하는 쪽에 `null` 을 넘겨서 난 거예요. 타입도 문서도 null 을
+받는다고 하는데 웹 구현은 `undefined` 만 걸러내요. **폰에서는 멀쩡했고
+웹에서 사진 보낼 때만 터졌어요.** 흉내로는 안 잡혀요.
 
 `TEACHER_CODE` 는 Supabase 대시보드 > Edge Functions > Secrets 에 있어요.
 **영문·숫자만 돼요.** 한글로 넣으면 HTTP 헤더에 못 실려서 조용히 실패해요.
