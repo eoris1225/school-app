@@ -21,6 +21,7 @@ const ICONS = {
   check: { ios: 'checkmark', android: 'check', web: 'check' },
   close: { ios: 'xmark', android: 'close', web: 'close' },
   trash: { ios: 'trash', android: 'delete', web: 'delete' },
+  edit: { ios: 'pencil', android: 'edit', web: 'edit' },
   swap: { ios: 'arrow.left.arrow.right', android: 'swap_horiz', web: 'swap_horiz' },
   palette: { ios: 'paintpalette', android: 'palette', web: 'palette' },
   person: { ios: 'person', android: 'person', web: 'person' },

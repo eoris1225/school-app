@@ -40,6 +40,7 @@ import {
   ApiError,
   askTeacher,
   demoteToStudent,
+  editAssessment,
   getAssessments,
   getEvents,
   getThreads,
@@ -127,6 +128,8 @@ type AppContextValue = {
   removeMyEvent: (id: string) => void;
   /** 이 일정을 내가 지울 수 있는지 */
   canDelete: (event: SchoolEvent) => boolean;
+  /** 이미 올린 일정을 고쳐요. 잘 되면 null이에요. */
+  updateEvent: (id: string, event: Omit<SchoolEvent, 'id'>) => Promise<string | null>;
   /** 내 역할에서 보이는 쪽지 (학생은 내 질문, 선생님은 내 과목 쪽지) */
   threads: Thread[];
   /** 쪽지 목록을 아직 받아오는 중인지 */
@@ -664,6 +667,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [school, role],
   );
 
+  /**
+   * 이미 올린 일정을 고쳐요. 올린 사람만 돼요 (서버에서도 걸러요).
+   * 새로 담는 게 아니라 그 줄을 고치는 거라, 학생 달력에서 사라졌다
+   * 다시 생기지 않아요.
+   */
+  const updateEvent = useCallback(
+    async (id: string, event: Omit<SchoolEvent, 'id'>): Promise<string | null> => {
+      if (!school) return '학교를 먼저 골라주세요';
+      if (role !== 'teacher') return '선생님만 고칠 수 있어요';
+      try {
+        const saved = await editAssessment(
+          id,
+          {
+            date: event.date,
+            title: event.title,
+            subject: event.subject ?? null,
+            detail: event.detail ?? null,
+            grades: event.grades,
+            classes: event.classes,
+          },
+          school,
+        );
+        setAllEvents((prev) => prev.map((e) => (e.id === id ? fromAssessment(saved) : e)));
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '고치지 못했어요';
+      }
+    },
+    [school, role],
+  );
+
   const removeEvent = useCallback(
     async (id: string): Promise<string | null> => {
       if (!school) return '학교를 먼저 골라주세요';
@@ -780,6 +814,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events,
       addEvent,
       removeEvent,
+      updateEvent,
       reloadEvents,
       swaps,
       setSwap,
@@ -827,6 +862,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reloadThreads,
     addEvent,
     removeEvent,
+    updateEvent,
     reloadEvents,
     swaps,
     setSwap,

@@ -6,7 +6,7 @@ import { DayCell, MAX_BANDS } from '@/components/day-cell';
 import { Reveal } from '@/components/motion';
 import { EventRow } from '@/components/rows';
 import { Text } from '@/components/text';
-import { Button, Chip, Divider, Empty, ErrorNote, Field, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
+import { Button, Chip, ChipRow, Divider, Empty, ErrorNote, Field, Header, IconButton, Loading, Screen, SectionTitle } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
 import { type EventKind, type SchoolEvent } from '@/data/mock';
 import { getEvents } from '@/lib/api';
@@ -149,15 +149,18 @@ export default function CalendarScreen() {
         </View>
       </View>
 
+      {/* 선생님은 칩이 다섯 개라 한 줄에 안 들어가요. 옆으로 밀어서 봐요. */}
       <View style={styles.filters}>
-        <Chip label="전체" selected={filter === 'all'} onPress={() => setFilter('all')} />
-        <Chip label="학사일정" selected={filter === 'academic'} onPress={() => setFilter('academic')} />
-        <Chip label="수행평가" selected={filter === 'assessment'} onPress={() => setFilter('assessment')} />
-        <Chip label="내 일정" selected={filter === 'personal'} onPress={() => setFilter('personal')} />
-        {/* 선생님만요. 학생은 올릴 수가 없어서 늘 비어 있어요. */}
-        {teacher ? (
-          <Chip label="내가 올림" selected={filter === 'mine'} onPress={() => setFilter('mine')} />
-        ) : null}
+        <ChipRow>
+          <Chip label="전체" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          <Chip label="학사일정" selected={filter === 'academic'} onPress={() => setFilter('academic')} />
+          <Chip label="수행평가" selected={filter === 'assessment'} onPress={() => setFilter('assessment')} />
+          <Chip label="내 일정" selected={filter === 'personal'} onPress={() => setFilter('personal')} />
+          {/* 선생님만요. 학생은 올릴 수가 없어서 늘 비어 있어요. */}
+          {teacher ? (
+            <Chip label="내가 올림" selected={filter === 'mine'} onPress={() => setFilter('mine')} />
+          ) : null}
+        </ChipRow>
       </View>
 
       <View style={[styles.calendarCard, { backgroundColor: palette.surface }]}>
@@ -246,11 +249,16 @@ export default function CalendarScreen() {
           // 다시 올라와요. 안 그러면 내용만 조용히 갈려서 바뀐 줄 몰라요.
           <Reveal key={`${selected}:${e.id}`} delay={i * 50} distance={10}>
             {i > 0 ? <Divider /> : null}
-            {/* 지울 수 있는 사람에게만 지우기가 나와요.
-                수행평가는 그 과목 선생님만이에요. 규칙은 app-state의 canDelete에 있어요. */}
+            {/* 올린 사람에게만 고치기·지우기가 나와요. 규칙은 app-state의 canDelete에 있어요.
+                내 일정(나만 보는 메모)은 기기에만 있어서 지우기만 돼요. */}
             <EventRow
               event={e}
               showDday={!teacher}
+              onEdit={
+                e.kind !== 'personal' && canDelete(e)
+                  ? () => router.push({ pathname: '/add-event', params: { id: e.id } })
+                  : undefined
+              }
               onDelete={
                 e.kind === 'personal'
                   ? () => removeMyEvent(e.id)
@@ -315,7 +323,7 @@ const styles = StyleSheet.create({
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   monthText: { fontSize: 18, fontWeight: '800' },
   monthNav: { flexDirection: 'row', gap: 8 },
-  filters: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  filters: { marginHorizontal: -20, paddingLeft: 20, marginBottom: 12 },
 
   calendarCard: { borderRadius: 22, paddingHorizontal: 8, paddingVertical: 12 },
   weekRow: { flexDirection: 'row' },
