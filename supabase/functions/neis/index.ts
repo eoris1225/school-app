@@ -35,7 +35,7 @@ import {
   startThread,
   ThreadError,
 } from '../_shared/threads.ts';
-import { countSubs, pushPublicKey, pushReady, removeSub, saveSub } from '../_shared/push.ts';
+import { countSubs, PushError, pushPublicKey, pushReady, removeSub, saveSub } from '../_shared/push.ts';
 import {
   createAssessment,
   DbError,
@@ -822,6 +822,10 @@ Deno.serve(async (req) => {
     if (e instanceof AuthError) return json({ error: e.message }, 401);
     // 쪽지 규칙에 걸린 거예요. 서버 잘못이 아니니 400으로 알려줘요.
     if (e instanceof ThreadError) return json({ error: e.message }, 400);
+    if (e instanceof PushError) {
+      console.error('알림 오류', e.message);
+      return json({ error: '알림 설정을 저장하지 못했어요' }, 502);
+    }
     if (e instanceof DbError) {
       console.error('DB 오류', e.message);
       // 자세한 내용은 기록에만 남겨요. 화면에는 상태 번호만 줘요. 번호만으로도
