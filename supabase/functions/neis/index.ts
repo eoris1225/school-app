@@ -761,11 +761,40 @@ async function handle(req: Request, url: URL): Promise<Response> {
     }
 
     default:
-      throw new BadRequest(
-        'kind는 meal, timetable, schedule, classes, school, assessments, teachers, threads, thread 중 하나여야 해요',
-      );
+      throw new BadRequest(`kind는 ${KINDS.join(', ')} 중 하나여야 해요`);
   }
 }
+
+/**
+ * 이 함수가 아는 경로들이에요.
+ *
+ * 예전에는 "없는 kind예요" 라고 답할 때 목록을 손으로 적어뒀어요. 그런데
+ * 경로를 더할 때마다 그걸 같이 고치지 않아서, 열일곱 개 중 아홉 개만 적힌
+ * 채로 남아 있었어요. me 도 push 도 my-settings 도 빠져 있었고요. 있는데
+ * 없다고 답하는 셈이라, 뭐가 잘못됐는지 찾는 사람을 엉뚱한 데로 보내요.
+ *
+ * 한 곳에 모아두고, 아래 switch 와 어긋나면 검사가 잡아요
+ * (_shared/kinds_test.ts).
+ */
+export const KINDS = [
+  'meal',
+  'timetable',
+  'schedule',
+  'classes',
+  'school',
+  'subjects',
+  'assessments',
+  'teachers',
+  'threads',
+  'thread',
+  'me',
+  'my-school',
+  'my-settings',
+  'my-subjects',
+  'promote',
+  'demote',
+  'push',
+] as const;
 
 /** 3월~8월이면 1학기, 9월~2월이면 2학기로 봐요. */
 function termOf(date: string): number {
