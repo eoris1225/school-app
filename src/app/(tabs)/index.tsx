@@ -10,9 +10,9 @@ import { Tile } from '@/components/tile';
 import { Avatar } from '@/components/ui';
 import { subjectTone } from '@/constants/tones';
 import { getLessons, getMeals, getSchoolLessons } from '@/lib/api';
-import { readSubject, subjectGroup } from '@/lib/subject';
+import { readSubject } from '@/lib/subject';
 import { byWeekday, withSwaps, type Week } from '@/lib/timetable';
-import { teacherWeek } from '@/lib/teacher-week';
+import { mineFrom, teacherWeek } from '@/lib/teacher-week';
 import { useRemote } from '@/lib/use-remote';
 import {
   BELL,
@@ -360,10 +360,9 @@ function TeacherHome() {
   const all = useRemote(`school-timetable:${school?.code}:${dates.월}`, () =>
     getSchoolLessons(dates.월, dates.금, school ?? undefined),
   );
-  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 이름을 하나하나 맞춰보면 하나도
-  // 안 걸려서 교과군으로 봐요.
-  const myGroups = new Set((me?.subjects ?? []).map((s) => subjectGroup(s)));
-  const myWeek = teacherWeek(all.data ?? [], dates, myGroups, teach);
+  // 내 정보에서 고른 과목 이름으로 봐요. 그 목록은 이 학교 시간표에 실제로
+  // 있는 이름을 받아온 거라 그대로 맞아요. 이름을 못 고른 계정만 교과군으로요.
+  const myWeek = teacherWeek(all.data ?? [], dates, mineFrom(me?.teaches ?? [], me?.subjects ?? []), teach);
   const day = weekdayOf(now);
   const myClasses = day ? myWeek[day] : [];
   const nextClass = myClasses.find((c) => c.period >= nowPeriod) ?? null;
@@ -402,7 +401,7 @@ function TeacherHome() {
       <Text style={[styles.body, { color: palette.sub }]} numberOfLines={2}>
         {myClasses.length
           ? myClasses.map((c) => `${c.period}교시 ${c.cls ?? ''} ${readSubject(c.subject).name}`.trim()).join(' · ')
-          : myGroups.size === 0
+          : !me?.teaches?.length && !me?.subjects.length
             ? '내 정보에서 담당 과목을 고르면 수업을 모아서 보여드려요'
             : all.loading
               ? '시간표를 불러오는 중이에요'

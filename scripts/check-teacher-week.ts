@@ -8,7 +8,7 @@
  */
 import type { Lesson } from '@/lib/api';
 import { WEEKDAYS, type Weekday } from '@/data/mock';
-import { clashes, teachCount, teacherWeek, type TeachSettings } from '@/lib/teacher-week';
+import { clashes, mineFrom, splitClass, teachCount, teacherWeek, type TeachSettings } from '@/lib/teacher-week';
 
 const DATES: Record<Weekday, string> = {
   월: '2026-09-14',
@@ -41,7 +41,10 @@ const SCHOOL: Lesson[] = [
   { date: '2026-09-21', grade: 2, cls: '1', period: 1, subject: '미적분Ⅰ' },
 ];
 
-const MATH = new Set(['수학']);
+/** 교과군으로만 골라둔 계정. 이름을 못 고른 경우예요. */
+const MATH = { names: [] as string[], groups: new Set(['수학']) };
+/** 과목 이름을 콕 집어 고른 계정. 요즘은 다 이쪽이에요. */
+const byName = (...names: string[]) => ({ names, groups: new Set(['수학']) });
 const none: TeachSettings = { classes: [], edits: {} };
 
 const fails: string[] = [];
@@ -106,8 +109,9 @@ console.log('\n=== 칸을 직접 채울 수 있어요 ===');
   });
   console.log('  ' + show(week));
   const added = week.수.find((c) => c.period === 3);
-  ok(!!added && added.added && added.cls === null, '직접 넣은 칸이 생기고 표시가 붙음');
-  ok(added?.subject === '2-6 선택B 역학과 에너지', '적은 내용이 그대로 들어감');
+  ok(!!added && added.added, '직접 넣은 칸이 생기고 표시가 붙음');
+  ok(added?.cls === '2-6', `앞에 적은 반을 떼어내서 칸에 올림 (${added?.cls})`);
+  ok(added?.subject === '선택B 역학과 에너지', `나머지가 과목이 됨 (${added?.subject})`);
 }
 
 console.log('\n=== 직접 채우면 원래 있던 건 밀려나요 ===');
@@ -116,17 +120,18 @@ console.log('\n=== 직접 채우면 원래 있던 건 밀려나요 ===');
   const week = teacherWeek(SCHOOL, DATES, MATH, { classes: [], edits: { '월-1': '2-1 선택C' } });
   ok(week.월.filter((c) => c.period === 1).length === 1, '그 칸에는 하나만 남음');
   ok(week.월.find((c) => c.period === 1)?.added === true, '남은 것은 직접 넣은 것');
+  ok(week.월.find((c) => c.period === 1)?.cls === '2-1', '고른 반이 칸에 뜸');
 }
 
 console.log('\n=== 담당 과목이 없으면 아무것도 안 나와요 ===');
 {
-  const week = teacherWeek(SCHOOL, DATES, new Set(), none);
+  const week = teacherWeek(SCHOOL, DATES, { names: [], groups: new Set() }, none);
   ok(teachCount(week) === 0, `빈 표 (${teachCount(week)}개)`);
 }
 
 console.log('\n=== 두 교과군을 맡으면 둘 다 나와요 ===');
 {
-  const week = teacherWeek(SCHOOL, DATES, new Set(['수학', '영어']), none);
+  const week = teacherWeek(SCHOOL, DATES, { names: [], groups: new Set(['수학', '영어']) }, none);
   ok(teachCount(week) === 7, `수학 여섯 + 영어 하나 (${teachCount(week)}개)`);
   ok(week.수.some((c) => c.subject === '영어Ⅱ'), '영어도 걸림');
 }
@@ -138,6 +143,67 @@ console.log('\n=== 이상한 열쇠는 무시해요 ===');
     edits: { 'bad-1': '엉뚱', '월-x': '엉뚱', '일-3': '주말' },
   });
   ok(teachCount(week) === 6, `원래대로 여섯 칸 (${teachCount(week)}개)`);
+}
+
+console.log('\n=== 과목 이름을 고르면 그 과목만 나와요 ===');
+{
+  // 여기가 핵심이에요. 교과군으로 보면 미적분만 맡은 분한테 확률과 통계,
+  // 경제 수학까지 다 걸려서 표가 남의 수업으로 뒤덮여요.
+  const week = teacherWeek(SCHOOL, DATES, byName('미적분Ⅰ'), none);
+  console.log('  ' + show(week));
+  ok(teachCount(week) === 4, `미적분Ⅰ 네 칸만 (${teachCount(week)}개)`);
+  ok(!week.월.some((c) => c.subject === '확률과 통계'), '같은 교과군이어도 안 고른 과목은 안 걸림');
+  ok(!week.화.some((c) => c.subject === '경제 수학'), '경제 수학도 안 걸림');
+  ok(clashes(week) === 0, `겹치는 곳이 사라짐 (${clashes(week)}군데)`);
+}
+
+console.log('\n=== 이름을 여러 개 고르면 그만큼 나와요 ===');
+{
+  const week = teacherWeek(SCHOOL, DATES, byName('미적분Ⅰ', '확률과 통계'), none);
+  ok(teachCount(week) === 5, `네 칸 + 한 칸 (${teachCount(week)}개)`);
+  ok(clashes(week) === 1, `월 1교시만 겹침 (${clashes(week)}군데)`);
+}
+
+console.log('\n=== 이름을 고르면 교과군은 안 봐요 ===');
+{
+  // 둘 다 보면 콕 집어 고른 뜻이 없어져요.
+  const week = teacherWeek(SCHOOL, DATES, { names: ['영어Ⅱ'], groups: new Set(['수학']) }, none);
+  ok(teachCount(week) === 1, `영어Ⅱ 한 칸만 (${teachCount(week)}개)`);
+  ok(week.수.some((c) => c.subject === '영어Ⅱ'), '고른 이름은 걸림');
+}
+
+console.log('\n=== 보강 딱지는 떼고 맞춰요 ===');
+{
+  const withMakeup = [...SCHOOL, at('목', 1, 2, '1', '[보강]미적분Ⅰ')];
+  const week = teacherWeek(withMakeup, DATES, byName('미적분Ⅰ'), none);
+  ok(teachCount(week) === 5, `보강 수업도 내 수업으로 걸림 (${teachCount(week)}개)`);
+}
+
+console.log('\n=== 적은 글에서 반을 떼어내요 ===');
+{
+  ok(splitClass('2-6 미적분Ⅰ').cls === '2-6', '앞에 반이 있으면 떼어냄');
+  ok(splitClass('2-6 미적분Ⅰ').subject === '미적분Ⅰ', '나머지가 과목');
+  ok(splitClass('교직원 회의').cls === null, '반이 없으면 그대로 둠');
+  ok(splitClass('교직원 회의').subject === '교직원 회의', '내용도 그대로');
+  ok(splitClass('3학년 보충').cls === null, "'3학년'은 반 모양이 아니라 안 떼어냄");
+}
+
+console.log('\n=== 교과군 이름을 골라둔 계정도 돌아가요 ===');
+{
+  // 과목 목록을 못 받아온 학교에서는 교과군 열두 개로 고르게 해요. 그때
+  // teaches 에 '수학'이 들어가요. 그걸 과목 이름으로 찾으면 빈 표가 돼요.
+  const mine = mineFrom(['수학'], ['수학']);
+  ok(mine.names.length === 0, '교과군 이름은 과목 이름에서 빠짐');
+  const week = teacherWeek(SCHOOL, DATES, mine, none);
+  ok(teachCount(week) === 6, `교과군으로 봐서 여섯 칸 (${teachCount(week)}개)`);
+}
+
+console.log('\n=== 과목 이름을 골라둔 계정은 이름으로 봐요 ===');
+{
+  const mine = mineFrom(['미적분Ⅰ'], ['수학']);
+  ok(mine.names.length === 1, '과목 이름이 남음');
+  const week = teacherWeek(SCHOOL, DATES, mine, none);
+  ok(teachCount(week) === 4, `미적분Ⅰ 네 칸 (${teachCount(week)}개)`);
 }
 
 console.log(fails.length ? `\n실패 ${fails.length}개\n` + fails.join('\n') : '\n전부 통과');
