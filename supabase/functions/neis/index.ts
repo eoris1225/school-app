@@ -692,8 +692,8 @@ function termOf(date: string): number {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (!['GET', 'POST', 'DELETE'].includes(req.method)) {
-    return json({ error: 'GET, POST, DELETE만 받아요' }, 405);
+  if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(req.method)) {
+    return json({ error: 'GET, POST, PATCH, DELETE만 받아요' }, 405);
   }
 
   if (!KEY) {
