@@ -227,9 +227,15 @@ export default function StartScreen() {
         {/* 메일 확인이 켜져 있어요. 메일함을 봐야 다음으로 갈 수 있어요. */}
         {after?.kind === 'mail' ? (
           <>
+            {/*
+              주소 뒤에 조사를 붙이지 않아요. '.com'을 글자로 읽으면 '엠'이라
+              '으로'인데 사람은 '컴'이라고 읽어요. 어느 쪽을 골라도 절반은
+              어색해서, 주소는 줄을 따로 떼어 보여줘요. 눈에도 더 잘 띄어요.
+            */}
             <Text style={[styles.afterBody, { color: palette.text }]}>
-              {after.email}로 확인 링크를 보냈어요.
+              확인 링크를 보냈어요.
             </Text>
+            <Text style={[styles.afterMail, { color: palette.accentDeep }]}>{after.email}</Text>
             <Text style={[styles.afterBody, { color: palette.sub }]}>
               메일함에서 링크를 누르면 가입이 끝나요. 안 보이면 스팸함도 봐주세요.
               링크를 누른 뒤에 여기서 로그인하면 돼요.
@@ -264,8 +270,9 @@ export default function StartScreen() {
             <Text style={[styles.afterBody, { color: palette.text }]}>
               앱 테스트를 위해 메일 확인 과정을 스킵했어요.
             </Text>
+            <Text style={[styles.afterMail, { color: palette.accentDeep }]}>{email.trim()}</Text>
             <Text style={[styles.afterBody, { color: palette.sub }]}>
-              이 프로젝트는 아직 메일 확인이 꺼져 있어요. 그래서 {email.trim()}로 바로
+              이 프로젝트는 아직 메일 확인이 꺼져 있어요. 그래서 이 주소로 바로
               가입됐어요. 나중에 켜면 메일함에서 링크를 눌러야 가입이 끝나요.
             </Text>
             <View style={styles.sheetAction}>
@@ -369,6 +376,7 @@ const styles = StyleSheet.create({
   failedText: { fontSize: 13, lineHeight: 20 },
   sheetAction: { marginTop: 20 },
   afterBody: { fontSize: 15, lineHeight: 23, marginBottom: 12 },
+  afterMail: { fontSize: 15, lineHeight: 23, fontWeight: '700', marginBottom: 12 },
 
   signed: { borderRadius: 18, padding: 16, marginTop: 24 },
   signedName: { fontSize: 15, fontWeight: '700' },

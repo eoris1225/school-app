@@ -398,15 +398,34 @@ function TeacherHome() {
         action="시간표"
         onAction={() => router.push('/timetable')}
       />
-      <Text style={[styles.body, { color: palette.sub }]} numberOfLines={2}>
-        {myClasses.length
-          ? myClasses.map((c) => `${c.period}교시 ${c.cls ?? ''} ${readSubject(c.subject).name}`.trim()).join(' · ')
-          : !me?.teaches?.length && !me?.subjects.length
+      {/*
+        한 줄로 이어 붙이면 수업이 다섯 개만 넘어가도 뒤가 잘려요. 선생님한테
+        오늘 어디 들어가는지는 잘리면 안 되는 정보예요. 한 줄에 하나씩 둬요.
+        교시가 왼쪽에 나란히 서서 훑기도 쉬워요.
+      */}
+      {myClasses.length ? (
+        myClasses.map((c) => (
+          <View key={`${c.period}:${c.cls ?? ''}`} style={styles.classLine}>
+            <Text numeric style={[styles.classPeriod, { color: palette.accentDeep }]}>
+              {c.period}교시
+            </Text>
+            <Text style={[styles.classWhere, { color: palette.sub }]} numberOfLines={1}>
+              {`${c.cls ?? ''} ${readSubject(c.subject).name}`.trim()}
+            </Text>
+            <Text numeric style={[styles.classTime, { color: palette.sub }]}>
+              {BELL[c.period - 1]?.start ?? ''}
+            </Text>
+          </View>
+        ))
+      ) : (
+        <Text style={[styles.body, { color: palette.sub }]}>
+          {!me?.teaches?.length && !me?.subjects.length
             ? '내 정보에서 담당 과목을 고르면 수업을 모아서 보여드려요'
             : all.loading
               ? '시간표를 불러오는 중이에요'
               : '오늘은 내 수업이 없어요'}
-      </Text>
+        </Text>
+      )}
     </>
   );
 
@@ -436,9 +455,14 @@ function TeacherHome() {
           <Text style={[styles.heroBig, compact && styles.heroBigCompact, { color: palette.onBand }]} numberOfLines={2}>
             {pending.length ? `쪽지 ${pending.length}개` : '쪽지함 비움'}
           </Text>
+          {/*
+            몇 시에 시작하는지도 같이 적어요. 학생 화면에는 시각이 있는데
+            선생님 화면에는 교시만 있었어요. "4교시가 몇 시더라"는 오히려
+            선생님이 더 헷갈려요. 시간표를 외우고 다니지 않으니까요.
+          */}
           <Text style={[styles.heroLine, { color: palette.onBand }]} numberOfLines={1}>
             {nextClass
-              ? `다음 수업 ${nextClass.period}교시 ${nextClass.cls ?? ''} ${readSubject(nextClass.subject).name}`.trim()
+              ? `다음 수업 ${BELL[nextClass.period - 1]?.start ?? ''} ${nextClass.period}교시 ${nextClass.cls ?? ''} ${readSubject(nextClass.subject).name}`.trim()
               : '오늘 수업은 끝났어요'}
           </Text>
         </>
@@ -479,6 +503,10 @@ const styles = StyleSheet.create({
   headAction: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   headActionText: { fontSize: 13, fontWeight: '600' },
 
+  classLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingVertical: 6 },
+  classPeriod: { fontSize: 13, fontWeight: '800', width: 48 },
+  classWhere: { flex: 1, fontSize: 15, fontWeight: '600' },
+  classTime: { fontSize: 12 },
   body: { fontSize: 15, lineHeight: 23, fontWeight: '500' },
   line: { height: 1, opacity: 0.7 },
 

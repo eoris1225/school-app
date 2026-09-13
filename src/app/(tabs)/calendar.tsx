@@ -14,10 +14,16 @@ import { useRemote } from '@/lib/use-remote';
 import { useApp } from '@/lib/app-state';
 import { DOW, formatDay, fromYmd, toYmd } from '@/lib/time';
 
-type Filter = 'all' | EventKind;
+/**
+ * 'mine' 은 선생님만 써요. "내가 올린 일정"이에요.
+ *
+ * 학교 전체 일정에 섞여 있으면 자기가 뭘 올렸는지 찾을 수가 없어요. 학기 초에
+ * 수행평가를 여러 개 잡아두고 나면 더 그래요.
+ */
+type Filter = 'all' | EventKind | 'mine';
 
 export default function CalendarScreen() {
-  const { palette, role, now, events, removeEvent, canDelete, school, myEvents, addMyEvent, removeMyEvent } =
+  const { palette, role, now, me, events, removeEvent, canDelete, school, myEvents, addMyEvent, removeMyEvent } =
     useApp();
   const teacher = role === 'teacher';
 
@@ -68,7 +74,9 @@ export default function CalendarScreen() {
   }));
 
   const all = [...academic, ...events.filter((e) => e.kind === 'assessment'), ...personal];
-  const shown = all.filter((e) => filter === 'all' || e.kind === filter);
+  const shown = all.filter((e) =>
+    filter === 'all' ? true : filter === 'mine' ? e.by?.id === me?.id : e.kind === filter,
+  );
   const byDate = new Map<string, SchoolEvent[]>();
   shown.forEach((e) => byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]));
 
@@ -146,6 +154,10 @@ export default function CalendarScreen() {
         <Chip label="학사일정" selected={filter === 'academic'} onPress={() => setFilter('academic')} />
         <Chip label="수행평가" selected={filter === 'assessment'} onPress={() => setFilter('assessment')} />
         <Chip label="내 일정" selected={filter === 'personal'} onPress={() => setFilter('personal')} />
+        {/* 선생님만요. 학생은 올릴 수가 없어서 늘 비어 있어요. */}
+        {teacher ? (
+          <Chip label="내가 올림" selected={filter === 'mine'} onPress={() => setFilter('mine')} />
+        ) : null}
       </View>
 
       <View style={[styles.calendarCard, { backgroundColor: palette.surface }]}>

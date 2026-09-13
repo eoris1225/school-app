@@ -26,7 +26,7 @@ export function EventRow({
   onDelete?: () => void;
   showDday?: boolean;
 }) {
-  const { palette, now } = useApp();
+  const { palette, now, me } = useApp();
   const [open, setOpen] = useState(false);
   const detail = event.detail?.trim();
   const date = fromYmd(event.date);
@@ -76,6 +76,16 @@ export function EventRow({
             }
           />
           <Text style={[styles.eventTarget, { color: palette.sub }]}>{targetLabel(event)}</Text>
+          {/*
+            누가 올렸는지 적어요. 학생은 "이거 누가 낸 수행평가지"를 알 수 있고,
+            선생님은 자기가 올린 것을 목록에서 바로 알아볼 수 있어요.
+            NEIS 학사일정에는 주인이 없어서 안 보여요.
+          */}
+          {event.by?.name ? (
+            <Text style={[styles.eventTarget, { color: palette.sub }]}>
+              {event.by.id && event.by.id === me?.id ? '내가 올림' : `${event.by.name} 선생님`}
+            </Text>
+          ) : null}
           {/* 적어둔 게 있으면 있다고 알려줘야 눌러봐요. */}
           {detail ? (
             <View style={styles.hasDetail}>

@@ -114,9 +114,12 @@ const SCHOOL_LIMIT = 30;
  */
 const TEACHER_CODE = Deno.env.get('TEACHER_CODE');
 
-/** 수행평가를 고칠 수 있는 사람인지 봐요. 로그인해서 선생님인 계정만이에요. */
+/**
+ * 수행평가를 고칠 수 있는 사람인지 봐요. 로그인해서 선생님인 계정만이에요.
+ * 누구인지도 돌려줘요. 누가 올렸는지 담아야 나중에 주인만 지울 수 있어요.
+ */
 async function requireWriter(req: Request) {
-  await requireTeacherLogin(req);
+  return await requireTeacherLogin(req);
 }
 
 class Forbidden extends Error {}
@@ -335,17 +338,25 @@ async function handle(req: Request, url: URL): Promise<Response> {
       }
 
       if (req.method === 'POST') {
-        await requireWriter(req);
+        const me = await requireWriter(req);
         const body = await readBody(req);
-        return json({ assessment: await createAssessment(school, body) }, 201);
+        return json(
+          { assessment: await createAssessment(school, body, { id: me.id, name: me.name }) },
+          201,
+        );
       }
 
       if (req.method === 'DELETE') {
-        await requireWriter(req);
+        const me = await requireWriter(req);
         const id = q.get('id');
         if (!id) throw new BadRequest('id가 필요해요');
-        const gone = await deleteAssessment(school, id);
-        if (gone === 0) throw new BadRequest('그런 수행평가가 없어요');
+        /*
+         * 올린 사람만 지울 수 있어요. 조건은 deleteAssessment 안에 걸려 있어요.
+         * 남의 것이면 0이 돌아와요. "없어요"와 "당신 것이 아니에요"를 나눠서
+         * 알려주면 무엇이 있는지 떠볼 수 있으니, 같은 말로 답해요.
+         */
+        const gone = await deleteAssessment(school, id, me.id);
+        if (gone === 0) throw new BadRequest('내가 올린 일정만 지울 수 있어요');
         return json({ deleted: gone });
       }
 

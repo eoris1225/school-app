@@ -13,6 +13,7 @@ import { ApiError, getSchoolSubjects, promoteToTeacher, setMySubjects } from '@/
 import { useRemote } from '@/lib/use-remote';
 import { addDays, toYmd } from '@/lib/time';
 import { useApp } from '@/lib/app-state';
+import { ro } from '@/lib/korean';
 
 export default function ProfileScreen() {
   const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
@@ -325,7 +326,8 @@ function SubjectPicker() {
       {/* 고른 이름이 어느 교과군인지 보여줘요. 쪽지가 어디로 올지 알 수 있게요. */}
       {groups.length ? (
         <Text style={[styles.help, { color: palette.accentDeep }]}>
-          {groups.join(', ')} 로 온 쪽지를 받아요
+          {/* 줄을 나누면 사이에 빈칸이 끼어서 '수학 으로'가 돼요. 한 덩어리로 만들어요. */}
+          {`${groups.join(', ')}${ro(groups[groups.length - 1])} 온 쪽지를 받아요`}
         </Text>
       ) : null}
 
