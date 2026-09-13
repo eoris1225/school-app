@@ -53,6 +53,8 @@ function describe(list: TeacherPick[]): Map<string, string> {
 function StudentCommunity() {
   const { palette, threads, threadsLoading, askQuestion, school, now, swaps } = useApp();
   const [subject, setSubject] = useState<string | null>(null);
+  /** 교과군 목록을 보고 있는지. 평소에는 내가 듣는 과목을 보여줘요. */
+  const [others, setOthers] = useState(false);
 
   /*
    * 내가 듣는 과목을 먼저 보여줘요.
@@ -130,19 +132,23 @@ function StudentCommunity() {
 
       <SectionTitle title="선생님께 질문하기" />
       <Text style={[styles.help, { color: palette.sub }]}>
-        {mySubjects.length
+        {mySubjects.length && !others
           ? '내가 듣는 과목이에요. 고르면 그 과목 선생님께 쪽지가 전달돼요.'
           : '과목을 고르면 그 과목 선생님께 쪽지가 전달돼요.'}
       </Text>
 
       {/*
-        내가 듣는 과목을 앞에 두고, 교과군 열둘은 뒤에 남겨요.
-        시간표에 없는 걸 물어볼 수도 있고 (진로 상담처럼), 시간표를 아직 못
-        받아온 학교도 있어요. 고를 게 아예 없으면 질문을 못 보내잖아요.
+        내 과목과 교과군을 한 줄에 섞지 않아요.
+        섞어두니 '영어Ⅱ' 와 '영어' 가 나란히 떠서 같은 걸 두 번 적어둔 것처럼
+        보였어요. 둘은 다른 종류예요. 하나는 내가 듣는 과목, 하나는 과목 묶음.
+        한 번에 한 종류만 보여주고, 끝에 있는 칩으로 갈아타요.
+
+        교과군도 남겨둬야 해요. 시간표에 없는 걸 물어볼 수도 있고 (진로 상담
+        처럼), 시간표를 아직 못 받아온 학교도 있어요.
       */}
       <View style={styles.subjects}>
         <ChipRow>
-          {[...mySubjects, ...TEACHABLE.filter((t) => !mySubjects.includes(t))].map((s) => (
+          {(others || mySubjects.length === 0 ? [...TEACHABLE] : mySubjects).map((s) => (
             <Chip
               key={s}
               label={s}
@@ -156,6 +162,13 @@ function StudentCommunity() {
               }}
             />
           ))}
+          {mySubjects.length ? (
+            <Chip
+              label={others ? '내가 듣는 과목' : '다른 과목'}
+              selected={false}
+              onPress={() => setOthers((v) => !v)}
+            />
+          ) : null}
         </ChipRow>
       </View>
 
@@ -171,7 +184,7 @@ function StudentCommunity() {
           <View style={styles.subjects}>
             <ChipRow>
               <Chip
-                label={`${subject} 선생님 모두`}
+                label={`${group} 선생님 모두`}
                 selected={teacher === null}
                 onPress={() => setTeacher(null)}
               />
@@ -189,7 +202,7 @@ function StudentCommunity() {
           <Text style={[styles.to, { color: palette.accentDeep }]}>
             {picked
               ? `${picked.name} 선생님께만 가요${detail.get(picked.id) ? ` · ${detail.get(picked.id)}` : ''}`
-              : `우리 학교 ${subject} 선생님 ${list.length}분께 모두 가요`}
+              : `우리 학교 ${group} 선생님 ${list.length}분께 모두 가요`}
           </Text>
         </>
       ) : null}
@@ -198,7 +211,9 @@ function StudentCommunity() {
           나중에 그 과목 선생님이 가입하면 그때 쪽지함에 보여요. */}
       {subject && !staff.loading && list.length === 0 ? (
         <Text style={[styles.to, { color: palette.sub }]}>
-          우리 학교 {subject} 선생님은 아직 가입하지 않았어요. 보내두면 가입하는 대로 전달돼요.
+          {/* '세포와 물질대사 선생님' 같은 건 없어요. 과학 선생님이죠.
+              사람을 가리킬 때는 늘 교과군으로 불러요. */}
+          우리 학교 {group} 선생님은 아직 가입하지 않았어요. 보내두면 가입하는 대로 전달돼요.
         </Text>
       ) : null}
 
@@ -220,7 +235,7 @@ function StudentCommunity() {
             : picked
               ? `${picked.name} 선생님께 보내기`
               : subject
-                ? `${subject} 선생님께 보내기`
+                ? `${group} 선생님께 보내기`
                 : '과목을 먼저 골라주세요'
         }
         icon="send"
