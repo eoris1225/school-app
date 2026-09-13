@@ -83,6 +83,7 @@ function RootNavigator() {
         <Stack.Screen name="pick-school" />
         <Stack.Screen name="pick-class" />
         <Stack.Screen name="swap-subject" />
+        <Stack.Screen name="bell-times" />
       </Stack>
       {/* 막은 맨 마지막에 둬요. 탭 바까지 덮어야 하니까요. */}
       <SchemeFade />

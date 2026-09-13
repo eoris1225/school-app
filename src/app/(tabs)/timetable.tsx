@@ -10,15 +10,14 @@ import { Sheet } from '@/components/sheet';
 import { TeachGrid } from '@/components/teach-grid';
 import { Button, Chip, ChipRow, Divider, Empty, ErrorNote, Field, Header, IconChip, Loading, Screen, Segmented, Tag } from '@/components/ui';
 import {
-  BELL,
   classLabel,
   classOf,
   gradeOf,
-  LUNCH,
   WEEKDAYS,
   type ClassId,
   type Weekday,
 } from '@/data/mock';
+import { bellRange, lunchAfter, lunchSpan } from '@/lib/bells';
 import { getClasses, getLessons, getSchoolLessons } from '@/lib/api';
 import { byWeekday, sameNameSlots, withSwaps } from '@/lib/timetable';
 import { useRemote } from '@/lib/use-remote';
@@ -31,9 +30,18 @@ import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
 export default function TimetableScreen() {
-  const { palette, now, school, swaps, role, me, teach, setTeachClasses, setTeachEdit } = useApp();
+  const { palette, now, school, swaps, role, me, teach, bells, bellsLoading, setTeachClasses, setTeachEdit } =
+    useApp();
   const today = weekdayOf(now);
-  const nowPeriod = currentPeriod(now);
+  const nowPeriod = currentPeriod(now, bells);
+  /*
+   * 점심 자리와 시각은 학교가 넣어둔 것만 써요.
+   *
+   * 안 넣은 학교에서는 점심 줄을 아예 안 그려요. "4교시 뒤"가 흔하긴 한데
+   * 5교시 뒤인 학교도 있어요. 반쯤 맞는 줄을 그리느니 안 그리는 게 나아요.
+   */
+  const lunch = lunchAfter(bells);
+  const span = lunchSpan(bells);
   const teacher = role === 'teacher';
 
   // 탭 화면은 학교를 고른 뒤에만 열려요. 그래서 school은 항상 있어요.
@@ -207,6 +215,28 @@ export default function TimetableScreen() {
         }
       />
 
+      {/*
+        교시 시각이 왜 안 보이는지 알려주고, 넣을 수 있는 분께는 길을 내줘요.
+        NEIS에는 이 정보가 없어서 선생님이 한 번 넣어야 해요.
+
+        학생한테는 안 보여줘요. 학생은 할 수 있는 게 없는데 말해봐야
+        답답하기만 해요.
+
+        하루 화면 안에 뒀다가 옮겼어요. 선생님은 '내 수업'으로 들어오거든요.
+        정작 넣을 수 있는 사람한테만 안 보이는 안내였어요.
+      */}
+      {teacher && !bellsLoading && !bells ? (
+        <Tap
+          onPress={() => router.push('/bell-times')}
+          accessibilityRole="button"
+          depth={0.03}
+          style={[styles.bellHint, { backgroundColor: palette.tint }]}>
+          <Text style={[styles.bellHintText, { color: palette.accentDeep }]}>
+            교시 시각을 넣으면 몇 시부터인지 같이 보여드려요
+          </Text>
+        </Tap>
+      ) : null}
+
       {mode === 'teach' ? (
         all.loading ? (
           <Loading text="학교 시간표를 불러오는 중이에요" rows={4} />
@@ -354,12 +384,12 @@ export default function TimetableScreen() {
                * 5교시 시각은 13:30인데 12:30 점심보다 앞에 나오는 거예요.
                * 수업이 있든 없든 자리는 정해져 있으니 교시로 바로 정해요.
                */
-              const lunchAt = LUNCH.afterPeriod <= lastLesson ? LUNCH.afterPeriod : -1;
+              const lunchAt = lunch > 0 && lunch <= lastLesson ? lunch : -1;
               const afterLunch = lunchAt === i;
-              const lunchRow = afterLunch ? (
+              const lunchRow = afterLunch && span ? (
                 <View style={[styles.lunch, { borderColor: palette.line }]}>
                   <Text style={[styles.lunchText, { color: palette.sub }]}>
-                    점심시간 {LUNCH.start}부터 {LUNCH.end}까지
+                    점심시간 {span.start}부터 {span.end}까지
                   </Text>
                 </View>
               ) : null;
@@ -373,9 +403,12 @@ export default function TimetableScreen() {
                       <Text style={[styles.emptyText, { color: palette.sub }]}>
                         시간표에 없어요
                       </Text>
-                      <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
-                        {BELL[i].start}–{BELL[i].end}
-                      </Text>
+                      {/* 학교가 교시 시각을 안 넣었으면 이 자리는 아예 없어요. */}
+                      {bellRange(bells, period) ? (
+                        <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
+                          {bellRange(bells, period)}
+                        </Text>
+                      ) : null}
                     </View>
                     {i < lastLesson && i + 1 !== lunchAt ? <Divider /> : null}
                   </Reveal>
@@ -387,7 +420,7 @@ export default function TimetableScreen() {
               const subject = readSubject(shown);
               const swapped = mine && swaps[slotKey(day, period)] !== undefined;
               const isNow = day === today && period === nowPeriod;
-              const bell = BELL[i];
+              const range = bellRange(bells, period);
               const st = subjectTone(shown, palette.scheme);
               return (
                 // 요일이나 반을 바꾸면 key가 달라져서 줄이 다시 올라와요.
@@ -416,7 +449,7 @@ export default function TimetableScreen() {
                     depth={mine ? 0.02 : 0}
                     style={[styles.periodRow, isNow && { backgroundColor: st.bg }]}
                     accessibilityRole={mine ? 'button' : undefined}
-                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}, ${bell.start}부터 ${bell.end}까지${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
+                    accessibilityLabel={`${period}교시 ${subject.name}${subject.makeup ? ', 보강' : ''}${range ? `, ${range}` : ''}${isNow ? ', 지금 수업 중' : ''}${mine ? ', 눌러서 내가 듣는 과목으로 바꾸기' : ''}`}>
                     {/*
                       교시마다 과목 색을 주면 한 화면에 일곱 색이 깔려서
                       어디를 봐야 할지 모르겠어요. 평소에는 조용히 두고
@@ -429,11 +462,13 @@ export default function TimetableScreen() {
                         <Text style={[styles.subject, { color: palette.text }]}>{subject.name}</Text>
                         {subject.makeup ? <Tag label="보강" /> : null}
                       </View>
-                      <View style={styles.metaRow}>
-                        <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
-                          {bell.start}–{bell.end}
-                        </Text>
-                      </View>
+                      {range ? (
+                        <View style={styles.metaRow}>
+                          <Text numeric style={[styles.periodMeta, { color: palette.sub }]}>
+                            {range}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     {swapped ? <Tag label="바꿈" /> : null}
                     {isNow ? <Tag label="지금" tone="solid" /> : null}
@@ -634,6 +669,8 @@ const styles = StyleSheet.create({
   dayTabText: { fontSize: 15, fontWeight: '800' },
 
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, marginHorizontal: -12, borderRadius: 16 },
+  bellHint: { minHeight: 44, justifyContent: 'center', borderRadius: 16, paddingHorizontal: 16, marginBottom: 12 },
+  bellHintText: { fontSize: 13, fontWeight: '600', lineHeight: 20 },
   swapHint: { fontSize: 13, lineHeight: 20, marginBottom: 8 },
   emptyRow: { paddingVertical: 10, opacity: 0.7 },
   emptyText: { flex: 1, fontSize: 13 },

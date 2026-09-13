@@ -15,7 +15,6 @@ import { byWeekday, withSwaps, type Week } from '@/lib/timetable';
 import { mineFrom, teacherWeek } from '@/lib/teacher-week';
 import { useRemote } from '@/lib/use-remote';
 import {
-  BELL,
   classOf,
   gradeOf,
   type SchoolEvent,
@@ -23,7 +22,8 @@ import {
 } from '@/data/mock';
 import { allergyHits } from '@/lib/my-settings';
 import { isPending, useApp } from '@/lib/app-state';
-import { currentPeriod, dday, formatDay, fromYmd, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
+import { bellAt, type Bells } from '@/lib/bells';
+import { dday, formatDay, fromYmd, schoolStatus, toYmd, weekDates, weekdayOf, type SchoolStatus } from '@/lib/time';
 import { useLayout } from '@/lib/layout';
 
 export default function HomeScreen() {
@@ -244,9 +244,17 @@ function EventRow({
 type DotState = 'done' | 'now' | 'todo';
 type Hero = { label: string; big: string; line: string; states: DotState[] };
 
-function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready: boolean): Hero {
+function buildHero(
+  status: SchoolStatus,
+  day: Weekday | null,
+  week: Week,
+  ready: boolean,
+  bells: Bells | null,
+): Hero {
   const today = (day ? week[day] : []).map((s) => (s ? readSubject(s).name : ''));
   const dots = (fn: (i: number) => DotState) => today.map((_, i) => fn(i));
+  const starts = (p: number) => bellAt(bells, p)?.start ?? '';
+  const ends = (p: number) => bellAt(bells, p)?.end ?? '';
 
   // 시간표가 아직 안 왔으면 과목 이름 없이 시각만 알려줘요.
   // 빈 자리에 엉뚱한 글자가 잠깐 보이는 것보다 나아요.
@@ -266,7 +274,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
       return {
         label: '곧 시작해요',
         big: today[0] ? `1교시 ${today[0]}` : '오늘 수업',
-        line: `${BELL[0].start}부터`,
+        line: starts(1) ? `${starts(1)}부터` : '곧 시작이에요',
         states: dots((i) => (i === 0 ? 'now' : 'todo')),
       };
     case 'class': {
@@ -275,7 +283,7 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
       return {
         label: '지금은',
         big: today[p - 1] ? `${p}교시 ${today[p - 1]}` : `${p}교시`,
-        line: `${BELL[p - 1].end}에 끝나요${next}`,
+        line: ends(p) ? `${ends(p)}에 끝나요${next}` : next.replace(/^ · /, ''),
         states: dots((i) => (i < p - 1 ? 'done' : i === p - 1 ? 'now' : 'todo')),
       };
     }
@@ -285,17 +293,33 @@ function buildHero(status: SchoolStatus, day: Weekday | null, week: Week, ready:
       return {
         label: status.kind === 'lunch' ? '점심시간이에요' : '쉬는 시간이에요',
         big: today[n - 1] ? `다음 ${n}교시 ${today[n - 1]}` : `다음 ${n}교시`,
-        line: `${BELL[n - 1].start}부터`,
+        line: starts(n) ? `${starts(n)}부터` : `${n}교시가 다음이에요`,
         states: dots((i) => (i < n - 1 ? 'done' : i === n - 1 ? 'now' : 'todo')),
       };
     }
     case 'after':
       return { label: '오늘 수업 끝', big: '수고했어요', line: '내일도 화이팅이에요', states: dots(() => 'done') };
+    /*
+     * 학교가 교시 시각을 안 넣었어요. 지금이 몇 교시인지 알 길이 없어요.
+     *
+     * 그래도 오늘 뭘 하는지는 시간표로 알 수 있어요. 그건 보여주고 "지금"만
+     * 빼요. 아무 시각표나 갖다 쓰면 남의 학교 종소리로 "지금 3교시"라고
+     * 우기게 돼요. 그건 틀린 답을 자신 있게 하는 거라 더 나빠요.
+     */
+    case 'unknown': {
+      const names = today.filter(Boolean);
+      return {
+        label: '오늘은',
+        big: names.length ? `수업 ${names.length}개` : '수업이 없어요',
+        line: names.length ? names.slice(0, 4).join(' · ') : '시간표에 올라온 게 없어요',
+        states: [],
+      };
+    }
   }
 }
 
 function StudentHome() {
-  const { palette, now, events, threads, school, swaps, me, allergies } = useApp();
+  const { palette, now, events, threads, school, swaps, me, allergies, bells } = useApp();
   const { compact, tile } = useLayout();
   const day = weekdayOf(now);
   const dates = weekDates(now);
@@ -311,7 +335,7 @@ function StudentHome() {
   );
 
   const week = withSwaps(byWeekday(lessons.data ?? [], dates), swaps);
-  const hero = buildHero(schoolStatus(now), day, week, !lessons.loading);
+  const hero = buildHero(schoolStatus(now, bells), day, week, !lessons.loading, bells);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
   const unread = threads.filter((t) => t.unread).length;
   const meal = meals.data?.find((m) => m.type === 'lunch') ?? null;
@@ -444,12 +468,10 @@ function StudentHome() {
 /* ================= 선생님 ================= */
 
 function TeacherHome() {
-  const { palette, now, events, threads, school, me, teach } = useApp();
+  const { palette, now, events, threads, school, me, teach, bells } = useApp();
   const { compact, tile } = useLayout();
   const pending = threads.filter(isPending);
   const upcoming = events.filter((e) => e.date >= toYmd(now)).sort((a, b) => a.date.localeCompare(b.date));
-  const nowPeriod = currentPeriod(now);
-
   /*
    * 오늘 내가 들어가는 수업을 모아요.
    *
@@ -469,7 +491,28 @@ function TeacherHome() {
   const myWeek = teacherWeek(all.data ?? [], dates, mineFrom(me?.teaches ?? [], me?.subjects ?? []), teach);
   const day = weekdayOf(now);
   const myClasses = day ? myWeek[day] : [];
-  const nextClass = myClasses.find((c) => c.period >= nowPeriod) ?? null;
+
+  /*
+   * "다음 수업"을 찾을 기준 교시예요.
+   *
+   * 예전에는 currentPeriod 하나만 봤어요. 그런데 그 값은 쉬는 시간에 0이라
+   * 3교시가 끝난 4시에도 그날 첫 수업이 "다음 수업"으로 떴어요. 이미 지나간
+   * 수업을 다음이라고 한 거예요. 상태를 통째로 보면 쉬는 시간에도 다음이
+   * 몇 교시인지 알 수 있어요.
+   *
+   * 학교가 교시 시각을 안 넣었으면 null이에요. 그때는 "다음"을 말할 수 없어요.
+   * 대신 오늘 들어가는 교시를 쭉 적어드려요.
+   */
+  const status = schoolStatus(now, bells);
+  const from =
+    status.kind === 'class'
+      ? status.period
+      : status.kind === 'break' || status.kind === 'lunch'
+        ? status.next
+        : status.kind === 'before'
+          ? 1
+          : null;
+  const nextClass = from === null ? null : (myClasses.find((c) => c.period >= from) ?? null);
 
   const tiles = (
     <View style={styles.tiles}>
@@ -516,8 +559,9 @@ function TeacherHome() {
             <Text style={[styles.classWhere, { color: palette.sub }]} numberOfLines={1}>
               {`${c.cls ?? ''} ${readSubject(c.subject).name}`.trim()}
             </Text>
+            {/* 학교가 교시 시각을 안 넣었으면 이 칸은 비어요. 지어내지 않아요. */}
             <Text numeric style={[styles.classTime, { color: palette.sub }]}>
-              {BELL[c.period - 1]?.start ?? ''}
+              {bellAt(bells, c.period)?.start ?? ''}
             </Text>
           </View>
         ))
@@ -574,8 +618,14 @@ function TeacherHome() {
           */}
           <Text style={[styles.heroLine, { color: palette.onBand }]} numberOfLines={1}>
             {nextClass
-              ? `다음 수업 ${BELL[nextClass.period - 1]?.start ?? ''} ${nextClass.period}교시 ${nextClass.cls ?? ''} ${readSubject(nextClass.subject).name}`.trim()
-              : '오늘 수업은 끝났어요'}
+              ? `다음 수업 ${bellAt(bells, nextClass.period)?.start ?? ''} ${nextClass.period}교시 ${nextClass.cls ?? ''} ${readSubject(nextClass.subject).name}`
+                  .replace(/\s+/g, ' ')
+                  .trim()
+              : from === null
+                ? myClasses.length
+                  ? `오늘 ${myClasses.map((c) => `${c.period}교시`).join(' · ')}`
+                  : '오늘 수업은 없어요'
+                : '오늘 수업은 끝났어요'}
           </Text>
         </>
       }>

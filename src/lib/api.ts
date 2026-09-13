@@ -15,6 +15,7 @@
  * 진짜 숨겨야 하는 NEIS 인증키는 이 주소 너머 서버 안에 있어요.
  */
 import { accessToken } from '@/lib/auth';
+import { readBells, type Bells } from '@/lib/bells';
 
 const BASE = 'https://isxbdvgvzdqpugaxqrzs.supabase.co/functions/v1/neis';
 
@@ -619,4 +620,24 @@ export async function replyTo(
     { method: 'POST', body: form },
   );
   return message;
+}
+
+/**
+ * 그 학교 교시 시각표를 받아와요. 아직 아무도 안 넣었으면 null이에요.
+ *
+ * NEIS에는 이 정보가 없어요. 그 학교 선생님이 앱에서 한 번 넣으면 그 학교
+ * 학생 전부가 이걸 써요. 없으면 시각을 안 보여줘요. 지어내지 않아요.
+ */
+export async function getBells(school?: SchoolRef): Promise<Bells | null> {
+  const { bells } = await call<{ bells: unknown }>({ kind: 'bells', ...at(school) });
+  return readBells(bells);
+}
+
+/** 교시 시각표를 넣어요. 그 학교 선생님만 돼요. */
+export async function saveBells(bells: Bells, school?: SchoolRef): Promise<Bells | null> {
+  const res = await call<{ bells: unknown }>(
+    { kind: 'bells', ...at(school) },
+    { method: 'POST', body: bells },
+  );
+  return readBells(res.bells);
 }

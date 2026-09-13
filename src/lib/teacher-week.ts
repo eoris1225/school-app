@@ -1,4 +1,5 @@
 import { WEEKDAYS, type Weekday } from '@/data/mock';
+import { DEFAULT_ROWS } from '@/lib/bells';
 import type { Lesson } from '@/lib/api';
 import { slotKey } from '@/lib/my-settings';
 import { readSubject, subjectGroup, TEACHABLE } from '@/lib/subject';
@@ -162,6 +163,18 @@ export const cellsAt = (week: TeachWeek, day: Weekday, period: number) =>
 /** 이 칸을 직접 고쳐뒀는지 */
 export const isEdited = (settings: TeachSettings, day: Weekday, period: number) =>
   settings.edits[slotKey(day, period)] !== undefined;
+
+/**
+ * 표에 그릴 줄 수예요.
+ *
+ * 내 수업이 8교시에 있으면 8줄이어야 해요. 예전에는 박아둔 교시 시각표
+ * 길이(7)를 썼는데, 그러면 8교시 수업이 표에서 사라져요.
+ */
+export const teachRows = (week: TeachWeek) =>
+  WEEKDAYS.reduce(
+    (max, day) => week[day].reduce((m, c) => Math.max(m, c.period), max),
+    DEFAULT_ROWS,
+  );
 
 /** 한 주에 내가 들어가는 수업이 몇 개인지 */
 export const teachCount = (week: TeachWeek) =>

@@ -3,10 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import { Tap } from '@/components/motion';
 import { Text } from '@/components/text';
 import { subjectTone } from '@/constants/tones';
-import { BELL, LUNCH, WEEKDAYS, type Weekday } from '@/data/mock';
+import { WEEKDAYS, type Weekday } from '@/data/mock';
+import { lunchAfter } from '@/lib/bells';
 import { useApp } from '@/lib/app-state';
 import { readSubject } from '@/lib/subject';
-import { cellsAt, isEdited, type TeachCell, type TeachSettings, type TeachWeek } from '@/lib/teacher-week';
+import { cellsAt, isEdited, teachRows, type TeachCell, type TeachSettings, type TeachWeek } from '@/lib/teacher-week';
 
 /*
  * 선생님의 한 주 표예요.
@@ -50,7 +51,9 @@ export function TeachGrid({
   /** 칸을 눌렀을 때. 비어 있는 칸도 눌러서 채울 수 있어요. */
   onPick: (day: Weekday, period: number) => void;
 }) {
-  const { palette } = useApp();
+  const { palette, bells } = useApp();
+  const rows = teachRows(week);
+  const lunch = lunchAfter(bells);
 
   return (
     <View>
@@ -63,9 +66,9 @@ export function TeachGrid({
         ))}
       </View>
 
-      {BELL.map((bell, i) => (
-        <View key={bell.period}>
-          {bell.period === LUNCH.afterPeriod + 1 ? (
+      {Array.from({ length: rows }, (_, i) => i + 1).map((period) => (
+        <View key={period}>
+          {lunch > 0 && period === lunch + 1 ? (
             <View style={[styles.lunch, { borderTopColor: palette.line }]}>
               <Text style={[styles.lunchText, { color: palette.sub }]}>점심시간</Text>
             </View>
@@ -73,25 +76,25 @@ export function TeachGrid({
           <View style={styles.row}>
             <View style={styles.periodCell}>
               <Text numeric style={[styles.period, { color: palette.sub }]}>
-                {bell.period}
+                {period}
               </Text>
             </View>
             {WEEKDAYS.map((d) => {
-              const cells = cellsAt(week, d, bell.period);
-              const isNow = d === today && bell.period === nowPeriod;
-              const edited = isEdited(settings, d, bell.period);
+              const cells = cellsAt(week, d, period);
+              const isNow = d === today && period === nowPeriod;
+              const edited = isEdited(settings, d, period);
               const clash = cells.length > 1;
               const first = cells[0];
               const tone = first ? subjectTone(first.subject, palette.scheme) : null;
 
               const label = cells.length
-                ? `${d}요일 ${bell.period}교시 ${cells.map((c) => `${c.cls ?? '직접 넣음'} ${readSubject(c.subject).name}`).join(', ')}${clash ? `, ${cells.length}개 반이 겹쳐요` : ''}${isNow ? ', 지금 수업 중' : ''}, 눌러서 고치기`
-                : `${d}요일 ${bell.period}교시 비어 있음, 눌러서 내 수업 넣기`;
+                ? `${d}요일 ${period}교시 ${cells.map((c) => `${c.cls ?? '직접 넣음'} ${readSubject(c.subject).name}`).join(', ')}${clash ? `, ${cells.length}개 반이 겹쳐요` : ''}${isNow ? ', 지금 수업 중' : ''}, 눌러서 고치기`
+                : `${d}요일 ${period}교시 비어 있음, 눌러서 내 수업 넣기`;
 
               return (
                 <Tap
                   key={d}
-                  onPress={() => onPick(d, bell.period)}
+                  onPress={() => onPick(d, period)}
                   accessibilityRole="button"
                   accessibilityLabel={label}
                   depth={0.06}

@@ -56,6 +56,13 @@ jobs:
         working-directory: supabase/functions
         run: deno test --allow-read _shared/kinds_test.ts
 
+      # 교시 시각 규칙은 앱(src/lib/bells.ts)과 서버에 한 벌씩 있어요.
+      # 함수는 supabase/functions 밖을 가져올 수 없어서 어쩔 수 없었어요.
+      # 한쪽만 고쳐지면 앱은 받아주는데 서버가 거절하는 일이 생겨요.
+      - name: 교시 시각 규칙이 앱과 같은지
+        working-directory: supabase/functions
+        run: deno test --allow-env --allow-read _shared/bells_test.ts
+
       - uses: supabase/setup-cli@v3
         with:
           version: latest

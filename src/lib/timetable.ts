@@ -1,5 +1,6 @@
 import type { Lesson } from '@/lib/api';
-import { BELL, WEEKDAYS, type Weekday } from '@/data/mock';
+import { WEEKDAYS, type Weekday } from '@/data/mock';
+import { DEFAULT_ROWS } from '@/lib/bells';
 import { applySwap, type SubjectSwaps } from '@/lib/my-settings';
 
 /**
@@ -19,9 +20,20 @@ export type Week = Record<Weekday, (string | null)[]>;
  * 요일과 교시로 찾고 싶거든요. `dates` 는 `weekDates(now)` 가 준 그 주 날짜예요.
  */
 export function byWeekday(lessons: Lesson[], dates: Record<Weekday, string>): Week {
+  /*
+   * 줄 수는 시간표가 정해요.
+   *
+   * 예전에는 교시 시각표 길이(7)를 썼어요. 그 값은 그냥 박아둔 거라 8교시가
+   * 있는 학교에서는 8교시가 조용히 사라졌어요. 몇 교시까지 있는지는 받아온
+   * 시간표가 이미 알고 있으니 거기서 세요.
+   *
+   * 아무것도 안 왔을 때만 7줄로 둬요. 빈 표라도 모양은 있어야 하니까요.
+   */
+  const slots = lessons.reduce((max, l) => Math.max(max, l.period), DEFAULT_ROWS);
+
   const week = {} as Week;
   // 교시 수만큼 null 로 채워둬요. 구멍을 남기지 않으려고요.
-  for (const day of WEEKDAYS) week[day] = Array.from({ length: BELL.length }, () => null);
+  for (const day of WEEKDAYS) week[day] = Array.from({ length: slots }, () => null);
 
   // 날짜 -> 요일을 한 번만 만들어두고 찾아요.
   const dayOf = new Map<string, Weekday>();
@@ -29,13 +41,14 @@ export function byWeekday(lessons: Lesson[], dates: Record<Weekday, string>): We
 
   for (const lesson of lessons) {
     const day = dayOf.get(lesson.date);
-    // 학교가 8교시까지 올리는 날이 있을 수 있어요. 그때는 자리를 늘려요.
     if (!day) continue;
-    while (week[day].length < lesson.period) week[day].push(null);
     week[day][lesson.period - 1] = lesson.subject;
   }
   return week;
 }
+
+/** 표에 그릴 줄 수예요. 요일마다 길이가 같아서 하나만 봐도 돼요. */
+export const rowsOf = (week: Week) => week['월'].length;
 
 /**
  * 시간표를 내가 실제로 듣는 과목으로 바꿔요.
