@@ -14,6 +14,8 @@
  * 이 주소는 비밀이 아니에요. 공개된 엔드포인트라서 코드에 그대로 둬요.
  * 진짜 숨겨야 하는 NEIS 인증키는 이 주소 너머 서버 안에 있어요.
  */
+import { Platform } from 'react-native';
+
 import { accessToken } from '@/lib/auth';
 import { readBells, type Bells } from '@/lib/bells';
 
@@ -620,6 +622,35 @@ export async function removeThread(id: string): Promise<void> {
 }
 
 /**
+ * 사진을 보낼 꾸러미에 담아요.
+ *
+ * 웹과 폰이 달라요. 여기서 갈리는 걸 한참 못 보고 있었어요.
+ *
+ * 폰(React Native)은 `{ uri, name, type }` 모양의 객체를 알아봐요. 그걸
+ * 보고 알아서 파일로 만들어 실어요. 브라우저는 그런 거 몰라요. FormData 에
+ * 객체를 넣으면 글자로 바꿔서 "[object Object]" 를 실어 보내요. 그러면
+ * 서버가 File 이 아니라고 보고 "사진이 없어요" 라고 답해요.
+ *
+ * 코드에 "웹에서는 진짜 파일을 넣어야 해요" 라고 적어만 두고 안 했던 자리예요.
+ * 적어두는 걸로는 안 고쳐져요.
+ */
+async function attachPhoto(form: FormData, uri: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    // 줄여둔 사진은 data: 나 blob: 주소예요. fetch 로 진짜 덩어리를 꺼내요.
+    const blob = await fetch(uri).then((r) => r.blob());
+    const type = blob.type || 'image/jpeg';
+    const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+    form.append('image', blob, `photo.${ext}`);
+    return;
+  }
+
+  // 폰은 주소 끝을 보고 이름과 형식을 정해요.
+  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  form.append('image', { uri, name: `photo.${ext}`, type } as unknown as Blob);
+}
+
+/**
  * 이어서 한 줄 더 보내요. 학생도 선생님도 써요.
  * 사진을 같이 보내려면 photo 를 주세요. 글은 없어도 돼요.
  */
@@ -636,13 +667,10 @@ export async function replyTo(
     return message;
   }
 
-  // 사진이 있으면 통째로 보내요. 이름과 형식은 주소 끝을 보고 정해요.
+  // 사진이 있으면 통째로 보내요.
   const form = new FormData();
   form.append('text', text);
-  const ext = photo.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-  const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-  // React Native 에서는 이 모양으로 넣어요. 웹에서는 진짜 파일을 넣어야 해요.
-  form.append('image', { uri: photo.uri, name: `photo.${ext}`, type } as unknown as Blob);
+  await attachPhoto(form, photo.uri);
 
   const { message } = await call<{ message: ThreadMessage }>(
     { kind: 'thread', id },
