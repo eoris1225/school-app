@@ -63,6 +63,11 @@ jobs:
         working-directory: supabase/functions
         run: deno test --allow-env --allow-read _shared/bells_test.ts
 
+      # 사람이 손으로 적은 일정을 읽는 규칙이에요. 여기가 틀리면 조용히 사라져요.
+      - name: 계정 설정 읽기
+        working-directory: supabase/functions
+        run: deno test --allow-env _shared/settings_test.ts
+
       - uses: supabase/setup-cli@v3
         with:
           version: latest

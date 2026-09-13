@@ -63,7 +63,8 @@ export default function CalendarScreen() {
       classes: [],
     }));
 
-  // 나만 보는 일정도 같이 보여줘요. 아무에게도 안 올라가고 이 기기에만 있어요.
+  // 나만 보는 일정도 같이 보여줘요. 선생님도 다른 학생도 못 봐요.
+  // 계정에 담겨서 폰을 바꿔도 따라와요 (로그인했을 때요).
   const personal: SchoolEvent[] = myEvents.map((e) => ({
     id: e.id,
     date: e.date,
@@ -250,7 +251,7 @@ export default function CalendarScreen() {
           <Reveal key={`${selected}:${e.id}`} delay={i * 50} distance={10}>
             {i > 0 ? <Divider /> : null}
             {/* 올린 사람에게만 고치기·지우기가 나와요. 규칙은 app-state의 canDelete에 있어요.
-                내 일정(나만 보는 메모)은 기기에만 있어서 지우기만 돼요. */}
+                내 일정(나만 보는 메모)은 고치는 화면이 따로 없어서 지우기만 돼요. */}
             <EventRow
               event={e}
               showDday={!teacher}
@@ -296,8 +297,13 @@ export default function CalendarScreen() {
 
       {/* 나만 보는 일정. 학원, 시험공부, 친구 약속 같은 것들요. */}
       <SectionTitle title="내 일정 추가" />
+      {/*
+        로그인했을 때만 "따라와요" 라고 적어요. 로그인 안 하면 이 기기에만
+        남거든요. 지킬 수 없는 약속을 적으면 폰 바꾸고 나서 배신당해요.
+      */}
       <Text style={[styles.mineHelp, { color: palette.sub }]}>
         나만 보여요. 다른 학생이나 선생님에게는 안 보여요.
+        {me ? ' 폰을 바꿔도 따라와요.' : ''}
       </Text>
       <View style={styles.mineRow}>
         <View style={styles.fill}>

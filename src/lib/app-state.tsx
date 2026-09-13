@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -375,19 +376,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const threadsLoading = !!threadStamp && fresh === null;
 
   /*
-   * 이 기기에만 있는 설정을 읽어와요.
+   * 아래 pull 이 값을 정하고 나면 true 가 돼요.
    *
-   * 교시 바꾸기·"안내 봤음"·알레르기는 여기서 안 읽어요. 셋 다 계정에도
-   * 있어서 누가 이기는지 정해야 하거든요. 여기서 읽으면 로그인 확인과 경쟁이
-   * 붙어요. 새 기기에서 로그인하면 이 effect가 빈 값을 먼저 읽고, 그 뒤에
-   * 계정에서 내려온 값을 덮어쓰거나 반대로 덮여요. 어느 쪽이 이길지 몰라요.
-   * 그래서 셋은 로그인 확인이 끝난 뒤 한 곳에서만 정해요 (아래 pull).
+   * 교시 바꾸기·"안내 봤음"·알레르기는 계정에도 있어서 여기서 안 읽어요.
+   * 로그인 확인이 끝난 뒤 한 곳에서만 정해요 (아래 pull). 두 군데서 읽으면
+   * 누가 늦게 끝나느냐로 값이 갈려요.
+   *
+   * 내 일정·테마 색·화면 밝기도 이제 계정에 담겨요. 그런데 이 셋만은 기기
+   * 읽기를 남겨뒀어요. 빠르기 때문이에요. 계정은 한 번 다녀와야 하는데,
+   * 그동안 기본 주황색으로 떴다가 갈리면 눈에 띄어요. 달력도 잠깐 비고요.
+   *
+   * 대신 순서를 못 박았어요. 기기 것을 먼저 그리고, 계정 것이 오면 덮어요.
+   * 거꾸로는 안 돼요. 이 문지기가 그걸 막아요. 안 두면 계정에 담긴 색을
+   * 기기에 남아 있던 옛날 색이 덮어버리는 일이 생겨요. 그러고는 앱을 껐다
+   * 켤 때까지 그대로예요.
    */
+  const settled = useRef(false);
+
+  /* 이 기기에 있는 것을 먼저 그려요. 계정 것이 오면 위 규칙대로 덮여요. */
+
   useEffect(() => {
     let alive = true;
     Promise.all([loadMyEvents(), loadAccent(), loadSchemePref()]).then(
       ([e, color, pref]) => {
-        if (!alive) return;
+        if (!alive || settled.current) return;
         setMyEventsState(e);
         // 예전에 '토마토' 같은 이름으로 저장해둔 것도 색으로 바꿔 읽어요.
         if (color) setAccentState(readAccent(color));
@@ -471,21 +483,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveMySettings({ allergies: sorted }).catch(() => {});
   }, []);
 
-  const addMyEvent = useCallback((date: string, title: string) => {
-    setMyEventsState((prev) => {
-      const next = [...prev, { id: newEventId(), date, title: title.trim() }];
+  /*
+   * 나만 보는 일정이에요.
+   *
+   * 기기에도 담고 계정에도 올려요. 기기에 담는 건 인터넷이 끊겨도 달력이
+   * 제대로 보이게 하려고요. 계정에 올리는 건 폰을 바꿔도 따라오게 하려고요.
+   *
+   * 예전에는 기기에만 담았어요. 사람이 손으로 적은 건데 앱을 지우면 통째로
+   * 사라졌어요. 다시 만들 길이 없는 값이에요.
+   */
+  const pushMyEvents = useCallback(
+    (next: MyEvent[]) => {
+      setMyEventsState(next);
       void saveMyEvents(next);
-      return next;
-    });
-  }, []);
+      // 로그인 안 했으면 기기에만 남아요. 다음에 로그인할 때 올라가요 (pull).
+      if (me) saveMySettings({ myEvents: next }).catch(() => {});
+    },
+    [me],
+  );
 
-  const removeMyEvent = useCallback((id: string) => {
-    setMyEventsState((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      void saveMyEvents(next);
-      return next;
-    });
-  }, []);
+  const addMyEvent = useCallback(
+    (date: string, title: string) => {
+      pushMyEvents([...myEvents, { id: newEventId(), date, title: title.trim() }]);
+    },
+    [pushMyEvents, myEvents],
+  );
+
+  const removeMyEvent = useCallback(
+    (id: string) => {
+      pushMyEvents(myEvents.filter((e) => e.id !== id));
+    },
+    [pushMyEvents, myEvents],
+  );
 
   /*
    * 계정에 담긴 것을 기기로 내려요. 로그인할 때마다 한 번이에요.
@@ -506,6 +535,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSetupSeen(await loadSetupSeen());
     setAllergiesState(await loadAllergies());
     setTeachState({ classes: [], edits: {} });
+    setMyEventsState(await loadMyEvents());
+    const color = await loadAccent();
+    if (color) setAccentState(readAccent(color));
+    const pref = await loadSchemePref();
+    if (pref === 'system' || pref === 'light' || pref === 'dark') setSchemePrefState(pref);
+    settled.current = true;
   }, []);
 
   const pull = useCallback(async (who: Me) => {
@@ -563,11 +598,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAllergiesState([]);
     }
 
+    /*
+     * 내 일정도 알레르기와 같은 규칙이에요. 계정에 있으면 그걸 쓰고,
+     * 기기에만 있으면 계정으로 올려요.
+     *
+     * "비었다"를 조심해야 하는 것도 같아요. 사람이 손으로 적은 거라 빈 쪽으로
+     * 덮으면 되돌릴 방법이 없어요. 한쪽이라도 값이 있으면 그걸 살려요.
+     * 서버가 앱보다 낡아서 이 칸을 아예 모를 때도 이 규칙이 지켜줘요.
+     */
+    const localEvents = await loadMyEvents();
+    if (who.myEvents.length > 0) {
+      setMyEventsState(who.myEvents);
+      void saveMyEvents(who.myEvents);
+    } else if (localEvents.length > 0) {
+      setMyEventsState(localEvents);
+      saveMySettings({ myEvents: localEvents }).catch(() => {});
+    } else {
+      setMyEventsState([]);
+    }
+
+    /*
+     * 테마 색과 화면 밝기예요.
+     *
+     * 여기는 "비었다"로 덮는 가지가 없어요. 안 고른 계정이면 기본값 그대로
+     * 두면 되거든요. 굳이 지금 색으로 되돌릴 이유가 없어요.
+     */
+    const localAccent = await loadAccent();
+    if (who.accent) {
+      setAccentState(who.accent);
+      void saveAccent(who.accent);
+    } else if (localAccent) {
+      // 예전에 '토마토' 같은 이름으로 담아둔 것도 색으로 바꿔서 올려요.
+      const color = readAccent(localAccent);
+      setAccentState(color);
+      saveMySettings({ accent: color }).catch(() => {});
+    }
+
+    const localPref = await loadSchemePref();
+    if (who.schemePref) {
+      // 여기서는 덮는 막을 안 씌워요. 로그인은 색을 바꾸러 온 게 아니라
+      // 원래 쓰던 화면으로 돌아온 거예요. 막이 깜빡이면 그게 더 이상해요.
+      setSchemePrefState(who.schemePref);
+      void saveSchemePref(who.schemePref);
+    } else if (localPref === 'system' || localPref === 'light' || localPref === 'dark') {
+      setSchemePrefState(localPref);
+      saveMySettings({ schemePref: localPref }).catch(() => {});
+    }
+
     // 계정과 기기 중 한쪽이라도 봤으면 본 거예요. 다시 물어볼 이유가 없어요.
     const seen = who.setupSeen || (await loadSetupSeen());
     setSetupSeen(seen);
     if (seen && !who.setupSeen) saveMySettings({ setupSeen: true }).catch(() => {});
     if (seen) void saveSetupSeen();
+
+    settled.current = true;
   }, []);
 
   /**
@@ -715,6 +799,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setSchemePref = useCallback(
     (pref: SchemePref) => {
       void saveSchemePref(pref);
+      if (me) saveMySettings({ schemePref: pref }).catch(() => {});
       const next: Scheme = pref === 'system' ? readSystemScheme() : pref;
       // 실제로 보이는 밝기가 그대로면 덮을 이유가 없어요.
       // ('시스템'에서 '밝게'로 옮겼는데 폰도 밝은 화면이던 경우요.)
@@ -724,7 +809,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       setSchemeSwap({ to: next, color: buildPalette(accent, next).bg, pref });
     },
-    [accent, scheme],
+    [accent, scheme, me],
   );
 
   const commitScheme = useCallback(() => {
@@ -733,10 +818,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const endScheme = useCallback(() => setSchemeSwap(null), []);
 
-  const setAccent = useCallback((hex: string) => {
-    setAccentState(hex);
-    void saveAccent(hex);
-  }, []);
+  const setAccent = useCallback(
+    (hex: string) => {
+      setAccentState(hex);
+      void saveAccent(hex);
+      // 계정에도 올려요. 새 폰에서 로그인했을 때 쓰던 색 그대로 뜨게요.
+      if (me) saveMySettings({ accent: hex }).catch(() => {});
+    },
+    [me],
+  );
 
   /**
    * 수행평가를 서버에 등록해요.

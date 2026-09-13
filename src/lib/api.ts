@@ -327,6 +327,18 @@ export type Me = {
    *   edits    칸을 직접 고친 것. 빈 글자는 "내 수업 아님" 이에요.
    */
   teach: { classes: string[]; edits: Record<string, string> };
+  /**
+   * 나만 보는 일정.
+   *
+   * 알레르기와 같은 이유로, 서버가 낡아서 안 오면 빈 표로 와요. 그때
+   * 화면을 비우면 안 돼요. app-state 가 "서버가 모르면 기기 것을 그대로" 로
+   * 다뤄요. 사람이 손으로 적은 거라 날리면 다시 못 만들어요.
+   */
+  myEvents: { id: string; date: string; title: string }[];
+  /** 고른 테마 색 ('#f97316'). 안 골랐거나 서버가 낡으면 null이에요. */
+  accent: string | null;
+  /** 고른 밝기. 안 골랐거나 서버가 낡으면 null이에요. */
+  schemePref: 'system' | 'light' | 'dark' | null;
 };
 
 /*
@@ -389,6 +401,20 @@ function readMe(raw: unknown): Me | null {
       : [],
     setupSeen: m.setupSeen === true,
     teach: readTeach(m.teach),
+    myEvents: Array.isArray(m.myEvents)
+      ? m.myEvents.flatMap((e) => {
+          if (!e || typeof e !== 'object') return [];
+          const v = e as Record<string, unknown>;
+          return typeof v.id === 'string' && typeof v.date === 'string' && typeof v.title === 'string'
+            ? [{ id: v.id, date: v.date, title: v.title }]
+            : [];
+        })
+      : [],
+    accent: typeof m.accent === 'string' && /^#[0-9a-fA-F]{6}$/.test(m.accent) ? m.accent : null,
+    schemePref:
+      m.schemePref === 'system' || m.schemePref === 'light' || m.schemePref === 'dark'
+        ? m.schemePref
+        : null,
   };
 }
 
@@ -492,6 +518,9 @@ export async function saveMySettings(v: {
   setupSeen?: boolean;
   teach?: { classes: string[]; edits: Record<string, string> };
   allergies?: number[];
+  myEvents?: { id: string; date: string; title: string }[];
+  accent?: string;
+  schemePref?: 'system' | 'light' | 'dark';
 }): Promise<Me> {
   const { me } = await call<{ me: unknown }>({ kind: 'my-settings' }, { method: 'POST', body: v });
   return readMe(me) as Me;

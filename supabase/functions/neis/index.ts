@@ -662,6 +662,9 @@ async function handle(req: Request, url: URL): Promise<Response> {
         setupSeen?: boolean;
         teach?: { classes: string[]; edits: Record<string, string> };
         allergies?: number[];
+        myEvents?: { id: string; date: string; title: string }[];
+        accent?: string;
+        schemePref?: 'system' | 'light' | 'dark';
       } = {};
 
       if (body.swaps !== undefined) {
@@ -743,6 +746,54 @@ async function handle(req: Request, url: URL): Promise<Response> {
         v.teach = { classes, edits };
       }
 
+
+      /*
+       * 나만 보는 일정이에요. 사람이 손으로 적은 거라 모양만 봐요.
+       *
+       * 통째로 거절해요. 알레르기나 교시 바꾸기와 달리 줄 하나를 조용히
+       * 버리면 "적었는데 없어졌다"가 돼요. 뭐가 잘못됐는지 말해주는 게 나아요.
+       */
+      if (body.myEvents !== undefined) {
+        const raw = body.myEvents;
+        if (!Array.isArray(raw)) throw new BadRequest('내 일정이 이상해요');
+        if (raw.length > 300) throw new BadRequest('내 일정은 300개까지예요');
+        const events: { id: string; date: string; title: string }[] = [];
+        for (const item of raw) {
+          if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+            throw new BadRequest('내 일정이 이상해요');
+          }
+          const e = item as Record<string, unknown>;
+          const id = typeof e.id === 'string' ? e.id : '';
+          const date = typeof e.date === 'string' ? e.date : '';
+          const title = typeof e.title === 'string' ? e.title : '';
+          if (!/^[0-9a-zA-Z-]{1,60}$/.test(id)) throw new BadRequest('일정 열쇠가 이상해요');
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new BadRequest('일정 날짜가 이상해요');
+          if (!title.trim() || title.length > 100) throw new BadRequest('일정 제목이 이상해요');
+          events.push({ id, date, title });
+        }
+        v.myEvents = events;
+      }
+
+      /*
+       * 테마 색은 색 그 자체로 담아요. '토마토' 같은 이름을 받으면 목록에
+       * 있는 색만 쓸 수 있게 돼요. 직접 고른 색도 똑같이 다뤄져야 해요.
+       */
+      if (body.accent !== undefined) {
+        const raw = body.accent;
+        if (typeof raw !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(raw)) {
+          throw new BadRequest('테마 색이 이상해요');
+        }
+        v.accent = raw.toLowerCase();
+      }
+
+      if (body.schemePref !== undefined) {
+        const raw = body.schemePref;
+        if (raw !== 'system' && raw !== 'light' && raw !== 'dark') {
+          throw new BadRequest('화면 밝기가 이상해요');
+        }
+        v.schemePref = raw;
+      }
+
       /*
        * 아무것도 안 보냈으면 거절해요. 빈 요청으로 표를 건드리지 않으려고요.
        *
@@ -754,7 +805,10 @@ async function handle(req: Request, url: URL): Promise<Response> {
         v.swaps === undefined &&
         v.setupSeen === undefined &&
         v.teach === undefined &&
-        v.allergies === undefined
+        v.allergies === undefined &&
+        v.myEvents === undefined &&
+        v.accent === undefined &&
+        v.schemePref === undefined
       ) {
         throw new BadRequest('바꿀 것이 없어요');
       }

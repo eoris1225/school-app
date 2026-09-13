@@ -46,6 +46,12 @@ export type Me = {
    *   edits    칸을 직접 고친 것. 빈 글자는 "내 수업 아님" 이에요.
    */
   teach: { classes: string[]; edits: Record<string, string> };
+  /** 나만 보는 일정. 선생님이 올린 것과 섞이지 않아요. */
+  myEvents: { id: string; date: string; title: string }[];
+  /** 고른 테마 색. '#f97316' 처럼요. 안 골랐으면 null이에요. */
+  accent: string | null;
+  /** 고른 밝기. 안 골랐으면 null이에요. 'system'도 고른 거예요. */
+  schemePref: 'system' | 'light' | 'dark' | null;
 };
 
 export class AuthError extends Error {}
@@ -109,6 +115,45 @@ function toTeach(raw: unknown): Me['teach'] {
   return { classes, edits: toSwaps(v.edits) };
 }
 
+/**
+ * 나만 보는 일정을 읽어요. 모양이 아닌 줄은 버려요.
+ *
+ * 통째로 버리지 않고 줄 단위로 버려요. 한 줄이 깨졌다고 나머지 일정까지
+ * 사라지면 사람이 손으로 적은 게 통째로 날아가요.
+ */
+function toMyEvents(raw: unknown): Me['myEvents'] {
+  if (!Array.isArray(raw)) return [];
+  const out: Me['myEvents'] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const e = item as Record<string, unknown>;
+    if (typeof e.id !== 'string' || typeof e.date !== 'string' || typeof e.title !== 'string') continue;
+    out.push({ id: e.id, date: e.date, title: e.title });
+  }
+  return out;
+}
+
+/** '#f97316' 모양일 때만 써요. 아니면 안 고른 걸로 봐요. */
+const toAccent = (raw: unknown) =>
+  typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : null;
+
+const toSchemePref = (raw: unknown): Me['schemePref'] =>
+  raw === 'system' || raw === 'light' || raw === 'dark' ? raw : null;
+
+/**
+ * 표에 담긴 줄에서 이 셋만 읽어요. 검사에서 부르려고 따로 빼뒀어요.
+ *
+ * toMe 전체를 검사하려면 학교·반·역할까지 다 채운 가짜 줄을 만들어야 하는데,
+ * 그러면 정작 보고 싶은 세 칸이 잡동사니에 묻혀요.
+ */
+export function readSettings(row: Record<string, unknown>) {
+  return {
+    myEvents: toMyEvents(row.my_events),
+    accent: toAccent(row.accent),
+    schemePref: toSchemePref(row.scheme_pref),
+  };
+}
+
 function toMe(row: Record<string, unknown>): Me {
   const office = row.school_office ? String(row.school_office) : '';
   const code = row.school_code ? String(row.school_code) : '';
@@ -135,18 +180,60 @@ function toMe(row: Record<string, unknown>): Me {
     allergies: toAllergies(row.allergies),
     setupSeen: row.setup_seen === true,
     teach: toTeach(row.teach),
+    ...readSettings(row),
   };
 }
 
-const PROFILE_COLS =
+const OLD_COLS =
   'id,role,name,subjects,teaches,school_office,school_code,school_name,office_name,' +
   'grade,cls,student_no,swaps,setup_seen,teach,allergies';
 
+/** 나중에 늘린 칸들. 표에 아직 없을 수 있어요. 아래 설명을 보세요. */
+const NEW_COLS = ['my_events', 'accent', 'scheme_pref'];
+
+/*
+ * 표에 새 칸이 아직 없을 수 있어요.
+ *
+ * 함수는 main 에 올라가면 자동으로 배포되는데, 표는 사람이 db push 를 해야
+ * 해요. 순서가 뒤집히면 새 함수가 없는 칸을 물어보게 돼요. PostgREST 는
+ * 그걸 통째로 거절해요(42703). 그런데 프로필 읽기가 실패하는 자리가 하필
+ * "내가 누구인지 묻는" 곳이라, 앱 전체가 로그인 안 한 것처럼 보여요.
+ * 설정 하나 늘리려다 모두를 로그아웃시키는 거예요.
+ *
+ * 그래서 한 번 더 물어봐요. 새 칸을 빼고요. 그동안은 그 값들이 기기에만
+ * 남고, 표가 올라가면 저절로 원래대로 돌아와요. 함수는 자주 새로 뜨거든요.
+ *
+ * "순서를 지키면 되잖아" 는 맞는 말이지만, 지키라고 적어두는 것보다
+ * 안 지켜도 안 죽게 만드는 쪽이 나아요.
+ */
+let hasNewCols = true;
+const profileCols = () => (hasNewCols ? `${OLD_COLS},${NEW_COLS.join(',')}` : OLD_COLS);
+
+/**
+ * 프로필 표를 불러요. 새 칸 때문에 거절당하면 새 칸을 빼고 한 번 더요.
+ *
+ * `run` 은 물어볼 칸 목록과 "새 칸을 빼라"를 받아요. 읽기는 칸 목록만
+ * 쓰지만, 쓰기는 보낼 내용에서도 새 칸을 빼야 해서 둘 다 넘겨요.
+ */
+async function askProfiles(
+  run: (cols: string, skipNew: boolean) => Promise<Response>,
+  whatFailed: string,
+): Promise<Record<string, unknown>[]> {
+  let res = await run(profileCols(), !hasNewCols);
+  if (!res.ok && hasNewCols) {
+    console.warn('프로필 새 칸이 아직 없는 것 같아요. 빼고 다시 물어봐요.');
+    hasNewCols = false;
+    res = await run(profileCols(), true);
+  }
+  if (!res.ok) throw new AuthError(`${whatFailed} (${res.status})`);
+  return (await res.json()) as Record<string, unknown>[];
+}
+
 async function profileOf(id: string): Promise<Me | null> {
-  const q = new URLSearchParams({ select: PROFILE_COLS, id: `eq.${id}` });
-  const res = await fetch(`${rest('profiles')}?${q}`, { headers: serviceHeaders() });
-  if (!res.ok) throw new AuthError('프로필을 읽지 못했어요');
-  const rows = (await res.json()) as Record<string, unknown>[];
+  const rows = await askProfiles((cols) => {
+    const q = new URLSearchParams({ select: cols, id: `eq.${id}` });
+    return fetch(`${rest('profiles')}?${q}`, { headers: serviceHeaders() });
+  }, '프로필을 읽지 못했어요');
   const row = rows[0];
   if (!row) return null;
   return toMe(row);
@@ -171,21 +258,23 @@ export async function setSchool(
     no: number | null;
   },
 ): Promise<Me> {
-  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
-    method: 'PATCH',
-    headers: { ...serviceHeaders(), prefer: 'return=representation' },
-    body: JSON.stringify({
-      school_office: v.office,
-      school_code: v.code,
-      school_name: v.name,
-      office_name: v.officeName,
-      grade: v.grade,
-      cls: v.cls,
-      student_no: v.no,
-    }),
-  });
-  if (!res.ok) throw new AuthError(`학교를 저장하지 못했어요 (${res.status})`);
-  const rows = (await res.json()) as Record<string, unknown>[];
+  const rows = await askProfiles(
+    (cols) =>
+      fetch(`${rest('profiles')}?id=eq.${id}&select=${cols}`, {
+        method: 'PATCH',
+        headers: { ...serviceHeaders(), prefer: 'return=representation' },
+        body: JSON.stringify({
+          school_office: v.office,
+          school_code: v.code,
+          school_name: v.name,
+          office_name: v.officeName,
+          grade: v.grade,
+          cls: v.cls,
+          student_no: v.no,
+        }),
+      }),
+    '학교를 저장하지 못했어요',
+  );
   if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
   return toMe(rows[0]);
 }
@@ -212,6 +301,9 @@ export async function setSettings(
     setupSeen?: boolean;
     teach?: Me['teach'];
     allergies?: number[];
+    myEvents?: Me['myEvents'];
+    accent?: string;
+    schemePref?: 'system' | 'light' | 'dark';
   },
 ): Promise<Me> {
   const body: Record<string, unknown> = {};
@@ -219,14 +311,20 @@ export async function setSettings(
   if (v.allergies !== undefined) body.allergies = v.allergies;
   if (v.setupSeen !== undefined) body.setup_seen = v.setupSeen;
   if (v.teach !== undefined) body.teach = v.teach;
+  if (v.myEvents !== undefined) body.my_events = v.myEvents;
+  if (v.accent !== undefined) body.accent = v.accent;
+  if (v.schemePref !== undefined) body.scheme_pref = v.schemePref;
 
-  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
-    method: 'PATCH',
-    headers: { ...serviceHeaders(), prefer: 'return=representation' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new AuthError(`설정을 저장하지 못했어요 (${res.status})`);
-  const rows = (await res.json()) as Record<string, unknown>[];
+  const rows = await askProfiles((cols, skipNew) => {
+    // 표에 새 칸이 없으면 보낼 내용에서도 빼요. 안 빼면 쓰기가 또 거절당해요.
+    const send = { ...body };
+    if (skipNew) for (const c of NEW_COLS) delete send[c];
+    return fetch(`${rest('profiles')}?id=eq.${id}&select=${cols}`, {
+      method: 'PATCH',
+      headers: { ...serviceHeaders(), prefer: 'return=representation' },
+      body: JSON.stringify(send),
+    });
+  }, '설정을 저장하지 못했어요');
   if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
   return toMe(rows[0]);
 }
@@ -309,13 +407,15 @@ export async function setSubjects(id: string, subjects: string[], teaches: strin
 }
 
 async function setTeaches(id: string, teaches: string[]): Promise<Me> {
-  const res = await fetch(`${rest('profiles')}?id=eq.${id}&select=${PROFILE_COLS}`, {
-    method: 'PATCH',
-    headers: { ...serviceHeaders(), prefer: 'return=representation' },
-    body: JSON.stringify({ teaches }),
-  });
-  if (!res.ok) throw new AuthError(`담당 과목을 저장하지 못했어요 (${res.status})`);
-  const rows = (await res.json()) as Record<string, unknown>[];
+  const rows = await askProfiles(
+    (cols) =>
+      fetch(`${rest('profiles')}?id=eq.${id}&select=${cols}`, {
+        method: 'PATCH',
+        headers: { ...serviceHeaders(), prefer: 'return=representation' },
+        body: JSON.stringify({ teaches }),
+      }),
+    '담당 과목을 저장하지 못했어요',
+  );
   if (!rows[0]) throw new AuthError('프로필을 찾지 못했어요');
   return toMe(rows[0]);
 }
