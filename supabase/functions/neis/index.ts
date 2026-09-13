@@ -647,7 +647,19 @@ async function handle(req: Request, url: URL): Promise<Response> {
         v.teach = { classes, edits };
       }
 
-      if (v.swaps === undefined && v.setupSeen === undefined && v.teach === undefined) {
+      /*
+       * 아무것도 안 보냈으면 거절해요. 빈 요청으로 표를 건드리지 않으려고요.
+       *
+       * 여기에 칸을 하나 늘릴 때마다 같이 적어줘야 해요. 안 적으면 새 칸만
+       * 보냈을 때 "바꿀 것이 없어요" 로 막혀요. 흉내내는 검사로는 안 잡혀요.
+       * 진짜 서버에 보내봐야 나와요 (scratchpad/live-allergy.mjs).
+       */
+      if (
+        v.swaps === undefined &&
+        v.setupSeen === undefined &&
+        v.teach === undefined &&
+        v.allergies === undefined
+      ) {
         throw new BadRequest('바꿀 것이 없어요');
       }
       return json({ me: await setSettings(me.id, v) });
