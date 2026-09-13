@@ -270,12 +270,20 @@ export async function readThread(
     .map((m) => toMessage(m as Record<string, unknown>))
     .sort((a, b) => a.at.localeCompare(b.at));
 
-  // 열었으면 읽은 거예요. 따로 "읽음" 버튼을 만들지 않아요.
+  /*
+   * 열었으면 읽은 거예요. 따로 "읽음" 버튼을 만들지 않아요.
+   *
+   * 단, 안 읽은 상태일 때만 적어요. 쪽지 화면은 열어두는 동안 몇 초마다
+   * 다시 물어보거든요. 그때마다 표를 건드리면 읽은 쪽지에 대고 "읽음"을
+   * 계속 다시 쓰는 셈이에요. 바뀌는 것도 없이 쓰기만 늘어나요.
+   */
   const mine = me.role === 'teacher' ? 'unread_teacher' : 'unread_student';
-  await ask(`${rest('threads')}?id=eq.${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ [mine]: false }),
-  });
+  if (rows[0][mine] === true) {
+    await ask(`${rest('threads')}?id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ [mine]: false }),
+    });
+  }
 
   return { thread: { ...toThread(rows[0], me), unread: false }, messages: await withImages(msgs) };
 }

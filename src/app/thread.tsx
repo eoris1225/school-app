@@ -15,6 +15,7 @@ import { useLayout } from '@/lib/layout';
 import { PhotoError, pickPhoto, prettySize, type Photo } from '@/lib/photo';
 import { shortTime } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
+import { usePoll } from '@/lib/live';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,17 +26,30 @@ export default function ThreadScreen() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  // 답장을 보낸 뒤 이 값을 올려서 다시 읽어와요.
-  const [nonce, setNonce] = useState(0);
   // 지우기는 한 번 더 물어봐요. 되돌릴 수 없으니까요.
   const [confirmDrop, setConfirmDrop] = useState(false);
   // 보내기 전에 고른 사진. 보내고 나면 비워요.
   const [photo, setPhoto] = useState<Photo | null>(null);
 
-  // 서버에서 통째로 받아와요. 여는 순간 읽음으로 표시돼요.
-  const remote = useRemote(`thread:${id}:${nonce}`, () => getThread(id));
+  /*
+   * 서버에서 통째로 받아와요. 여는 순간 읽음으로 표시돼요.
+   *
+   * 예전에는 이름에 번호를 섞어서 `thread:1:3` 처럼 만들고, 보낼 때마다
+   * 번호를 올려서 다시 읽었어요. 그러면 이름이 매번 달라져서 담아둔 게
+   * 소용없어져요. 보낼 때마다 화면이 "불러오는 중"으로 한 번 비었어요.
+   * 이름은 그대로 두고 retry 로 다시 읽으면 담아둔 걸 보여주면서 갈려요.
+   */
+  const remote = useRemote(`thread:${id}`, () => getThread(id));
   const thread = remote.data?.thread ?? null;
   const messages = remote.data?.messages ?? [];
+
+  /*
+   * 보고 있는 동안 5초마다 다시 봐요.
+   *
+   * 상대가 답을 보내도 새로고침을 해야 보였어요. 대화하는 화면에서 그건
+   * 좀 그렇죠. 화면을 떠나거나 앱을 내려놓으면 멈춰요.
+   */
+  usePoll(remote.retry, 5000);
 
   const teacher = role === 'teacher';
   const subtitle = !thread
@@ -62,7 +76,7 @@ export default function ThreadScreen() {
     }
     setText('');
     setPhoto(null);
-    setNonce((n) => n + 1);
+    remote.retry();
     reloadThreads();
   };
 

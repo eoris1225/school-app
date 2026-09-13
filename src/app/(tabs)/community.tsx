@@ -12,7 +12,7 @@ import { isPending, useApp } from '@/lib/app-state';
 import { byWeekday, withSwaps } from '@/lib/timetable';
 import { weekDates } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
-import { useReturn } from '@/lib/use-return';
+import { usePoll, useReturn } from '@/lib/live';
 
 export default function CommunityScreen() {
   const { role } = useApp();
@@ -52,7 +52,14 @@ function describe(list: TeacherPick[]): Map<string, string> {
 /* ---------------- 학생: 질문 보내기 + 내 질문 ---------------- */
 
 function StudentCommunity() {
-  const { palette, threads, threadsLoading, askQuestion, school, now, swaps } = useApp();
+  const { palette, threads, threadsLoading, askQuestion, school, now, swaps, reloadThreads } = useApp();
+  /*
+   * 커뮤니티를 보고 있는 동안 쪽지함도 챙겨봐요.
+   *
+   * 쪽지 안에서는 5초마다 보는데(대화 중이니까요) 목록은 좀 느긋해도 돼요.
+   * 답이 왔는지만 알면 되거든요. 자주 물어봐야 이득이 없어요.
+   */
+  usePoll(reloadThreads, 20000);
   const [subject, setSubject] = useState<string | null>(null);
   /** 교과군 목록을 보고 있는지. 평소에는 내가 듣는 과목을 보여줘요. */
   const [others, setOthers] = useState(false);
@@ -271,8 +278,9 @@ function StudentCommunity() {
 
 function TeacherInbox() {
   const { palette, threads, threadsLoading, me, reloadThreads } = useApp();
-  // 쪽지함도 같아요. 탭에 돌아올 때마다 새 쪽지가 있는지 다시 봐요.
+  // 쪽지함도 같아요. 탭에 돌아올 때마다, 그리고 보고 있는 동안에도 챙겨봐요.
   useReturn(reloadThreads);
+  usePoll(reloadThreads, 20000);
   const [tab, setTab] = useState<'pending' | 'done' | 'all'>('pending');
   const [find, setFind] = useState('');
   const pending = threads.filter(isPending);
