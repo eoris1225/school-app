@@ -28,6 +28,8 @@ create index if not exists push_subs_user_idx on public.push_subs (user_id);
 alter table public.push_subs enable row level security;
 
 grant usage on schema public to service_role;
-grant select, insert, delete on public.push_subs to service_role;
+-- update 는 덮어쓰기 때문에 필요해요. 같은 기기가 다시 켜면 같은 주소가
+-- 또 오는데, 새 줄을 만들면 알림이 두 번 가거든요.
+grant select, insert, update, delete on public.push_subs to service_role;
 
 notify pgrst, 'reload schema';
