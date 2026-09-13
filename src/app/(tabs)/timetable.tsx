@@ -25,8 +25,8 @@ import { useRemote } from '@/lib/use-remote';
 import { subjectTone } from '@/constants/tones';
 import { useApp } from '@/lib/app-state';
 import { slotKey } from '@/lib/my-settings';
-import { holidayName, readSubject, subjectGroup } from '@/lib/subject';
-import { cellsAt, clashes, teachCount, teacherWeek } from '@/lib/teacher-week';
+import { holidayName, readSubject } from '@/lib/subject';
+import { cellsAt, clashes, mineFrom, teachCount, teacherWeek } from '@/lib/teacher-week';
 import { currentPeriod, weekDates, weekdayOf } from '@/lib/time';
 
 
@@ -88,10 +88,30 @@ export default function TimetableScreen() {
   const all = useRemote(`school-timetable:${school?.code}:${dates.월}`, () =>
     teacher ? getSchoolLessons(dates.월, dates.금, school ?? undefined) : Promise.resolve([]),
   );
-  // 실제 과목 이름은 '미적분Ⅰ' 처럼 와요. 이름을 맞춰보면 하나도 안 걸려서
-  // 교과군으로 봐요. 수학 선생님이면 수학 교과군을 다 내 수업으로요.
-  const myGroups = new Set((me?.subjects ?? []).map((x) => subjectGroup(x)));
-  const myWeek = teacherWeek(all.data ?? [], dates, myGroups, teach);
+  /*
+   * 무엇이 내 수업인지는 내 정보에서 고른 과목 이름으로 봐요.
+   *
+   * 그 목록은 이 학교 시간표에 실제로 있는 이름을 NEIS에서 받아온 거라
+   * 시간표와 그대로 맞아요. 교과군으로 보면 '미적분'만 맡은 분한테 확률과
+   * 통계, 기하까지 다 걸려서 표가 남의 수업으로 뒤덮여요.
+   *
+   * 이름을 못 고른 계정만 교과군으로 봐요 (과목 목록을 못 받아온 학교이거나
+   * 예전에 교과군으로만 골라둔 경우예요).
+   */
+  const mineSubjects = mineFrom(me?.teaches ?? [], me?.subjects ?? []);
+  const myNames = mineSubjects.names;
+  const myWeek = teacherWeek(all.data ?? [], dates, mineSubjects, teach);
+  /*
+   * 고치기 전, 시간표에 적힌 그대로의 주간표예요.
+   *
+   * 칸을 눌렀을 때 "이 시간에 어느 반이 있었지?"를 보여주려면 이게 있어야
+   * 해요. myWeek 은 이미 고친 게 반영돼서, 한 번 고르고 나면 나머지 반이
+   * 사라져서 다시 못 고르거든요. 들어가는 반을 좁혀둔 건 그대로 따라요.
+   */
+  const rawWeek = teacherWeek(all.data ?? [], dates, mineSubjects, {
+    classes: teach.classes,
+    edits: {},
+  });
   const total = teachCount(myWeek);
   const overlap = clashes(myWeek);
 
@@ -166,7 +186,7 @@ export default function TimetableScreen() {
           <Loading text="학교 시간표를 불러오는 중이에요" rows={4} />
         ) : all.error ? (
           <ErrorNote text={all.error} onRetry={all.retryable ? all.retry : undefined} />
-        ) : myGroups.size === 0 ? (
+        ) : myNames.length === 0 && mineSubjects.groups.size === 0 ? (
           <Empty
             art="warn"
             text="담당 과목을 먼저 골라주세요"
@@ -177,18 +197,21 @@ export default function TimetableScreen() {
             <Text style={[styles.teachHelp, { color: palette.sub }]}>
               {total
                 ? `이번 주 내 수업 ${total}개예요. 칸을 누르면 고칠 수 있어요.`
-                : '이번 주에 내 교과군 수업이 없어요. 칸을 눌러 직접 넣을 수도 있어요.'}
+                : myNames.length
+                  ? `이번 주에 ${myNames.join(', ')} 수업이 없어요. 맡은 과목이 더 있으면 내 정보에서 골라주세요.`
+                  : '이번 주에 내 교과군 수업이 없어요. 칸을 눌러 직접 넣을 수도 있어요.'}
             </Text>
 
             {/*
-              같은 교시에 두 반이 걸렸어요. 선생님은 한 번에 한 반에만
-              들어가니, 같은 과목 선생님이 여러 분이라는 뜻이에요.
-              감추지 않고 알려주고 좁히는 길을 같이 줘요.
+              같은 과목을 여러 선생님이 맡으면 같은 교시에 여러 반이 걸려요.
+              감추지 않고 알려주되, 까닭을 여기서 길게 적지는 않아요. 빨간 글이
+              다섯 줄이면 그것대로 읽기 싫어요. 무엇을 하면 되는지만 남기고,
+              까닭은 칸을 눌렀을 때 그 자리에서 알려줘요.
             */}
             {overlap > 0 ? (
               <Text style={[styles.teachWarn, { color: palette.sunday }]}>
-                {overlap}군데에서 같은 교시에 두 반이 겹쳐요. NEIS는 어느 선생님이 어느 반에
-                들어가는지 알려주지 않아요. 아래에서 내가 들어가는 반만 골라주세요.
+                {overlap}군데에서 같은 교시에 여러 반이 겹쳐요. 그 칸을 눌러 내 반을
+                골라주세요.
               </Text>
             ) : null}
 
@@ -221,8 +244,9 @@ export default function TimetableScreen() {
               today={today}
               nowPeriod={nowPeriod}
               onPick={(d, period) => {
-                const has = cellsAt(myWeek, d, period);
-                setDraft(has.length && has[0].added ? has[0].subject : '');
+                // 적어둔 글 그대로 불러와요. 표에 그려진 값은 반을 떼어낸
+                // 뒤라서, 그걸 가져오면 고칠 때마다 반이 지워져요.
+                setDraft(teach.edits[slotKey(d, period)] ?? '');
                 setEditing({ day: d, period });
               }}
             />
@@ -383,11 +407,52 @@ export default function TimetableScreen() {
         title={editing ? `${editing.day}요일 ${editing.period}교시` : ''}>
         {editing ? (
           <>
-            <Text style={[styles.teachHelp, { color: palette.sub }]}>
-              {cellsAt(myWeek, editing.day, editing.period).length
-                ? '시간표에 있는 그대로예요. 내 수업이 아니거나 다른 반이면 고쳐주세요.'
-                : '비어 있는 칸이에요. 회의나 보강처럼 시간표에 없는 것도 적을 수 있어요.'}
-            </Text>
+            {/*
+              반을 고르라고 물어보는 칸이 아래에 나오면 이 줄은 안 보여줘요.
+              같은 말을 두 번 하면 둘 다 안 읽혀요.
+            */}
+            {cellsAt(rawWeek, editing.day, editing.period).length > 1 ? null : (
+              <Text style={[styles.teachHelp, { color: palette.sub }]}>
+                {cellsAt(myWeek, editing.day, editing.period).length
+                  ? '시간표에 있는 그대로예요. 내 수업이 아니거나 다른 반이면 고쳐주세요.'
+                  : '비어 있는 칸이에요. 회의나 보강처럼 시간표에 없는 것도 적을 수 있어요.'}
+              </Text>
+            )}
+
+            {/*
+              이 시간에 걸린 반이 여럿이면 그대로 늘어놔요.
+              같은 과목을 여러 선생님이 맡으면 NEIS만 봐서는 누가 어느 반인지
+              알 수가 없어요. 그걸 선생님한테 타이핑으로 떠넘기지 않고, 한 번
+              눌러서 고르게 해요. 어차피 답은 이 목록 안에 있으니까요.
+            */}
+            {cellsAt(rawWeek, editing.day, editing.period).length > 1 ? (
+              <View style={styles.teachPickBlock}>
+                <Text style={[styles.teachHelp, { color: palette.text }]}>
+                  이 시간에 들어가는 반을 골라주세요
+                </Text>
+                <Text style={[styles.teachNote, { color: palette.sub }]}>
+                  같은 과목을 맡은 선생님이 여러 분이에요. NEIS는 누가 어느 반에
+                  들어가는지 알려주지 않아서 앱이 고를 수 없어요.
+                </Text>
+                {cellsAt(rawWeek, editing.day, editing.period).map((c) => {
+                  const text = `${c.cls} ${readSubject(c.subject).name}`;
+                  const on = teach.edits[slotKey(editing.day, editing.period)] === text;
+                  return (
+                    <View key={`${c.cls}:${c.subject}`} style={styles.teachGap}>
+                      <Button
+                        label={on ? `${text} ✓` : text}
+                        variant="secondary"
+                        onPress={() => {
+                          setTeachEdit(editing.day, editing.period, text);
+                          setEditing(null);
+                        }}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+
             <Field
               value={draft}
               onChangeText={setDraft}
@@ -396,6 +461,9 @@ export default function TimetableScreen() {
               accessibilityLabel="이 칸에 들어갈 내용"
               style={styles.teachInput}
             />
+            <Text style={[styles.teachNote, { color: palette.sub }]}>
+              앞에 ‘2-6’처럼 반을 적으면 표에도 반이 같이 떠요.
+            </Text>
             <Button
               label={draft.trim() ? `‘${draft.trim()}’로 두기` : '내용을 적어주세요'}
               icon="check"
@@ -476,7 +544,9 @@ const styles = StyleSheet.create({
   teachReset: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 4 },
   teachPickText: { fontSize: 13, fontWeight: '700' },
   teachInput: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginBottom: 16 },
-  teachGap: { height: 8 },
+  teachGap: { marginBottom: 8 },
+  teachPickBlock: { marginBottom: 16 },
+  teachNote: { fontSize: 12, lineHeight: 18, marginTop: -8, marginBottom: 16 },
   teachClasses: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
 
   dayTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },

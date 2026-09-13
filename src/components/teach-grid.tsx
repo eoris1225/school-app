@@ -6,7 +6,7 @@ import { subjectTone } from '@/constants/tones';
 import { BELL, LUNCH, WEEKDAYS, type Weekday } from '@/data/mock';
 import { useApp } from '@/lib/app-state';
 import { readSubject } from '@/lib/subject';
-import { cellsAt, isEdited, type TeachSettings, type TeachWeek } from '@/lib/teacher-week';
+import { cellsAt, isEdited, type TeachCell, type TeachSettings, type TeachWeek } from '@/lib/teacher-week';
 
 /*
  * 선생님의 한 주 표예요.
@@ -20,6 +20,22 @@ import { cellsAt, isEdited, type TeachSettings, type TeachWeek } from '@/lib/tea
  * 감추지 않고 둘 다 보여주고 테두리로 표시해요. 화면이 조용히 하나만
  * 고르면 틀린 시간표를 맞는 것처럼 보여주는 셈이에요.
  */
+/**
+ * 칸 위에 적을 반 이름이에요.
+ *
+ * 예전에는 겹칠 때 '2곳'이라고만 적었어요. 그런데 선생님한테 '2곳'은 아무
+ * 말도 아니에요. 어느 반인지가 궁금한 거지 몇 개인지가 궁금한 게 아니거든요.
+ * 그래서 반 이름을 그대로 적어요. 칸이 좁아서 셋부터는 '외 N'으로 줄여요.
+ *
+ * '2반'처럼 적으면 안 돼요. 2반 수업인 줄 읽혀요. 꼭 '2-6' 모양으로 적어요.
+ */
+function classLabel(cells: TeachCell[]): string {
+  const names = cells.map((c) => c.cls ?? '직접');
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return names.join('·');
+  return `${names[0]} 외 ${names.length - 1}`;
+}
+
 export function TeachGrid({
   week,
   settings,
@@ -69,7 +85,7 @@ export function TeachGrid({
               const tone = first ? subjectTone(first.subject, palette.scheme) : null;
 
               const label = cells.length
-                ? `${d}요일 ${bell.period}교시 ${cells.map((c) => `${c.cls ?? '직접 넣음'} ${readSubject(c.subject).name}`).join(', ')}${clash ? ', 두 반이 겹쳐요' : ''}${isNow ? ', 지금 수업 중' : ''}, 눌러서 고치기`
+                ? `${d}요일 ${bell.period}교시 ${cells.map((c) => `${c.cls ?? '직접 넣음'} ${readSubject(c.subject).name}`).join(', ')}${clash ? `, ${cells.length}개 반이 겹쳐요` : ''}${isNow ? ', 지금 수업 중' : ''}, 눌러서 고치기`
                 : `${d}요일 ${bell.period}교시 비어 있음, 눌러서 내 수업 넣기`;
 
               return (
@@ -83,7 +99,9 @@ export function TeachGrid({
                     styles.cell,
                     { borderColor: 'transparent' },
                     tone ? { backgroundColor: tone.bg } : { backgroundColor: palette.bg },
-                    isNow && { backgroundColor: palette.accent },
+                    // 지금 교시 표시예요. 수업이 없는 칸까지 진하게 칠하면
+                    // 빈 네모가 덩그러니 떠서 고장 난 것처럼 보여요.
+                    isNow && { backgroundColor: first ? palette.accent : palette.tint },
                     clash && { borderColor: palette.sunday },
                   ]}>
                   {first ? (
@@ -91,8 +109,7 @@ export function TeachGrid({
                       <Text
                         numberOfLines={1}
                         style={[styles.cls, { color: isNow ? palette.onAccent : (tone?.fg ?? palette.sub) }]}>
-                        {/* '2반'이라고 쓰면 2반 수업인 줄 읽혀요. 몇 군데인지를 말해야 해요. */}
-                        {clash ? `${cells.length}곳` : (first.cls ?? '직접')}
+                        {classLabel(cells)}
                       </Text>
                       <Text
                         numberOfLines={1}
