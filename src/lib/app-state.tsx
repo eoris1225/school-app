@@ -45,6 +45,7 @@ import {
   getAssessments,
   getBells,
   getEvents,
+  markAnswered,
   getThreads,
   saveBells,
   saveMySettings,
@@ -169,6 +170,8 @@ type AppContextValue = {
   sendMessage: (threadId: string, text: string, photo?: { uri: string }) => Promise<string | null>;
   /** 내가 보낸 질문을 거둬들여요. 잘 되면 null이에요. */
   dropThread: (threadId: string) => Promise<string | null>;
+  /** 답변완료로 표시하거나 되돌려요. 선생님만요. 잘 되면 null이에요. */
+  setAnswered: (threadId: string, done: boolean) => Promise<string | null>;
   /** 탭 배지 숫자 (학생: 새 답변, 선생님: 답변 대기) */
   badgeCount: number;
 };
@@ -938,6 +941,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [me, reloadThreads],
   );
 
+  /**
+   * 답변완료로 표시하거나 되돌려요. 선생님만요. 잘 되면 null이에요.
+   *
+   * 끝났는지를 앱이 계산하지 않아요. 선생님이 누른 것만 봐요.
+   */
+  const setAnswered = useCallback(
+    async (threadId: string, done: boolean): Promise<string | null> => {
+      if (role !== 'teacher') return '선생님만 할 수 있어요';
+      try {
+        await markAnswered(threadId, done);
+        reloadThreads();
+        return null;
+      } catch (e) {
+        return e instanceof ApiError ? e.message : '바꾸지 못했어요';
+      }
+    },
+    [role, reloadThreads],
+  );
+
   const dropThread = useCallback(
     async (threadId: string): Promise<string | null> => {
       if (!me) return '로그인이 필요해요';
@@ -1032,6 +1054,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTeachEdit,
       sendMessage,
       dropThread,
+      setAnswered,
       badgeCount,
     };
   }, [
@@ -1080,6 +1103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTeachEdit,
     sendMessage,
     dropThread,
+    setAnswered,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

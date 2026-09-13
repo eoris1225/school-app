@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 
 import { Reveal, Tap } from '@/components/motion';
 import { Text } from '@/components/text';
-import { BackHeader, Empty, ErrorNote, Field, IconButton, Loading, Screen } from '@/components/ui';
+import { BackHeader, Button, Empty, ErrorNote, Field, IconButton, Loading, Screen } from '@/components/ui';
 import { classLabel } from '@/data/mock';
 import { getThread } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
@@ -19,7 +19,7 @@ import { usePoll } from '@/lib/live';
 
 export default function ThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { palette, role, sendMessage, dropThread, reloadThreads, now } = useApp();
+  const { palette, role, sendMessage, dropThread, setAnswered, reloadThreads, now } = useApp();
   const insets = useSafeAreaInsets();
   const { content } = useLayout();
   const scrollRef = useRef<ScrollView>(null);
@@ -96,7 +96,31 @@ export default function ThreadScreen() {
    * 보낸 사람만, 답이 오기 전에만 지울 수 있어요.
    * 선생님이 시간 들여 쓴 답이 한쪽 뜻만으로 사라지면 안 되니까요.
    */
-  const canDrop = role === 'student' && !!thread && thread.pending;
+  /*
+   * 답이 한 줄이라도 달렸으면 못 지워요. thread.pending 을 보면 안 돼요.
+   *
+   * pending 의 뜻이 바뀌었거든요. 예전에는 "선생님 답이 없다" 였는데 지금은
+   * "선생님이 답변완료를 안 눌렀다" 예요. 그대로 뒀으면 선생님이 답을 써둔
+   * 쪽지에 지우기 버튼이 떴을 거예요. 서버는 막으니까 지워지진 않지만,
+   * 눌렀다가 거절당하는 버튼이 보이는 것도 좋지 않죠.
+   */
+  const answeredOnce = messages.some((m) => m.from === 'teacher');
+  const canDrop = role === 'student' && !!thread && !answeredOnce;
+
+  /*
+   * 답변완료로 표시하거나 되돌려요.
+   *
+   * 끝났는지는 선생님만 알아요. "잠깐만요, 찾아보고 알려줄게요" 도 답이라
+   * 답이 달렸는지로 셀 수가 없어요.
+   */
+  const answered = async (done: boolean) => {
+    setBusy(true);
+    setFailed(null);
+    const problem = await setAnswered(id, done);
+    setBusy(false);
+    if (problem) setFailed(problem);
+    else remote.retry();
+  };
 
   const drop = async () => {
     setBusy(true);
@@ -231,6 +255,41 @@ export default function ThreadScreen() {
 
         {failed ? <ErrorNote text={failed} /> : null}
 
+        {/*
+          끝났는지를 양쪽에 알려줘요.
+
+          학생에게는 "기다려야 하나 끝난 건가" 가 제일 궁금해요. 선생님이
+          답을 적어놓고도 안 눌렀을 수 있으니, 답 줄 수를 세서 짐작하게
+          두지 않고 그대로 적어요.
+        */}
+        {thread.pending ? (
+          <Text style={[styles.state, { color: palette.sub }]}>
+            {teacher
+              ? '아직 답변대기예요. 다 답하셨으면 아래에서 완료로 바꿔주세요.'
+              : '선생님 답변을 기다리는 중이에요.'}
+          </Text>
+        ) : (
+          <Text style={[styles.state, { color: palette.accentDeep }]}>
+            {thread.answeredBy
+              ? `${thread.answeredBy} 선생님이 답변완료로 바꿨어요`
+              : '답변완료로 바뀌었어요'}
+            {teacher ? '' : '. 더 궁금하면 이어서 물어보세요.'}
+          </Text>
+        )}
+
+        {/*
+          누르는 건 선생님만이에요. 되돌리기도 남겨둬요. 잘못 눌렀을 때 길이
+          없으면 그 쪽지는 영영 대기 목록에서 사라져요.
+        */}
+        {teacher ? (
+          <Button
+            label={thread.pending ? '답변완료로 바꾸기' : '답변대기로 되돌리기'}
+            variant={thread.pending ? 'primary' : 'secondary'}
+            disabled={busy}
+            onPress={() => answered(thread.pending)}
+          />
+        ) : null}
+
         {/* 보내기 전에 어떤 사진인지 보여줘요. 잘못 고른 걸 바로 알 수 있게요. */}
         {photo ? (
           <View style={[styles.attached, { backgroundColor: palette.tint }]}>
@@ -302,6 +361,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   thumb: { width: 48, height: 48, borderRadius: 10 },
+  state: { fontSize: 13, lineHeight: 20, marginBottom: 8, textAlign: 'center' },
   attachedTitle: { fontSize: 13, fontWeight: '700' },
   attachedSize: { fontSize: 12, marginTop: 2 },
   confirm: { borderRadius: 18, padding: 16, marginBottom: 8 },

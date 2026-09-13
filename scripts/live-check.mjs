@@ -280,9 +280,41 @@ console.log('\n=== 쪽지에 사진 붙이기 ===');
     });
     ok(no.status >= 400, `사진이 아닌 건 거절 (${no.status})`);
 
-    // 선생님이 답하기 전이라 보낸 사람이 거둬들일 수 있어요. 치우고 가요.
-    const gone = await call(student.token, `kind=thread&id=${threadId}`, { method: 'DELETE' });
-    ok(gone.status === 200, `검사용 질문을 치움 (${gone.status})`);
+    /*
+     * 답변완료는 선생님이 눌러야 돼요.
+     *
+     * 답이 달렸는지로 세지 않아요. "잠깐만요" 도 답이거든요. 표에 칸이
+     * 없으면 여기서 걸려요 — 마이그레이션을 안 올렸다는 뜻이에요.
+     */
+    const before = await call(a.token, `kind=thread&id=${threadId}`);
+    ok(before.body?.thread?.pending === true, '아직 답변대기');
+
+    await post(a.token, `kind=thread&id=${threadId}`, { text: '잠깐만요, 찾아보고 알려줄게요' });
+    const still = await call(a.token, `kind=thread&id=${threadId}`);
+    ok(still.body?.thread?.pending === true, '답을 써도 아직 대기');
+
+    const done = await call(a.token, `kind=thread&id=${threadId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ done: true }),
+    });
+    ok(done.status === 200, `완료로 바꿈 (${done.status} ${done.body?.error ?? ''})`);
+    ok(done.body?.thread?.pending === false, '완료로 바뀜');
+    ok(Boolean(done.body?.thread?.answeredBy), `누가 눌렀는지 담김 (${done.body?.thread?.answeredBy})`);
+
+    // 학생이 더 물어보면 다시 대기로 돌아와야 해요. 안 그러면 그 질문은 묻혀요.
+    await post(student.token, `kind=thread&id=${threadId}`, { text: '그럼 이건요?' });
+    const again = await call(a.token, `kind=thread&id=${threadId}`);
+    ok(again.body?.thread?.pending === true, '학생이 더 물어보면 다시 대기');
+
+    const nope = await call(student.token, `kind=thread&id=${threadId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ done: true }),
+    });
+    ok(nope.status >= 400, `학생은 못 누름 (${nope.status})`);
+
+    // 선생님이 답한 뒤라 학생은 못 지워요. 선생님이 치워요.
+    const mine2 = await call(student.token, `kind=thread&id=${threadId}`, { method: 'DELETE' });
+    ok(mine2.status >= 400, `답이 달린 쪽지는 학생이 못 지움 (${mine2.status})`);
   }
 }
 

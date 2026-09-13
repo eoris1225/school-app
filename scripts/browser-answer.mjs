@@ -1,0 +1,211 @@
+/*
+ * 답변완료를 선생님이 직접 누르는지 봐요.
+ *
+ *   npm run build:web
+ *   node scripts/browser-answer.mjs
+ *
+ * 예전에는 선생님 답이 한 줄이라도 있으면 완료로 쳤어요. 계산으로 정한
+ * 거라 "잠깐만요, 찾아보고 알려줄게요" 도 완료가 됐고, 학생이 이어서 더
+ * 물어봐도 완료인 채로 남았어요. 끝났는지는 선생님만 알아요.
+ *
+ * 여기서는 선생님으로 들어가서 답을 쓰고, 안 눌렀을 때 대기로 남는지,
+ * 누르면 완료가 되는지, 되돌려지는지를 봐요.
+ */
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+
+import { join, extname } from 'node:path';
+
+
+const PORT = 8799;
+const BASE = `http://127.0.0.1:${PORT}`;
+const DIST = new URL('../dist/', import.meta.url).pathname;
+
+/*
+ * playwright 를 어디에 깔았든 찾아요.
+ *
+ * 저장소 의존성에는 안 넣었어요. 브라우저까지 따라와서 무겁고, 앱을 받는
+ * 사람은 쓸 일이 없거든요. 없으면 없다고 알려주고 끝내요.
+ */
+async function loadChromium() {
+  const places = ['playwright', '@playwright/test', '/opt/node22/lib/node_modules/playwright/index.js'];
+  for (const where of places) {
+    try {
+      const mod = await import(where);
+      // CommonJS 로 깔린 판은 chromium 이 default 안에 들어 있어요.
+      const got = mod.chromium ?? mod.default?.chromium;
+      if (got) return got;
+    } catch {
+      /* 다음 데를 봐요 */
+    }
+  }
+  console.log('playwright 가 없어요.  npm i -D playwright  하고 다시 돌려주세요.');
+  process.exit(2);
+}
+const chromium = await loadChromium();
+
+const fails = [];
+const ok = (c, m) => {
+  console.log(`${c ? '  통과' : '  실패'}  ${m}`);
+  if (!c) fails.push(m);
+};
+
+const TYPES = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml',
+};
+
+/*
+ * 앱이 어느 주소 밑에 깔리는지 알아내요.
+ *
+ * GitHub Pages 는 /school-app 밑에 얹어요(EXPO_BASE_URL). 그 값을 모르고
+ * 루트에 붙이면 자바스크립트를 못 찾아서 앱이 아예 안 떠요. 화면은 하얗고요.
+ * 여기에 '/school-app' 이라고 박아두면 나중에 주소가 바뀔 때 또 여기서
+ * 막혀요. 만들어진 파일이 이미 알고 있으니 거기서 읽어요.
+ */
+const html = await readFile(join(DIST, 'index.html'), 'utf8');
+const PREFIX = html.match(/"(\/[^"]*?)\/_expo\//)?.[1] ?? '';
+
+const server = createServer(async (req, res) => {
+  // expo 는 한 장짜리(single)로 내보내요. 모르는 주소는 index.html 로 되돌려요.
+  const asked = decodeURIComponent(new URL(req.url, BASE).pathname);
+  const path = PREFIX && asked.startsWith(PREFIX) ? asked.slice(PREFIX.length) : asked;
+  for (const p of [join(DIST, path), join(DIST, 'index.html')]) {
+    try {
+      const body = await readFile(p);
+      res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream' });
+      res.end(body);
+      return;
+    } catch {
+      /* 다음 걸로 */
+    }
+  }
+  res.writeHead(404).end();
+});
+await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
+
+
+
+const T = 'fake-token';
+const SCHOOL = { office: 'G10', code: '7430062', name: '서일여자고등학교', officeName: '대전광역시교육청' };
+const TEACHER = {
+  id: 'u2', role: 'teacher', name: '허유미', subjects: ['수학'], teaches: ['미적분Ⅰ'],
+  school: SCHOOL, cls: '2-3', no: null, swaps: {}, setupSeen: true,
+  teach: { classes: [], edits: {} }, allergies: [], myEvents: [], accent: null, schemePref: null,
+};
+const msg = (from, author, text, at) => ({ id: `m${at}`, from, author, text, at, image: null });
+const asked = msg('student', '이채율', '수행평가 범위가 어디까지예요?', '2026-09-13T08:12:00Z');
+
+/** 서버가 담고 있는 것. 선생님이 누르면 여기가 바뀌어요. */
+let messages = [asked];
+let answeredBy = null;
+let patched = [];
+
+const thread = () => ({
+  id: 't1', subject: '수학', student: { name: '이채율', cls: '2-3', no: 12 },
+  teacher: { id: 'u2', name: '허유미' },
+  last: messages[messages.length - 1], count: messages.length,
+  unread: false, pending: answeredBy === null, answeredBy,
+  at: messages[messages.length - 1].at,
+});
+
+const browser = await chromium.launch().catch(async () => {
+  const at = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!at) throw new Error('브라우저를 못 찾았어요. npx playwright install chromium 을 해보세요');
+  return await chromium.launch({ executablePath: `${at}/chromium` });
+});
+const page = await (await browser.newContext({ viewport: { width: 390, height: 900 } })).newPage();
+
+await page.addInitScript(
+  (s) => localStorage.setItem('sb-isxbdvgvzdqpugaxqrzs-auth-token', s),
+  JSON.stringify({
+    access_token: T, token_type: 'bearer', expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r',
+    user: { id: 'u2', email: 't@t.com', aud: 'authenticated', role: 'authenticated' },
+  }),
+);
+await page.route('**/auth/v1/**', (r) =>
+  r.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ access_token: T, user: { id: 'u2' }, expires_in: 3600, refresh_token: 'r' }) }),
+);
+await page.route('**/functions/v1/neis*', (r) => {
+  const k = new URL(r.request().url()).searchParams.get('kind');
+  const how = r.request().method();
+  let out = '{}';
+  if (k === 'thread') {
+    if (how === 'PATCH') {
+      const { done } = JSON.parse(r.request().postData() ?? '{}');
+      patched.push(done);
+      answeredBy = done ? '허유미' : null;
+      out = JSON.stringify({ thread: thread() });
+    } else if (how === 'POST') {
+      const sent = JSON.parse(r.request().postData() ?? '{}');
+      messages = [...messages, msg('teacher', '허유미', sent.text ?? '', '2026-09-13T09:10:00Z')];
+      // 선생님이 답을 써도 서버는 완료로 안 바꿔요. 누르는 게 따로 있어요.
+      out = JSON.stringify({ message: messages[messages.length - 1] });
+    } else out = JSON.stringify({ thread: thread(), messages });
+  } else if (k === 'threads') out = JSON.stringify({ threads: [thread()] });
+  else if (k === 'me' || k === 'my-school' || k === 'my-settings') out = JSON.stringify({ me: TEACHER });
+  else if (k === 'bells') out = JSON.stringify({ bells: null });
+  else if (k === 'meal') out = JSON.stringify({ meals: [] });
+  else if (k === 'timetable') out = JSON.stringify({ lessons: [] });
+  else if (k === 'schedule') out = JSON.stringify({ events: [] });
+  else if (k === 'assessments') out = JSON.stringify({ assessments: [] });
+  else if (k === 'classes') out = JSON.stringify({ classes: [{ grade: 2, cls: '3' }] });
+  else if (k === 'teachers') out = JSON.stringify({ teachers: [] });
+  else if (k === 'push') out = JSON.stringify({ ready: false, key: '', count: 0 });
+  r.fulfill({ status: 200, contentType: 'application/json', body: out });
+});
+
+const text = () => page.evaluate(() => document.body.innerText);
+
+await page.goto(`${BASE}${PREFIX}/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(3000);
+await page.getByRole('tab', { name: /쪽지함/ }).last().click();
+await page.waitForTimeout(2000);
+
+console.log('\n=== 답을 써도 누르기 전에는 대기 ===');
+{
+  ok(/답변 대기/.test(await text()), '목록에 답변 대기로 뜸');
+  await page.getByText(asked.text).first().click();
+  await page.waitForTimeout(2500);
+
+  await page.getByLabel('답변 내용').fill('잠깐만요, 찾아보고 알려줄게요');
+  await page.getByLabel('보내기').last().click();
+  await page.waitForTimeout(2500);
+
+  const t = await text();
+  ok(/잠깐만요/.test(t), '답이 올라감');
+  // 예전에는 이 한 줄로 완료가 됐어요. 그게 이 검사의 핵심이에요.
+  ok(/아직 답변대기/.test(t), '답을 써도 아직 대기');
+  ok(/답변완료로 바꾸기/.test(t), '누를 버튼이 있음');
+  ok(patched.length === 0, '서버에 완료라고 안 보냄');
+  await page.screenshot({ path: '/tmp/answer-pending.png' });
+}
+
+console.log('\n=== 누르면 완료 ===');
+{
+  await page.getByText('답변완료로 바꾸기').last().click();
+  await page.waitForTimeout(2500);
+  const t = await text();
+  ok(patched[0] === true, '완료라고 보냄');
+  ok(/허유미 선생님이 답변완료로 바꿨어요/.test(t), '누가 바꿨는지 보임');
+  ok(/답변대기로 되돌리기/.test(t), '되돌리는 길이 있음');
+  await page.screenshot({ path: '/tmp/answer-done.png' });
+}
+
+console.log('\n=== 되돌리기 ===');
+{
+  await page.getByText('답변대기로 되돌리기').last().click();
+  await page.waitForTimeout(2500);
+  ok(patched[1] === false, '대기로 되돌린다고 보냄');
+  ok(/아직 답변대기/.test(await text()), '다시 대기로 보임');
+}
+
+await browser.close();
+server.close();
+
+console.log(fails.length === 0 ? '\n다 통과했어요\n' : `\n${fails.length}개 실패\n${fails.map((f) => '  - ' + f).join('\n')}\n`);
+process.exit(fails.length ? 1 : 0);

@@ -42,6 +42,8 @@ export type Thread = {
   unread: boolean;
   /** 선생님 답변이 아직 없으면 true */
   pending: boolean;
+  /** 답변완료로 누른 선생님 이름. 아직 대기면 null이에요. */
+  answeredBy: string | null;
   at: string;
 };
 
@@ -216,10 +218,43 @@ export async function listTeachers(me: Me, subject: string): Promise<TeacherPick
   }));
 }
 
-const LIST_COLS =
+const OLD_LIST_COLS =
   'id,subject,student_name,student_cls,student_no,teacher_id,teacher_name,' +
   'unread_student,unread_teacher,updated_at,' +
   'messages(id,author_role,author_name,text,image_path,created_at)';
+
+/** 나중에 늘린 칸들. 표에 아직 없을 수 있어요. 아래 설명을 보세요. */
+const NEW_COLS = 'answered_at,answered_by_name';
+
+/*
+ * 표에 새 칸이 아직 없을 수 있어요.
+ *
+ * 함수는 main 에 올라가면 자동으로 배포되는데 표는 사람이 db push 를 해야
+ * 해요. 순서가 뒤집히면 새 함수가 없는 칸을 물어보고, PostgREST 는 그걸
+ * 통째로 거절해요(42703). 그러면 쪽지 읽기가 전부 죽어요. 목록도 상세도요.
+ *
+ * 그래서 거절당하면 새 칸을 빼고 한 번 더 물어봐요. 그동안은 예전 규칙대로
+ * "선생님 답이 있으면 완료" 로 보고, 표가 올라가면 저절로 돌아와요.
+ *
+ * profiles 쪽에도 같은 장치가 있어요 (_shared/auth.ts).
+ */
+let hasAnswered = true;
+const LIST_COLS_OF = (withNew: boolean) =>
+  withNew ? `${OLD_LIST_COLS},${NEW_COLS}` : OLD_LIST_COLS;
+
+/** 칸 목록을 받아 쪽지를 불러요. 새 칸 때문에 거절당하면 빼고 다시요. */
+async function askThreads(
+  run: (cols: string) => Promise<Record<string, unknown>[]>,
+): Promise<Record<string, unknown>[]> {
+  try {
+    return await run(LIST_COLS_OF(hasAnswered));
+  } catch (e) {
+    if (!hasAnswered) throw e;
+    console.warn('쪽지 표에 답변완료 칸이 아직 없는 것 같아요. 빼고 다시 물어봐요.');
+    hasAnswered = false;
+    return await run(LIST_COLS_OF(false));
+  }
+}
 
 function toThread(row: Record<string, unknown>, me: Me): Thread {
   const msgs = (Array.isArray(row.messages) ? row.messages : [])
@@ -239,14 +274,26 @@ function toThread(row: Record<string, unknown>, me: Me): Thread {
     last: msgs.length ? msgs[msgs.length - 1] : null,
     count: msgs.length,
     unread: Boolean(me.role === 'teacher' ? row.unread_teacher : row.unread_student),
-    pending: !msgs.some((m) => m.from === 'teacher'),
+    /*
+     * 끝났는지는 선생님이 누른 것만 봐요.
+     *
+     * 예전에는 "선생님 답이 한 줄이라도 있으면 끝"으로 쳤어요. 그런데
+     * "잠깐만요, 찾아보고 알려줄게요" 도 답이라 그 순간 끝난 게 돼버려요.
+     * 학생이 이어서 더 물어봐도 끝난 채로 남고요. 끝났는지는 선생님만
+     * 알아요.
+     */
+    // 칸이 아직 없는 동안에는 예전 규칙으로 봐요. 전부 대기로 보이는 것보다 나아요.
+    pending: hasAnswered ? !row.answered_at : !msgs.some((m) => m.from === 'teacher'),
+    answeredBy: row.answered_at ? String(row.answered_by_name ?? '') : null,
     at: String(row.updated_at ?? ''),
   };
 }
 
 /** 내가 볼 수 있는 쪽지 목록. 최근 것이 앞이에요. */
 export async function listThreads(me: Me): Promise<Thread[]> {
-  const rows = await ask(`${rest('threads')}?select=${LIST_COLS}&${scope(me)}&order=updated_at.desc`);
+  const rows = await askThreads((cols) =>
+    ask(`${rest('threads')}?select=${cols}&${scope(me)}&order=updated_at.desc`),
+  );
   // 목록에서는 주소를 안 만들어요. 미리보기에 사진을 띄우지 않거든요.
   // 쪽지마다 주소를 만들면 목록 한 번 여는 데 여러 번 다녀와야 해요.
   return rows.map((r) => {
@@ -263,7 +310,9 @@ export async function readThread(
   me: Me,
   id: string,
 ): Promise<{ thread: Thread; messages: Message[] } | null> {
-  const rows = await ask(`${rest('threads')}?select=${LIST_COLS}&id=eq.${id}&${scope(me)}`);
+  const rows = await askThreads((cols) =>
+    ask(`${rest('threads')}?select=${cols}&id=eq.${id}&${scope(me)}`),
+  );
   if (rows.length === 0) return null;
 
   const msgs = (Array.isArray(rows[0].messages) ? rows[0].messages : [])
@@ -346,6 +395,32 @@ export async function startThread(
 }
 
 /** 이어서 한 줄 더 보내요. 학생도 선생님도 써요. */
+/**
+ * 답변완료로 표시하거나 되돌려요. 선생님만 할 수 있어요.
+ *
+ * 되돌리기도 되게 뒀어요. 잘못 눌렀을 때 길이 없으면 그 쪽지는 영영 대기
+ * 목록에서 사라져요. 되돌릴 수 없는 버튼은 누르기가 무서워요.
+ */
+export async function setAnswered(me: Me, id: string, done: boolean): Promise<Thread> {
+  if (me.role !== 'teacher') throw new ThreadError('선생님만 할 수 있어요');
+
+  // 볼 수 있는 쪽지인지 먼저 봐요. 남의 쪽지를 끝냈다고 표시하면 안 되죠.
+  const rows = await ask(`${rest('threads')}?select=id&id=eq.${id}&${scope(me)}`);
+  if (rows.length === 0) throw new ThreadError('그런 쪽지가 없어요');
+
+  const back = await ask(`${rest('threads')}?id=eq.${id}&select=${LIST_COLS_OF(true)}`, {
+    method: 'PATCH',
+    headers: { prefer: 'return=representation' },
+    body: JSON.stringify(
+      done
+        ? { answered_at: new Date().toISOString(), answered_by_name: me.name }
+        : { answered_at: null, answered_by_name: null },
+    ),
+  });
+  if (back.length === 0) throw new ThreadError('쪽지를 찾지 못했어요');
+  return toThread(back[0], me);
+}
+
 export async function reply(me: Me, id: string, text: string, imagePath?: string): Promise<Message> {
   // 볼 수 있는 쪽지인지 먼저 봐요. 남의 쪽지에 끼어들면 안 되니까요.
   // 알림을 보내려면 누구 쪽지인지도 알아야 해서 같이 받아와요.
@@ -368,11 +443,21 @@ export async function reply(me: Me, id: string, text: string, imagePath?: string
     }),
   });
 
-  // 상대편에게 안 읽음 표시를 켜고, 목록 맨 위로 올려요.
+  /*
+   * 상대편에게 안 읽음 표시를 켜고, 목록 맨 위로 올려요.
+   *
+   * 학생이 한 줄 더 보내면 다시 답변대기로 돌려요. 끝난 줄 알았는데 더
+   * 물어볼 게 생기는 건 흔한 일이에요. 그때 대기 목록에 안 올라오면
+   * 선생님은 그 질문을 영영 못 봐요.
+   *
+   * 선생님이 보내는 건 건드리지 않아요. 답을 두 줄로 나눠 쓴다고 끝난 게
+   * 아니고, 끝났다고 누르는 건 따로 있으니까요.
+   */
   const other = me.role === 'teacher' ? 'unread_student' : 'unread_teacher';
+  const back = me.role === 'student' ? { answered_at: null, answered_by_name: null } : {};
   await ask(`${rest('threads')}?id=eq.${id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ [other]: true, updated_at: new Date().toISOString() }),
+    body: JSON.stringify({ [other]: true, updated_at: new Date().toISOString(), ...back }),
   });
 
   /*
