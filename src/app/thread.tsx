@@ -12,7 +12,7 @@ import { classLabel } from '@/data/mock';
 import { getThread } from '@/lib/api';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
-import { pickPhoto, prettySize, type Photo } from '@/lib/photo';
+import { PhotoError, pickPhoto, prettySize, type Photo } from '@/lib/photo';
 import { shortTime } from '@/lib/time';
 import { useRemote } from '@/lib/use-remote';
 
@@ -72,7 +72,9 @@ export default function ThreadScreen() {
       const got = await pickPhoto();
       if (got) setPhoto(got);
     } catch (e) {
-      setFailed(e instanceof Error ? e.message : '사진을 못 가져왔어요');
+      // 우리가 적은 문구만 그대로 띄워요. 그 밖의 것은 영어 개발자 메시지라
+      // 화면에 띄워봐야 뭘 하라는 건지 알 수가 없어요.
+      setFailed(e instanceof PhotoError ? e.message : '사진을 못 가져왔어요');
     }
   };
 
