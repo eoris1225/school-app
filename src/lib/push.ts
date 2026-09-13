@@ -58,9 +58,22 @@ function blocker(): string | null {
   return null;
 }
 
+/**
+ * 앱이 놓인 자리예요. 늘 '/' 로 끝나게 맞춰요.
+ *
+ * EXPO_BASE_URL 은 '/school-app' 처럼 끝 슬래시 없이 와요. 그대로 이어 붙이면
+ * '/school-appsw.js' 가 돼요. 실제로 그래서 404가 났어요. 자리(scope)도
+ * 슬래시로 끝나야 해요. 안 그러면 앱 화면들이 그 일꾼 밑에 안 들어와요.
+ */
+function basePath(): string {
+  const raw = process.env.EXPO_BASE_URL ?? '/';
+  const path = new URL(raw, window.location.origin).pathname;
+  return path.endsWith('/') ? path : `${path}/`;
+}
+
 /** 일꾼(서비스 워커)을 깨워요. 이미 있으면 그걸 써요. */
 async function worker(): Promise<ServiceWorkerRegistration> {
-  const base = new URL(process.env.EXPO_BASE_URL ?? '/', window.location.origin).pathname;
+  const base = basePath();
   const already = await navigator.serviceWorker.getRegistration(base);
   if (already) return already;
   return await navigator.serviceWorker.register(`${base}sw.js`, { scope: base });
@@ -96,7 +109,9 @@ export async function pushState(): Promise<PushState> {
   const info = await getPushInfo().catch(() => null);
   if (!info?.ready) return { kind: 'notready' };
 
-  const reg = await navigator.serviceWorker.getRegistration();
+  // 등록할 때와 같은 자리로 찾아요. 자리를 안 주면 "지금 이 화면을 맡은
+  // 일꾼" 을 주는데, 그건 화면이 어디냐에 따라 달라져요.
+  const reg = await navigator.serviceWorker.getRegistration(basePath());
   const sub = await reg?.pushManager.getSubscription();
   return sub ? { kind: 'on', count: info.count } : { kind: 'off' };
 }
@@ -143,7 +158,7 @@ export async function enablePush(): Promise<string | null> {
 /** 이 기기에서 그만 받아요. 다른 기기는 그대로예요. */
 export async function disablePush(): Promise<string | null> {
   try {
-    const reg = await navigator.serviceWorker.getRegistration();
+    const reg = await navigator.serviceWorker.getRegistration(basePath());
     const sub = await reg?.pushManager.getSubscription();
     if (!sub) return null;
     await unsubscribePush(sub.endpoint).catch(() => {});
