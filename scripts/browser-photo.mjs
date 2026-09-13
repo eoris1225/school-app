@@ -232,7 +232,17 @@ console.log('\n=== 보내지는지 ===');
   await page.getByLabel('보내기').last().click();
   await page.waitForTimeout(2500);
   ok(sent !== null, '서버로 보냄');
-  ok(/image/.test(sent ?? ''), '사진이 같이 실림');
+  /*
+   * 'image' 라는 글자만 찾으면 안 돼요. 그건 칸 이름이라 사진이 안 실려도
+   * 늘 있어요. 실제로 여기서 속았어요 — 검사는 통과하는데 서버는 "사진이
+   * 없어요" 라고 답하고 있었어요.
+   *
+   * 진짜 파일이 실렸는지는 filename= 이 말해줘요. 그게 있어야 서버에서
+   * File 로 읽혀요. 파일 대신 객체를 넣으면 글자로 바뀌어 들어가요.
+   */
+  ok(/filename=/.test(sent ?? ''), '진짜 파일로 실림 (filename=)');
+  ok(!/\[object Object\]/.test(sent ?? ''), '객체가 글자로 바뀌어 들어가지 않음');
+  ok(/image\/jpeg/.test(sent ?? ''), '사진 형식이 실림');
 }
 
 await browser.close();

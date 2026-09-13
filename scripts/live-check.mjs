@@ -234,6 +234,58 @@ console.log('\n=== 교시 시각 ===');
   }
 }
 
+console.log('\n=== 쪽지에 사진 붙이기 ===');
+{
+  /*
+   * 사진은 multipart 로 가요. 나머지와 길이 달라서 따로 봐요.
+   *
+   * 브라우저 검사가 통과하는데도 서버는 "사진이 없어요" 라고 답한 적이
+   * 있어요. FormData 에 객체를 넣으면 폰은 알아듣고 브라우저는 글자로
+   * 바꿔버리거든요. 흉내내는 서버는 뭐가 오든 받아주니 안 걸려요.
+   */
+  const student = await makeAccount('c');
+  await post(student.token, 'kind=my-school', { ...SCHOOL, grade: 2, cls: '3', no: 7 });
+
+  const asked = await post(student.token, 'kind=threads', {
+    subject: '수학',
+    text: '검사용 질문이에요. 곧 지워요.',
+    teacher: null,
+  });
+  ok(asked.status === 201, `질문이 올라감 (${asked.status} ${asked.body?.error ?? ''})`);
+  const threadId = asked.body?.thread?.id ?? null;
+
+  if (threadId) {
+    // 서버는 형식과 크기만 봐요. 진짜 사진일 필요는 없어요.
+    const form = new FormData();
+    form.append('text', '');
+    form.append('image', new Blob([new Uint8Array(2048).fill(7)], { type: 'image/jpeg' }), 'photo.jpg');
+
+    // content-type 을 우리가 적으면 안 돼요. 경계 문자열을 fetch 가 붙여요.
+    const r = await fetch(`${U}/functions/v1/neis?kind=thread&id=${threadId}`, {
+      method: 'POST',
+      headers: { apikey: KEY, authorization: `Bearer ${student.token}` },
+      body: form,
+    });
+    const body = await r.json().catch(() => null);
+    ok(r.status === 201, `사진이 올라감 (${r.status} ${body?.error ?? ''})`);
+    ok(Boolean(body?.message?.image), `볼 수 있는 주소가 옴 (${body?.message?.image ? '있음' : '없음'})`);
+
+    const wrong = new FormData();
+    wrong.append('text', '');
+    wrong.append('image', new Blob([new Uint8Array(16)], { type: 'application/pdf' }), 'x.pdf');
+    const no = await fetch(`${U}/functions/v1/neis?kind=thread&id=${threadId}`, {
+      method: 'POST',
+      headers: { apikey: KEY, authorization: `Bearer ${student.token}` },
+      body: wrong,
+    });
+    ok(no.status >= 400, `사진이 아닌 건 거절 (${no.status})`);
+
+    // 선생님이 답하기 전이라 보낸 사람이 거둬들일 수 있어요. 치우고 가요.
+    const gone = await call(student.token, `kind=thread&id=${threadId}`, { method: 'DELETE' });
+    ok(gone.status === 200, `검사용 질문을 치움 (${gone.status})`);
+  }
+}
+
 console.log('\n=== 알림 ===');
 {
   const r = await call(a.token, 'kind=push');
@@ -246,5 +298,5 @@ console.log(
     ? `\n실패 ${fails.length}건\n` + fails.map((f) => '  - ' + f).join('\n') + '\n'
     : '\n다 통과했어요\n',
 );
-console.log(`만든 계정 둘은 그냥 두셔도 되고 지우셔도 돼요: delete-me-* (${a.email}, ${b.email})\n`);
+console.log('만든 계정은 그냥 두셔도 되고 지우셔도 돼요. 전부 delete-me- 로 시작해요.\n');
 process.exit(fails.length ? 1 : 0);
