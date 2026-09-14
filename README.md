@@ -10,6 +10,13 @@ https://eoris1225.github.io/school-app/
 깔지 않아도 돼요. 위 주소를 열면 바로 쓸 수 있고, "홈 화면에 추가"를 하면
 아이콘이 생겨서 앱처럼 열려요. 아이폰도 돼요.
 
+<p>
+  <img src="docs/shots/home.png" width="24%" alt="홈 - 지금 몇 교시인지, 오늘 급식, 다가오는 일정">
+  <img src="docs/shots/timetable.png" width="24%" alt="시간표 - 교시별 과목과 시각, 점심시간">
+  <img src="docs/shots/calendar.png" width="24%" alt="달력 - 학사일정, 수행평가, 내 일정">
+  <img src="docs/shots/thread.png" width="24%" alt="쪽지 - 선생님과 주고받은 대화">
+</p>
+
 | | 학생 | 선생님 |
 |---|---|---|
 | 급식·시간표·달력 | 봐요 | 봐요 |
@@ -33,10 +40,14 @@ https://eoris1225.github.io/school-app/
   언제 끝나는지와 다음 교시 과목까지 같이 적어요
 - 오늘 급식 한 줄. **내가 못 먹는 재료가 들어 있으면 거기부터** 알려줘요
 - 다가오는 일정. 수행평가가 일주일 안이면 달력 아이콘에 `D-3` 딱지가 붙어요
-- 선생님 화면은 달라요 — 답변 기다리는 쪽지 개수, 오늘 들어가는 수업이 교시별로
 
 교시 시각을 안 넣은 학교에서는 "지금 몇 교시"가 안 떠요. 대신 오늘 수업을
 알려줘요. 모르는 걸 지어내지 않아요.
+
+선생님 화면은 이래요. 답변 기다리는 쪽지 개수와 오늘 들어가는 수업이
+교시별로 떠요.
+
+<img src="docs/shots/teacher-home.png" width="30%" alt="선생님 홈 - 답변 대기 개수와 오늘 내 수업">
 
 ## 급식
 
@@ -44,6 +55,8 @@ https://eoris1225.github.io/school-app/
 - **알레르기 경고** — 내 정보에 못 먹는 재료를 골라두면 그 메뉴에 표가 붙고
   맨 위에 "조심 3개"가 떠요. 색만으로 알리지 않아요
 - 열량, 급식 인원, 원산지, 영양 정보
+
+<img src="docs/shots/meal.png" width="30%" alt="급식 - 알레르기 경고가 붙은 메뉴">
 
 ## 시간표
 
@@ -57,6 +70,8 @@ https://eoris1225.github.io/school-app/
   내 과목만 뽑아요. 같은 과목 선생님이 여럿이면 겹치는데 그걸 감추지 않고
   보여줘요. 들어가는 반을 좁히거나 칸을 직접 고칠 수 있어요
 
+<img src="docs/shots/timetable.png" width="30%" alt="시간표 하루 보기">
+
 ## 달력
 
 - 학사일정(NEIS) · 수행평가(선생님이 올림) · 내 일정(나만 보는 메모)
@@ -64,6 +79,8 @@ https://eoris1225.github.io/school-app/
 - 종류로 걸러 보기. 선생님은 "내가 올림"도 있어요
 - **수행평가 등록** — 날짜, 과목, 준비물·범위, 학년·반을 골라서. 올린 사람만
   고치고 지울 수 있어요
+
+<img src="docs/shots/calendar.png" width="30%" alt="달력">
 
 ## 쪽지
 
@@ -77,6 +94,9 @@ https://eoris1225.github.io/school-app/
 - 선생님 쪽지함에는 찾기가 있어요. 이름·반·내용으로 찾아져요
 - **새로고침이 필요 없어요** — 쪽지 안에서는 5초, 목록은 20초, 탭 배지는
   1분마다 알아서 갱신돼요. 화면을 떠나거나 앱을 내려놓으면 멈춰요
+
+<img src="docs/shots/thread.png" width="30%" alt="쪽지 대화">
+<img src="docs/shots/inbox.png" width="30%" alt="선생님 쪽지함 - 답변 대기와 완료">
 
 ## 알림
 

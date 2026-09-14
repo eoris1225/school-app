@@ -96,6 +96,7 @@ TEACHER_CODE=선생님코드 node scripts/live-check.mjs
 
 | 파일 | 하는 일 |
 |---|---|
+| `shots.mjs` | README에 넣을 화면을 진짜 앱에서 찍어요 (`docs/shots/`) |
 | `add-pwa-tags.mjs` | `expo export` 뒤에 manifest·아이콘 태그를 끼워 넣어요 (`npm run build:web` 이 부름) |
 | `make-icon.py` | 앱 아이콘 png 들을 만들어요 |
 | `pick-palette.ts` | 새 테마 색이 대비 4.5를 넘는지 재봐요 |
