@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react';
 import { Text as RNText, StyleSheet, type TextProps, type TextStyle } from 'react-native';
 
 /**
@@ -24,6 +25,18 @@ export const FONT_ASSETS = {
   [FONT.num]: require('../../assets/fonts/Outfit.ttf'),
   [FONT.numBold]: require('../../assets/fonts/OutfitBold.ttf'),
 };
+
+/*
+ * 글자 크기 배율이에요.
+ *
+ * 앱 전체 상태(app-state)에 두지 않고 따로 뒀어요. 글씨는 화면마다 수십 개씩
+ * 있는데, 전체 상태에 붙여두면 거기서 뭐 하나만 바뀌어도(1분마다 도는 시계
+ * 같은 것도요) 글씨가 전부 다시 그려져요.
+ *
+ * 기본값이 1이라 감싸는 게 없어도 안 터져요.
+ */
+export const TextScaleContext = createContext(1);
+export const useTextScale = () => useContext(TextScaleContext);
 
 const weightOf = (w?: TextStyle['fontWeight']) => {
   if (w === 'bold') return 700;
@@ -52,10 +65,23 @@ export type AppTextProps = TextProps & {
  */
 export function Text({ style, numeric = false, ...props }: AppTextProps) {
   const flat = StyleSheet.flatten(style) as TextStyle | undefined;
+  const scale = useTextScale();
   return (
     <RNText
       {...props}
-      style={[style, { fontFamily: fontFor(flat?.fontWeight, numeric), fontWeight: 'normal' }]}
+      style={[
+        style,
+        { fontFamily: fontFor(flat?.fontWeight, numeric), fontWeight: 'normal' },
+        // 줄 높이도 같이 키워요. 글씨만 키우면 윗줄 아랫줄이 서로 겹쳐요.
+        scaled(flat?.fontSize, scale, 'fontSize'),
+        scaled(flat?.lineHeight, scale, 'lineHeight'),
+      ]}
     />
   );
+}
+
+/** 크기가 적혀 있을 때만 곱해요. 안 적힌 건 그대로 둬요. */
+function scaled(value: number | undefined, scale: number, key: 'fontSize' | 'lineHeight') {
+  if (scale === 1 || typeof value !== 'number') return null;
+  return { [key]: Math.round(value * scale) } as TextStyle;
 }

@@ -1,7 +1,9 @@
-# 학교생활 도우미
+# 나이스쿨 · NEISCHOOL
 
 서일여자고등학교 학생과 선생님을 위한 학교 앱이에요.
 급식·시간표·달력·쪽지를 한 곳에서 봐요.
+
+이름은 NEIS(나이스)에서 받아온다는 것과 "나이스한 학교"를 같이 담았어요.
 
 ```
 https://eoris1225.github.io/school-app/
@@ -158,11 +160,13 @@ NEIS에 없는 정보예요. 학교마다 다르고 어디에도 공개돼 있�
 - 테마 색을 고르면 **화면 전체가 그 색에 맞춰 다시 만들어져요.** 띠색,
   글씨색, 테두리 회색까지요. 색상환으로 직접 고를 수도 있어요
 - 밝게 / 어둡게 / 시스템 따라가기. 바뀔 때 화면을 덮었다 걷어서 안 튀어요
+- **글자 크기** 네 단계. 화면 글씨도 적는 칸도 같이 커져요. 이건 기기에만
+  담아요 — 폰과 태블릿에서 편한 크기가 다르거든요
 - 자세한 규칙은 `DESIGN.md`에 숫자로 적혀 있어요
 
-| 내 정보 | 밝게 | 어둡게 |
+| 내 정보 | 밝게 / 어둡게 | 글자 크기 (보통 / 아주 크게) |
 |---|---|---|
-| <img src="docs/shots/profile.png" width="230" alt="내 정보 - 테마 색과 화면 밝기"> | <img src="docs/shots/timetable.png" width="230" alt="밝은 화면"> | <img src="docs/shots/timetable-dark.png" width="230" alt="어두운 화면"> |
+| <img src="docs/shots/profile.png" width="230" alt="내 정보 - 테마 색, 화면 밝기, 글자 크기"> | <img src="docs/shots/timetable-dark.png" width="230" alt="어두운 화면"> | <img src="docs/shots/big-timetable.png" width="230" alt="글자를 키운 시간표"> |
 
 ---
 

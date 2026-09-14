@@ -24,6 +24,7 @@ import {
   loadMyEvents,
   loadSchemePref,
   loadSwaps,
+  loadTextScale,
   newEventId,
   saveAccent,
   saveAllergies,
@@ -31,7 +32,9 @@ import {
   saveSchemePref,
   saveSetupSeen,
   saveSwaps,
+  saveTextScale,
   slotKey,
+  DEFAULT_TEXT_SCALE,
   type Allergies,
   type MyEvent,
   type SubjectSwaps,
@@ -57,6 +60,7 @@ import {
   type Thread,
 } from '@/lib/api';
 
+import { TextScaleContext } from '@/components/text';
 import { checkBells, type Bells } from '@/lib/bells';
 import { useHeartbeat } from '@/lib/live';
 
@@ -137,6 +141,14 @@ type AppContextValue = {
   swaps: SubjectSwaps;
   /** 교시 열쇠('월-6') 여럿을 한 번에 바꿔요. 빈 글자면 되돌려요. */
   setSwap: (slots: string[], to: string) => void;
+  /**
+   * 글자 크기 배율. 화면에 적힌 크기에 이걸 곱해요.
+   *
+   * 이건 계정에 안 담아요. 폰과 태블릿에서 보기 편한 크기가 달라서,
+   * 기기마다 따로 정하는 게 맞아요.
+   */
+  textScale: number;
+  setTextScale: (scale: number) => void;
   /** 내가 못 먹는 알레르기 번호들 */
   allergies: Allergies;
   setAllergies: (list: Allergies) => void;
@@ -270,6 +282,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
    *
    * 못 받아와도 앱은 돌아가야 해요. 시각만 안 보일 뿐이에요.
    */
+  /*
+   * 글자 크기예요. 기기에만 담아서 pull 과 상관이 없어요. 그래서 문지기도
+   * 안 걸고 혼자 읽어요. 계정에서 내려올 값이 없으니 경쟁할 일도 없어요.
+   */
+  const [textScale, setTextScaleState] = useState(DEFAULT_TEXT_SCALE);
+  useEffect(() => {
+    let alive = true;
+    loadTextScale().then((got) => {
+      if (alive) setTextScaleState(got);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const setTextScale = useCallback((next: number) => {
+    setTextScaleState(next);
+    void saveTextScale(next);
+  }, []);
+
   const [gotBells, setGotBells] = useState<{ code: string; bells: Bells | null } | null>(null);
   useEffect(() => {
     if (!school) return;
@@ -1055,6 +1087,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSwap,
       allergies,
       setAllergies,
+      textScale,
+      setTextScale,
       myEvents,
       addMyEvent,
       removeMyEvent,
@@ -1107,6 +1141,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSwap,
     allergies,
     setAllergies,
+    textScale,
+    setTextScale,
     myEvents,
     addMyEvent,
     removeMyEvent,
@@ -1121,7 +1157,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAnswered,
   ]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  /*
+   * 글자 크기는 따로 감싸서 내려보내요.
+   *
+   * 글씨는 화면마다 수십 개씩 있어요. 앱 전체 상태에 붙여두면 거기서 뭐
+   * 하나만 바뀌어도(1분마다 도는 시계 같은 것도요) 글씨가 전부 다시
+   * 그려져요. 배율이 바뀔 때만 다시 그리게 나눠뒀어요.
+   */
+  return (
+    <AppContext.Provider value={value}>
+      <TextScaleContext.Provider value={textScale}>{children}</TextScaleContext.Provider>
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {

@@ -192,7 +192,7 @@ const browser = await chromium.launch().catch(async () => {
   return await chromium.launch({ executablePath: `${at}/chromium` });
 });
 
-async function open(me) {
+async function open(me, local = {}) {
   /*
    * 알림을 허용해둬요. 안 그러면 내 정보 화면에 "브라우저 설정에서 알림이
    * 막혀 있어요" 가 떠요. 검사용 브라우저가 기본으로 막아둔 것뿐인데,
@@ -207,12 +207,15 @@ async function open(me) {
   // 월요일 3교시 한창일 때예요. 홈 화면이 제일 할 말이 많은 시각이에요.
   await page.clock.setFixedTime(new Date('2026-09-14T10:20:00'));
   await page.addInitScript(
-    (s) => localStorage.setItem('sb-isxbdvgvzdqpugaxqrzs-auth-token', s),
-    JSON.stringify({
+    ({ s, l }) => {
+      localStorage.setItem('sb-isxbdvgvzdqpugaxqrzs-auth-token', s);
+      for (const [k, v] of Object.entries(l)) localStorage.setItem(k, JSON.stringify(v));
+    },
+    { l: local, s: JSON.stringify({
       access_token: T, token_type: 'bearer', expires_in: 3600,
       expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r',
       user: { id: me.id, email: 'x@example.com', aud: 'authenticated', role: 'authenticated' },
-    }),
+    }) },
   );
   await page.route('**/auth/v1/**', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json',
@@ -266,6 +269,17 @@ console.log('\n찍는 중...');
   await shot(page, 'home-dark');
   await tab(page, /^시간표/);
   await shot(page, 'timetable-dark');
+  await page.context().close();
+}
+
+// 글자 크기를 키운 화면. 제일 잘 깨지는 자리라 찍어두고 봐요.
+{
+  const page = await open(STUDENT, { 'my-text-scale': 1.3 });
+  await shot(page, 'big-home');
+  await tab(page, /^시간표/);
+  await shot(page, 'big-timetable');
+  await page.getByText('한 주', { exact: true }).first().click();
+  await shot(page, 'big-week');
   await page.context().close();
 }
 

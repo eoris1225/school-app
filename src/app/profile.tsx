@@ -8,6 +8,7 @@ import { Avatar, BackHeader, Button, Chip, Divider, ErrorNote, Field, Loading, S
 import { ThemeSwatches } from '@/components/color-picker';
 import { SCHEME_OPTIONS } from '@/constants/themes';
 import { ALLERGENS } from '@/data/mock';
+import { TEXT_SCALES } from '@/lib/my-settings';
 import { subjectGroup, TEACHABLE } from '@/lib/subject';
 import { ApiError, getSchoolSubjects, promoteToTeacher, setMySubjects } from '@/lib/api';
 import { useRemote } from '@/lib/use-remote';
@@ -18,7 +19,7 @@ import { disablePush, enablePush, pushState, type PushState } from '@/lib/push';
 
 export default function ProfileScreen() {
   const { palette, role, accent, setAccent, schemePref, setSchemePref, school, me, signOut } = useApp();
-  const { allergies, setAllergies, becomeStudent, bells } = useApp();
+  const { allergies, setAllergies, becomeStudent, bells, textScale, setTextScale } = useApp();
   const teacher = role === 'teacher';
   // 학생으로 되돌리기는 한 번 더 물어봐요. 담당 과목이 비워지고 쪽지함이 바뀌어요.
   const [dropping, setDropping] = useState(false);
@@ -109,6 +110,22 @@ export default function ProfileScreen() {
         시스템으로 두면 폰 설정을 따라가요. 어두운 곳에서는 어둡게가 눈이 편해요.
       </Text>
       <Segmented value={schemePref} onChange={setSchemePref} options={SCHEME_OPTIONS} />
+
+      <SectionTitle title="글자 크기" />
+      <Text style={[styles.help, { color: palette.sub }]}>
+        화면 글씨가 작으면 여기서 키워요. 이건 이 기기에만 적용돼요 — 폰과
+        태블릿에서 편한 크기가 다르니까요.
+      </Text>
+      {/*
+        고르면 바로 바뀌는 게 곧 미리보기예요. 따로 예시 글을 두지 않았어요.
+        이 화면 글씨가 그대로 커지거든요. 예시만 커지고 화면은 그대로면
+        고른 게 무슨 뜻인지 오히려 헷갈려요.
+      */}
+      <Segmented
+        value={String(textScale)}
+        onChange={(v) => setTextScale(Number(v))}
+        options={TEXT_SCALES.map((t) => ({ value: String(t.value), label: t.label }))}
+      />
 
       <PushSwitch />
 
