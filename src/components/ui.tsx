@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Emoji, fitArt, type EmojiName } from '@/components/emoji';
 import { Icon, type IconName } from '@/components/icon';
 import { Pop, Shimmer, SlidingPill, Tap } from '@/components/motion';
-import { FONT, Text } from '@/components/text';
+import { FONT, Text, useTextScale } from '@/components/text';
 import { useApp } from '@/lib/app-state';
 import { useLayout } from '@/lib/layout';
 import { mix } from '@/constants/themes';
@@ -446,6 +446,14 @@ export function Button({
 /** 앱 안의 모든 글 입력칸. 테마 색과 밝기를 한곳에서 맞춰요. */
 export function Field({ style, ...props }: TextInputProps) {
   const { palette } = useApp();
+  /*
+   * 입력칸도 같이 키워요.
+   *
+   * TextInput 은 우리 Text 를 안 거쳐요. 그래서 글자 크기를 키우면 화면 글씨만
+   * 커지고 적는 칸은 그대로였어요. 적는 글씨가 제일 작으면 키운 보람이 없죠.
+   */
+  const scale = useTextScale();
+  const size = Math.round((StyleSheet.flatten(style)?.fontSize ?? styles.field.fontSize) * scale);
   return (
     <TextInput
       placeholderTextColor={palette.sub}
@@ -456,6 +464,7 @@ export function Field({ style, ...props }: TextInputProps) {
         styles.field,
         { borderColor: palette.line, color: palette.text, backgroundColor: palette.surface },
         style,
+        { fontSize: size },
       ]}
     />
   );

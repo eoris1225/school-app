@@ -61,6 +61,7 @@ node scripts/browser-photo.mjs     # 사진 고르고 줄이고 보내기
 node scripts/browser-return.mjs    # 탭에 돌아오면 낡은 내용이 갈리는지
 node scripts/browser-live.mjs      # 쪽지와 탭 배지가 새로고침 없이 갈리는지
 node scripts/browser-answer.mjs    # 답변완료를 선생님이 직접 누르는지
+node scripts/browser-textsize.mjs  # 글자를 키워도 화면이 안 깨지는지
 
 # 진짜 서버
 TEACHER_CODE=선생님코드 node scripts/live-check.mjs

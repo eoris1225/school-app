@@ -1,6 +1,6 @@
 {
-  "name": "학교생활 도우미",
-  "short_name": "학교도우미",
+  "name": "나이스쿨 (NEISCHOOL)",
+  "short_name": "나이스쿨",
   "description": "급식, 시간표, 학교 일정, 선생님께 질문하기까지 한곳에서 확인해요.",
   "lang": "ko",
   "start_url": "./",

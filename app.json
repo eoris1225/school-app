@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "학교생활 도우미",
+    "name": "나이스쿨",
     "slug": "school-app",
     "version": "1.0.0",
     "orientation": "default",
@@ -22,8 +22,8 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "학교생활 도우미",
-      "shortName": "학교도우미",
+      "name": "나이스쿨",
+      "shortName": "나이스쿨",
       "lang": "ko",
       "description": "급식, 시간표, 학교 일정, 선생님께 질문하기까지 한곳에서 확인해요.",
       "display": "standalone",

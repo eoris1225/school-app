@@ -41,7 +41,7 @@ const TAGS = `
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="${DARK}" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="학교도우미" />
+  <meta name="apple-mobile-web-app-title" content="나이스쿨" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <!-- 아이폰은 manifest 의 아이콘을 안 봐요. 따로 알려줘야 해요. -->
   <link rel="apple-touch-icon" href="${at('apple-touch-icon.png')}" />

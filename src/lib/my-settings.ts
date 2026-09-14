@@ -118,6 +118,34 @@ export const saveAccent = (v: string) => write(ACCENT_KEY, v);
 export const loadSchemePref = () => read<string>(SCHEME_KEY, '', okString);
 export const saveSchemePref = (v: string) => write(SCHEME_KEY, v);
 
+// ---------------------------------------------------------------- 글자 크기
+
+/**
+ * 글자 크기 배율이에요. 화면에 적힌 크기에 이걸 곱해요.
+ *
+ * **이건 계정에 안 담아요.** 일부러 그랬어요. 같은 사람이라도 폰과 태블릿에서
+ * 보기 편한 크기가 달라요. 폰에서 크게 해뒀다고 태블릿까지 커지면 그게 더
+ * 불편해요. 기기마다 따로 정하는 게 맞는 값이에요.
+ *
+ * 크기를 새로 만드는 게 아니라 있는 걸 곱하는 거예요. DESIGN.md 의 여섯 단계
+ * (12 / 13 / 15 / 18 / 24 / 32)는 그대로 있고 비율도 그대로예요.
+ */
+export const TEXT_SCALES = [
+  { value: 0.9, label: '작게' },
+  { value: 1, label: '보통' },
+  { value: 1.15, label: '크게' },
+  { value: 1.3, label: '아주 크게' },
+] as const;
+
+export const DEFAULT_TEXT_SCALE = 1;
+
+const TEXT_KEY = 'my-text-scale';
+
+const okScale = (v: unknown) => typeof v === 'number' && TEXT_SCALES.some((s) => s.value === v);
+
+export const loadTextScale = () => read<number>(TEXT_KEY, DEFAULT_TEXT_SCALE, okScale);
+export const saveTextScale = (v: number) => write(TEXT_KEY, v);
+
 // ---------------------------------------------------------------- 알레르기
 
 /** 내가 못 먹는 알레르기 번호들. 1~19예요. */

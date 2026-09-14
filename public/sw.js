@@ -13,7 +13,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (event) => {
-  let note = { title: '학교생활 도우미', body: '' };
+  let note = { title: '나이스쿨', body: '' };
   try {
     if (event.data) note = { ...note, ...event.data.json() };
   } catch {
