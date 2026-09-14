@@ -131,7 +131,11 @@ export default function StartScreen() {
               <Emoji name="home" size={40} tone="mono" />
             </Pop>
             <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
-              학교생활{'\n'}도우미
+              나이스쿨
+            </Text>
+            {/* NEIS 에서 받아온다는 것과 "나이스한 학교"를 같이 담은 이름이에요. */}
+            <Text numeric style={[styles.mark2, { color: palette.accentDeep }]}>
+              NEISCHOOL
             </Text>
             <Text style={[styles.desc, { color: palette.sub }]}>
               급식, 시간표, 학교 일정, 선생님께 질문하기까지 한곳에서 확인해요.
@@ -369,6 +373,7 @@ const styles = StyleSheet.create({
   top: { marginTop: 32 },
   mark: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   title: { fontSize: 32, lineHeight: 46, fontWeight: '800', letterSpacing: -2 },
+  mark2: { fontSize: 13, fontWeight: '700', letterSpacing: 2, marginTop: 4 },
   desc: { fontSize: 15, lineHeight: 23, marginTop: 16 },
 
   input: { borderRadius: 16, height: 52, paddingHorizontal: 16, marginTop: 12 },

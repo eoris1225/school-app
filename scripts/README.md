@@ -51,6 +51,7 @@ deno run --allow-read --sloppy-imports scripts/check-teacher-week.ts
 deno run --allow-read scripts/check-subjects.ts
 deno run --allow-read --sloppy-imports scripts/check-korean.ts
 deno run --allow-read scripts/check-palette.ts
+deno run --allow-read scripts/check-name.ts
 
 # 서버 쪽 (deno) — GitHub Actions 도 이걸 돌려요
 cd supabase/functions && deno test --allow-env --allow-read _shared/
