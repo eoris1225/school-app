@@ -94,6 +94,18 @@ WEEK.forEach((day, d) =>
   }),
 );
 
+/*
+ * 학교 전체 시간표예요. 선생님 '내 수업' 은 이걸 받아서 내 과목만 뽑아요.
+ * 반이 하나뿐이면 화면이 심심해서 세 반을 넣어뒀어요.
+ */
+const schoolLessons = [];
+[['1', 2], ['3', 3], ['6', 5]].forEach(([cls, at]) =>
+  DAYS.forEach((date, d) =>
+    schoolLessons.push({ date, grade: 2, cls, period: ((d + at) % 6) + 1, subject: '미적분Ⅰ' }),
+  ),
+);
+schoolLessons.push(...lessons);
+
 const bells = {
   periods: [
     { period: 1, start: '08:10', end: '09:00' }, { period: 2, start: '09:10', end: '10:00' },
@@ -158,7 +170,8 @@ function serve(me) {
     const k = q.get('kind');
     let out = '{}';
     if (k === 'meal') out = JSON.stringify({ meals });
-    else if (k === 'timetable') out = JSON.stringify({ lessons });
+    // 학년·반을 안 주면 학교 전체를 물어보는 거예요 (선생님 '내 수업').
+    else if (k === 'timetable') out = JSON.stringify({ lessons: q.get('grade') ? lessons : schoolLessons });
     else if (k === 'schedule') out = JSON.stringify({ events });
     else if (k === 'assessments') out = JSON.stringify({ assessments });
     else if (k === 'bells') out = JSON.stringify({ bells });
@@ -167,7 +180,7 @@ function serve(me) {
     else if (k === 'thread') out = JSON.stringify({ thread: THREAD, messages: talk });
     else if (k === 'teachers') out = JSON.stringify({ teachers: [] });
     else if (k === 'subjects') out = JSON.stringify({ subjects: ['미적분Ⅰ'] });
-    else if (k === 'push') out = JSON.stringify({ ready: false, key: '', count: 0 });
+    else if (k === 'push') out = JSON.stringify({ ready: true, key: 'BJ1x'.padEnd(87, 'a'), count: 0 });
     else if (k === 'me' || k === 'my-school' || k === 'my-settings') out = JSON.stringify({ me });
     r.fulfill({ status: 200, contentType: 'application/json', body: out });
   };
@@ -180,7 +193,16 @@ const browser = await chromium.launch().catch(async () => {
 });
 
 async function open(me) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  /*
+   * 알림을 허용해둬요. 안 그러면 내 정보 화면에 "브라우저 설정에서 알림이
+   * 막혀 있어요" 가 떠요. 검사용 브라우저가 기본으로 막아둔 것뿐인데,
+   * 그게 찍히면 앱이 고장난 것처럼 보여요.
+   */
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2,
+    permissions: ['notifications'],
+  });
   const page = await ctx.newPage();
   // 월요일 3교시 한창일 때예요. 홈 화면이 제일 할 말이 많은 시각이에요.
   await page.clock.setFixedTime(new Date('2026-09-14T10:20:00'));
@@ -213,6 +235,8 @@ const tab = async (page, name) => {
 };
 
 console.log('\n찍는 중...');
+
+// 학생
 {
   const page = await open(STUDENT);
   await shot(page, 'home');
@@ -220,18 +244,48 @@ console.log('\n찍는 중...');
   await shot(page, 'meal');
   await tab(page, /^시간표/);
   await shot(page, 'timetable');
+  await page.getByText('한 주', { exact: true }).first().click();
+  await shot(page, 'week');
   await tab(page, /^달력/);
   await shot(page, 'calendar');
   await tab(page, /커뮤니티/);
+  await shot(page, 'ask');
   await page.getByText(THREAD.last.text).first().click();
   await shot(page, 'thread');
+  // 내 정보는 어느 화면에서든 오른쪽 위 동그라미로 들어가요.
+  await page.goBack();
+  await page.waitForTimeout(1200);
+  await page.getByLabel('내 정보와 테마 열기').first().click({ force: true });
+  await shot(page, 'profile');
   await page.context().close();
 }
+
+// 어두운 화면. 밝은 것만 보여주면 반쪽이에요.
+{
+  const page = await open({ ...STUDENT, schemePref: 'dark' });
+  await shot(page, 'home-dark');
+  await tab(page, /^시간표/);
+  await shot(page, 'timetable-dark');
+  await page.context().close();
+}
+
+// 선생님
 {
   const page = await open(TEACHER);
   await shot(page, 'teacher-home');
   await tab(page, /쪽지함/);
   await shot(page, 'inbox');
+  await tab(page, /^시간표/);
+  await shot(page, 'teach');
+  await tab(page, /^홈/);
+  await page.getByText('일정 추가').first().click();
+  await shot(page, 'add-event');
+  await page.goBack();
+  await page.waitForTimeout(1500);
+  await page.getByLabel('내 정보와 테마 열기').first().click({ force: true });
+  await page.waitForTimeout(1500);
+  await page.getByText(/교시 시각 (넣기|고치기)/).first().click();
+  await shot(page, 'bell-times');
   await page.context().close();
 }
 

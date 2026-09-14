@@ -10,12 +10,9 @@ https://eoris1225.github.io/school-app/
 깔지 않아도 돼요. 위 주소를 열면 바로 쓸 수 있고, "홈 화면에 추가"를 하면
 아이콘이 생겨서 앱처럼 열려요. 아이폰도 돼요.
 
-<p>
-  <img src="docs/shots/home.png" width="24%" alt="홈 - 지금 몇 교시인지, 오늘 급식, 다가오는 일정">
-  <img src="docs/shots/timetable.png" width="24%" alt="시간표 - 교시별 과목과 시각, 점심시간">
-  <img src="docs/shots/calendar.png" width="24%" alt="달력 - 학사일정, 수행평가, 내 일정">
-  <img src="docs/shots/thread.png" width="24%" alt="쪽지 - 선생님과 주고받은 대화">
-</p>
+| 홈 | 시간표 | 달력 | 쪽지 |
+|---|---|---|---|
+| <img src="docs/shots/home.png" width="200" alt="홈 - 지금 몇 교시인지, 오늘 급식, 다가오는 일정"> | <img src="docs/shots/timetable.png" width="200" alt="시간표 - 교시별 과목과 시각"> | <img src="docs/shots/calendar.png" width="200" alt="달력 - 학사일정, 수행평가, 내 일정"> | <img src="docs/shots/thread.png" width="200" alt="쪽지 - 선생님과 주고받은 대화"> |
 
 | | 학생 | 선생님 |
 |---|---|---|
@@ -47,7 +44,10 @@ https://eoris1225.github.io/school-app/
 선생님 화면은 이래요. 답변 기다리는 쪽지 개수와 오늘 들어가는 수업이
 교시별로 떠요.
 
-<img src="docs/shots/teacher-home.png" width="30%" alt="선생님 홈 - 답변 대기 개수와 오늘 내 수업">
+| 학생 홈 | 선생님 홈 | 어두운 화면 |
+|---|---|---|
+| <img src="docs/shots/home.png" width="230" alt="학생 홈"> | <img src="docs/shots/teacher-home.png" width="230" alt="선생님 홈"> | <img src="docs/shots/home-dark.png" width="230" alt="어두운 화면 홈"> |
+
 
 ## 급식
 
@@ -56,7 +56,8 @@ https://eoris1225.github.io/school-app/
   맨 위에 "조심 3개"가 떠요. 색만으로 알리지 않아요
 - 열량, 급식 인원, 원산지, 영양 정보
 
-<img src="docs/shots/meal.png" width="30%" alt="급식 - 알레르기 경고가 붙은 메뉴">
+<img src="docs/shots/meal.png" width="230" alt="급식 - 못 먹는 재료에 표가 붙어요">
+
 
 ## 시간표
 
@@ -70,7 +71,14 @@ https://eoris1225.github.io/school-app/
   내 과목만 뽑아요. 같은 과목 선생님이 여럿이면 겹치는데 그걸 감추지 않고
   보여줘요. 들어가는 반을 좁히거나 칸을 직접 고칠 수 있어요
 
-<img src="docs/shots/timetable.png" width="30%" alt="시간표 하루 보기">
+| 하루 | 한 주 | 내 수업 (선생님) |
+|---|---|---|
+| <img src="docs/shots/timetable.png" width="230" alt="시간표 하루"> | <img src="docs/shots/week.png" width="230" alt="시간표 한 주"> | <img src="docs/shots/teach.png" width="230" alt="선생님 내 수업"> |
+
+선생님 표에서 빨간 테두리가 겹치는 칸이에요. 같은 과목 선생님이 여러
+분이라 NEIS만 보고는 누가 어느 반인지 알 수가 없어요. 감추지 않고
+알려주고, 눌러서 내 반을 고르게 해요.
+
 
 ## 달력
 
@@ -80,7 +88,10 @@ https://eoris1225.github.io/school-app/
 - **수행평가 등록** — 날짜, 과목, 준비물·범위, 학년·반을 골라서. 올린 사람만
   고치고 지울 수 있어요
 
-<img src="docs/shots/calendar.png" width="30%" alt="달력">
+| 달력 | 수행평가 올리기 (선생님) |
+|---|---|
+| <img src="docs/shots/calendar.png" width="230" alt="달력"> | <img src="docs/shots/add-event.png" width="230" alt="수행평가 올리기"> |
+
 
 ## 쪽지
 
@@ -95,7 +106,10 @@ https://eoris1225.github.io/school-app/
 - **새로고침이 필요 없어요** — 쪽지 안에서는 5초, 목록은 20초, 탭 배지는
   1분마다 알아서 갱신돼요. 화면을 떠나거나 앱을 내려놓으면 멈춰요
 
-<img src="docs/shots/thread.png" width="30%" alt="쪽지 대화">
+| 질문 보내기 | 대화 | 선생님 쪽지함 |
+|---|---|---|
+| <img src="docs/shots/ask.png" width="230" alt="과목 고르고 질문 보내기"> | <img src="docs/shots/thread.png" width="230" alt="쪽지 대화"> | <img src="docs/shots/inbox.png" width="230" alt="선생님 쪽지함 - 답변 대기와 완료"> |
+
 <img src="docs/shots/inbox.png" width="30%" alt="선생님 쪽지함 - 답변 대기와 완료">
 
 ## 알림
@@ -113,6 +127,8 @@ NEIS에 없는 정보예요. 학교마다 다르고 어디에도 공개돼 있�
 
 아무도 안 넣은 학교는 시각을 아예 안 보여줘요. 시간표는 그대로 나오고
 "지금 몇 교시"만 안 떠요.
+
+<img src="docs/shots/bell-times.png" width="230" alt="교시 시각 넣기">
 
 ## 계정
 
@@ -143,6 +159,10 @@ NEIS에 없는 정보예요. 학교마다 다르고 어디에도 공개돼 있�
   글씨색, 테두리 회색까지요. 색상환으로 직접 고를 수도 있어요
 - 밝게 / 어둡게 / 시스템 따라가기. 바뀔 때 화면을 덮었다 걷어서 안 튀어요
 - 자세한 규칙은 `DESIGN.md`에 숫자로 적혀 있어요
+
+| 내 정보 | 밝게 | 어둡게 |
+|---|---|---|
+| <img src="docs/shots/profile.png" width="230" alt="내 정보 - 테마 색과 화면 밝기"> | <img src="docs/shots/timetable.png" width="230" alt="밝은 화면"> | <img src="docs/shots/timetable-dark.png" width="230" alt="어두운 화면"> |
 
 ---
 
