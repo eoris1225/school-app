@@ -1,0 +1,37 @@
+{
+  "//": [
+    "APK 를 만드는 설정이에요.",
+    "",
+    "expo 는 기본으로 .aab(구글 플레이용)를 만들어요. 그건 폰에 바로 못 깔아요.",
+    "친구 폰에 파일로 넣어 깔려면 .apk 여야 해서 preview 를 따로 뒀어요.",
+    "",
+    "  npx eas build -p android --profile preview",
+    "",
+    "다 되면 받는 주소와 QR 이 떠요. 안드로이드 폰으로 열어서 받으면 돼요.",
+    "'출처를 알 수 없는 앱' 을 허용해야 깔려요 — 스토어를 안 거쳤으니까요.",
+    "",
+    "channel 은 안 적었어요. 그건 앱을 새로 안 깔고 고치는 기능(expo-updates)",
+    "에서 쓰는 건데 우리는 그걸 안 넣었어요. 적어두면 빌드할 때 경고가 떠요."
+  ],
+  "cli": {
+    "//": "버전 번호를 app.json 에서 가져와요. EAS 가 따로 세지 않아요.",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "//": "친구들한테 나눠줄 APK. 서명 열쇠는 EAS 가 만들어 보관해요.",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "//": "나중에 구글 플레이에 올릴 때. 그때는 .aab 가 맞아요.",
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
