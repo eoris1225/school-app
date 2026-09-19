@@ -12,6 +12,13 @@ https://eoris1225.github.io/school-app/
 깔지 않아도 돼요. 위 주소를 열면 바로 쓸 수 있고, "홈 화면에 추가"를 하면
 아이콘이 생겨서 앱처럼 열려요. 아이폰도 돼요.
 
+안드로이드는 앱으로 깔 수도 있어요. 아래를 눌러서 받은 뒤 폰에서 그 파일을
+누르면 돼요. 처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
+
+```
+https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.0.apk
+```
+
 | 홈 | 시간표 | 달력 | 쪽지 |
 |---|---|---|---|
 | <img src="docs/shots/home.png" width="200" alt="홈 - 지금 몇 교시인지, 오늘 급식, 다가오는 일정"> | <img src="docs/shots/timetable.png" width="200" alt="시간표 - 교시별 과목과 시각"> | <img src="docs/shots/calendar.png" width="200" alt="달력 - 학사일정, 수행평가, 내 일정"> | <img src="docs/shots/thread.png" width="200" alt="쪽지 - 선생님과 주고받은 대화"> |
