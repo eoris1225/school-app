@@ -242,18 +242,40 @@ export type Assessment = {
   by: { id: string | null; name: string } | null;
 };
 
+/**
+ * 서버가 한 번에 받아주는 최대 날수보다 조금 짧게 잘라요.
+ *
+ * 서버는 200일까지만 받아요. 그런데 앱은 달력을 위해 한 해치(365일)를
+ * 한 번에 불렀어요. 그러면 400이 나는데, 부르는 쪽이 오류를 조용히
+ * 삼키고 빈 목록으로 두고 있었어요. 그래서 **수행평가가 화면에 한 번도
+ * 안 나왔어요.** 달력도 홈의 '다가오는 일정'도 늘 비어 있었고요.
+ *
+ * 부르는 쪽마다 기억해서 잘라 쓰게 하면 언젠가 또 빠뜨려요. 여기서 잘라요.
+ */
+const SPAN_DAYS = 180;
+
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const parse = (s: string) => new Date(`${s}T00:00:00Z`);
+const plus = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
+
 export async function getAssessments(
   from: string,
   to: string,
   school?: SchoolRef,
 ): Promise<Assessment[]> {
-  const r = await call<{ assessments: Assessment[] }>({
-    kind: 'assessments',
-    from,
-    to,
-    ...at(school),
-  });
-  return r.assessments;
+  const end = parse(to);
+  const out: Assessment[] = [];
+  for (let start = parse(from); start <= end; start = plus(start, SPAN_DAYS)) {
+    const stop = plus(start, SPAN_DAYS - 1);
+    const r = await call<{ assessments: Assessment[] }>({
+      kind: 'assessments',
+      from: ymd(start),
+      to: ymd(stop > end ? end : stop),
+      ...at(school),
+    });
+    out.push(...r.assessments);
+  }
+  return out;
 }
 
 /** 올릴 때 보내는 것. 주인은 서버가 로그인한 사람으로 적어요. */

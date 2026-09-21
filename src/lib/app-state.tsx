@@ -354,8 +354,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then((list) => {
         if (alive) setAllEvents(list.map(fromAssessment));
       })
-      .catch(() => {
-        // 못 읽어도 앱은 돌아가야 해요. 달력이 비어 보일 뿐이에요.
+      .catch((e) => {
+        /*
+         * 못 읽어도 앱은 돌아가야 해요. 달력이 비어 보일 뿐이에요.
+         *
+         * 그런데 '비어 보일 뿐'이 오래 갔어요. 서버가 400을 주고 있었는데
+         * 여기서 조용히 삼켜서, 수행평가가 아예 안 나오는 걸 아무도 못
+         * 봤거든요. 삼키더라도 흔적은 남겨요.
+         */
+        console.warn('수행평가를 못 읽었어요', e);
         if (alive) setAllEvents([]);
       });
     return () => {
