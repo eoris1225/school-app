@@ -129,6 +129,29 @@ async function requireWriter(req: Request) {
 
 class Forbidden extends Error {}
 
+/**
+ * 앱이 보낸 학교가 내 학교인지 봐요. 고치는 일에는 전부 이걸 거쳐야 해요.
+ *
+ * 쪽지와 선생님 명단은 앱이 보낸 학교를 아예 안 믿고 내 계정 것만 봐요.
+ * 그런데 수행평가는 앱이 보낸 학교를 그대로 썼어요. 선생님 계정이면
+ * **아무 학교 코드나 적어서 남의 학교에 수행평가를 올릴 수 있었어요.**
+ * 찔러보니 201이 왔어요.
+ *
+ * 교시 시각은 반대로 조용했어요. 앱이 보낸 학교를 무시하고 내 학교에
+ * 썼거든요. 막은 것 같지만 아니에요. 남의 학교를 적어 보내도 200을
+ * 돌려주면서 **내 학교 시각을 바꿔놨어요.** 검사를 돌리다 실제로 우리
+ * 학교 교시 시각이 07:00 한 칸으로 날아갔어요. 되돌려 놓긴 했지만,
+ * 200을 받고도 엉뚱한 데가 바뀌는 건 조용한 게 아니라 위험한 거예요.
+ *
+ * 그래서 둘 다 여기서 막아요. 내 학교가 아니면 아무것도 안 하고 403이에요.
+ */
+function mustBeMySchool(me: { school: { office: string; code: string } | null }, asked: School) {
+  if (!me.school) throw new BadRequest('학교를 먼저 골라주세요');
+  if (me.school.office !== asked.office || me.school.code !== asked.code) {
+    throw new Forbidden('내 학교만 고칠 수 있어요');
+  }
+}
+
 function json(body: unknown, status = 200, cache = false) {
   return new Response(JSON.stringify(body), {
     status,
@@ -344,6 +367,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
       if (req.method === 'POST') {
         const me = await requireWriter(req);
+        mustBeMySchool(me, school);
         const body = await readBody(req);
         return json(
           { assessment: await createAssessment(school, body, { id: me.id, name: me.name }) },
@@ -353,6 +377,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
 
       if (req.method === 'PATCH') {
         const me = await requireWriter(req);
+        mustBeMySchool(me, school);
         const id = q.get('id');
         if (!id) throw new BadRequest('id가 필요해요');
         const body = await readBody(req);
@@ -641,7 +666,7 @@ async function handle(req: Request, url: URL): Promise<Response> {
        * 보낸 값을 믿으면 아무 학교 코드나 적어서 남의 학교 시간표 시각을
        * 바꿔놓을 수 있어요. 쪽지에서 쓰는 것과 같은 규칙이에요.
        */
-      if (!me.school) throw new BadRequest('학교를 먼저 골라주세요');
+      mustBeMySchool(me, school);
 
       let body: unknown;
       try {
