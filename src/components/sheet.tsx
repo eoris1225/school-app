@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,7 +53,14 @@ export function Sheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={[styles.root, tablet ? styles.center : styles.bottom]}>
+      {/*
+        팝업 안에도 GestureHandlerRootView 를 또 깔아요.
+
+        Modal 은 안드로이드에서 딴 창으로 떠요. 리액트 트리로는 앱 안에
+        있지만 화면으로는 바깥이라, 앱 맨 바깥에 깐 건 여기까지 안 와요.
+        이게 없으면 팝업 안에서 미는 동작이 통째로 죽어요.
+      */}
+      <GestureHandlerRootView style={[styles.root, tablet ? styles.center : styles.bottom]}>
         {/* 바깥을 누르면 닫혀요. 화면 읽어주는 기능에도 알려줘요. */}
         <Pressable
           accessibilityRole="button"
@@ -89,7 +97,7 @@ export function Sheet({
 
           {children}
         </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

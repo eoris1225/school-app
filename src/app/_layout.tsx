@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -103,11 +104,20 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  /*
+   * GestureHandlerRootView 가 맨 바깥에 있어야 손가락 움직임을 알아들어요.
+   *
+   * 없으면 개발 중에는 대놓고 터지는데, 빌드한 앱에서는 아무 말 없이
+   * 그냥 안 먹어요. 웹은 이것 없이도 되니까 브라우저 검사로는 안 잡혀요.
+   * 색상환이 폰에서만 안 돌아갔던 게 이거예요.
+   */
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <RootNavigator />
-      </AppProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <AppProvider>
+          <RootNavigator />
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

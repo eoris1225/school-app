@@ -37,6 +37,12 @@
 - 사진을 `FormData` 에 객체로 넣어서 "사진이 없어요" (폰은 알아듣고 브라우저는
   글자로 바꿔요. 흉내내는 서버는 뭐가 오든 받아주니 안 걸려요)
 
+**브라우저 검사가 못 잡는 게 하나 더 있어요.** 손가락 동작(`GestureDetector`)은
+`GestureHandlerRootView` 안에 있어야만 먹는데, **웹에서는 그게 없어도
+돌아가요.** 게다가 빌드한 앱에서는 안 먹어도 아무 말을 안 해요. 그래서
+커스텀 컬러 색상환이 웹에서는 멀쩡하고 폰에서만 안 돌아갔어요. 그건
+`check-gesture-root.ts` 가 봐요.
+
 넷 다 흉내내는 검사는 전부 통과했어요. **표에 칸을 늘렸으면 라이브 검사를
 꼭 한 번 돌려보세요.**
 
@@ -50,8 +56,9 @@ deno run --allow-read --sloppy-imports scripts/check-target.ts
 deno run --allow-read --sloppy-imports scripts/check-teacher-week.ts
 deno run --allow-read scripts/check-subjects.ts
 deno run --allow-read --sloppy-imports scripts/check-korean.ts
-deno run --allow-read scripts/check-palette.ts
+deno run --allow-read --sloppy-imports scripts/check-palette.ts
 deno run --allow-read scripts/check-name.ts
+deno run --allow-read scripts/check-gesture-root.ts
 
 # 서버 쪽 (deno) — GitHub Actions 도 이걸 돌려요
 cd supabase/functions && deno test --allow-env --allow-read _shared/
@@ -63,6 +70,7 @@ node scripts/browser-return.mjs    # 탭에 돌아오면 낡은 내용이 갈리
 node scripts/browser-live.mjs      # 쪽지와 탭 배지가 새로고침 없이 갈리는지
 node scripts/browser-answer.mjs    # 답변완료를 선생님이 직접 누르는지
 node scripts/browser-textsize.mjs  # 글자를 키워도 화면이 안 깨지는지
+node scripts/browser-color.mjs     # 커스텀 컬러 색상환이 손가락에 반응하는지
 
 # 진짜 서버
 TEACHER_CODE=선생님코드 node scripts/live-check.mjs
