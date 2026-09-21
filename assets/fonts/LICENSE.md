@@ -35,3 +35,22 @@ Inter 를 바탕으로 만들어진 글꼴이에요. 그 표시도 원본 라이
 - 라이선스: SIL Open Font License 1.1
 
 Outfit 에는 예약 글꼴 이름이 없어요. 그래서 이름을 그대로 뒀어요.
+
+## Material Symbols (아이콘)
+
+- 앱에 함께 들어가요. `@expo/vector-icons` 가 가지고 오는 글꼴이라 이
+  폴더에는 파일이 없지만, 빌드하면 APK 안에 들어갑니다.
+- Copyright Google Inc. — Apache License 2.0
+  https://github.com/google/material-design-icons
+- 마음대로 쓰고 배포할 수 있어요. 출처만 밝히면 돼요.
+
+## 앱에 들어가는 글꼴 전부 (APK 확인 결과)
+
+| 글꼴 | 라이선스 | 상업적 이용 | 앱에 넣기 |
+|---|---|---|---|
+| Neischool Sans (Pretendard 줄임) | OFL 1.1 | 가능 | 가능 |
+| Outfit | OFL 1.1 | 가능 | 가능 |
+| Material Symbols | Apache 2.0 | 가능 | 가능 |
+
+3D 아이콘 그림은 글꼴이 아니라 PNG 예요. `assets/emoji/LICENSE.md` 를
+보세요 (Microsoft Fluent Emoji, MIT).

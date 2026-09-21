@@ -16,7 +16,7 @@ https://eoris1225.github.io/school-app/
 누르면 돼요. 처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
 
 ```
-https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.0.apk
+https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
 ```
 
 | 홈 | 시간표 | 달력 | 쪽지 |
