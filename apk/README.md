@@ -1,13 +1,22 @@
 # 안드로이드 앱 파일
 
-`neischool-1.0.1.apk` 를 눌러서 받은 뒤, 폰에서 그 파일을 누르면 설치돼요.
-처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
-
-바로 받는 주소예요. 친구들한테는 이것만 주면 돼요.
+앱 파일은 **Releases** 에 있어요. 저장소 안에는 안 둬요.
 
 ```
-https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
+https://github.com/eoris1225/school-app/releases/latest
 ```
+
+친구들한테는 이 주소만 주면 돼요. 눌러서 받은 뒤 폰에서 그 파일을 누르면
+설치돼요. 처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
+
+## 왜 저장소에 안 두냐면
+
+한동안 `apk/` 안에 파일을 뒀었어요. 판을 낼 때마다 57MB 가 git 역사에
+쌓였고, 두 판 만에 저장소가 6MB 에서 85MB 가 됐어요. 한 번 들어간 건
+지워도 안 줄어들어요. 결국 역사를 다시 써서 들어냈어요.
+
+Releases 에 붙이면 git 역사 밖에 따로 붙어요. 판을 열 번 내도 저장소는
+그대로예요.
 
 ## 1.0.1
 
@@ -16,7 +25,6 @@ https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
 | 크기 | 57.8MB |
 | 필요한 안드로이드 | 7.0 이상 |
 | 맞는 폰 | arm64-v8a, armeabi-v7a (요즘 폰·오래된 폰 다 돼요) |
-| 만든 커밋 | `b55af6a` |
 | SHA-256 | `57ac37168074aef40cc26204928b1c589f3d9171c3fbf79bf040878f46eb4d69` |
 
 쓰는 권한은 인터넷, 사진 읽기(안드로이드 12 이하), 카메라, 진동, 네트워크
@@ -34,9 +42,9 @@ https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
 **2. `app.json` 의 `versionCode` 를 올려야 해요.** (지금 2예요) 숫자가 그대로면 폰이 업데이트로
 안 쳐줘요.
 
-**3. 되도록 Releases 를 쓰세요.** 여기에 APK 를 두면 판이 늘 때마다 저장소가
-57MB 씩 무거워지고, 한 번 들어간 건 지워도 안 줄어들어요. 저장소 Releases 에
-붙이면 git 역사 밖에 따로 붙어서 저장소가 안 무거워져요.
+**3. Releases 에 붙이세요.** 저장소 안에 두지 마세요. 위에 적은 이유예요.
+
+    Releases > Draft a new release > 태그 새로 만들고 > 파일 끌어다 놓기
 
 ## 판 기록
 

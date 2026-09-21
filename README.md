@@ -16,7 +16,7 @@ https://eoris1225.github.io/school-app/
 누르면 돼요. 처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
 
 ```
-https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
+https://github.com/eoris1225/school-app/releases/latest
 ```
 
 | 홈 | 시간표 | 달력 | 쪽지 |
@@ -119,8 +119,6 @@ https://github.com/eoris1225/school-app/raw/main/apk/neischool-1.0.1.apk
 |---|---|---|
 | <img src="docs/shots/ask.png" width="230" alt="과목 고르고 질문 보내기"> | <img src="docs/shots/thread.png" width="230" alt="쪽지 대화"> | <img src="docs/shots/inbox.png" width="230" alt="선생님 쪽지함 - 답변 대기와 완료"> |
 
-<img src="docs/shots/inbox.png" width="30%" alt="선생님 쪽지함 - 답변 대기와 완료">
-
 ## 알림
 
 쪽지에 답이 오면 폰에 알림이 떠요. 웹 푸시라 앱을 안 깔아도 돼요.
@@ -204,17 +202,22 @@ workflow** 에서 브랜치를 골라 실행하면 돼요.
 파일로 나눠주고 싶으면 APK 를 만들어요. 스토어에 안 올려도 돼요.
 
 ```bash
-npm install -g eas-cli      # 한 번만
-npx eas login               # expo.dev 계정 (무료)
-npx eas build -p android --profile preview
+npx expo prebuild --platform android
+cd android
+./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 ```
 
-처음 한 번은 "EAS project 를 만들까요?" 를 물어봐요. 예 하면 돼요.
-서명 열쇠도 EAS 가 만들어서 보관해요. 직접 만들 필요 없어요.
+`app/build/outputs/apk/release/app-release.apk` 에 나와요. 안드로이드 SDK 와
+JDK 21 이 있어야 하고, 20~30분 걸려요.
 
-20~30분 걸려요. 다 되면 받는 주소와 QR 이 떠요. 안드로이드 폰으로 열어서
-받으면 되고, **'출처를 알 수 없는 앱'을 허용**해야 깔려요. 스토어를 안
-거쳤으니까요.
+**서명 열쇠를 꼭 같은 걸 쓰세요.** 안드로이드는 같은 열쇠로 서명한 것만
+덮어쓰기를 허용해요. 열쇠가 다르면 친구들이 앱을 지우고 다시 깔아야 하고
+로그인도 풀려요. 열쇠 파일은 저장소에 없어요 — 공개되면 누구나 이 앱인
+척하는 APK 를 만들 수 있거든요. 따로 보관하세요.
+
+만든 APK 는 **Releases 에 붙이세요.** 저장소 안에 두면 판을 낼 때마다
+57MB 가 git 역사에 쌓여요. 실제로 두 판 만에 6MB 짜리 저장소가 85MB 가
+됐고, 결국 역사를 다시 써서 들어냈어요.
 
 ### 알아둘 것
 
@@ -278,18 +281,25 @@ QR을 카메라(iOS)나 Expo Go 앱(Android)으로 찍으면 열려요.
 
 상황에 따라 두 벌을 나눠 써요.
 
-- **Pretendard** — 한글과 일반 글씨. Regular / Medium / SemiBold / Bold 네 굵기예요.
+- **Neischool Sans** — 한글과 일반 글씨. Regular / Medium / SemiBold / Bold 네 굵기예요.
 - **Outfit** — 시각, 날짜, D-day처럼 숫자와 영문만 나오는 자리에 써요.
   숫자가 또렷해지고 화면이 단조롭지 않아요.
 
 화면 코드에서는 `fontWeight`만 적으면 `src/components/text.tsx`가 알맞은 파일을
 골라 주고, 숫자 자리에는 `<Text numeric>`을 쓰면 돼요.
 
-용량을 줄이려고 Pretendard는 KS X 1001 완성형 한글 2,350자와 영문·기호만 남겨
-줄여서 넣었어요 (2.6MB → 445KB/굵기). 여기에 없는 드문 글자는 폰 기본 글꼴로 나와요.
+Neischool Sans 는 **Pretendard** 를 줄여 쓴 거예요. 용량을 줄이려고 KS X 1001
+완성형 한글 2,350자와 영문·기호만 남겼어요 (2.6MB → 445KB/굵기). 여기에 없는
+드문 글자는 폰 기본 글꼴로 나와요.
 
-두 글꼴 모두 SIL Open Font License 1.1이에요. 자세한 안내는
-`assets/fonts/LICENSE.md`에 있어요.
+이름을 바꾼 이유가 있어요. Pretendard 에는 OFL 의 '예약 글꼴 이름' 이 걸려
+있는데, 글자를 덜어내는 것도 OFL 에서는 수정본이라 원래 이름을 쓰면 안 돼요.
+만든 분 표시는 그대로 두고 이름만 바꿨어요.
+
+앱에 들어가는 글꼴은 셋이에요. Neischool Sans(OFL), Outfit(OFL),
+Material Symbols(Apache 2.0). 셋 다 상업적 이용과 앱 포함이 가능해요.
+자세한 안내와 OFL 전문은 `assets/fonts/LICENSE.md` 와 `assets/fonts/OFL.txt`
+에 있어요.
 
 ## 어떻게 만들어졌나
 
