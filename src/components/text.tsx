@@ -3,25 +3,30 @@ import { Text as RNText, StyleSheet, type TextProps, type TextStyle } from 'reac
 
 /**
  * 글꼴은 두 벌을 써요.
- * - Pretendard: 한글과 일반 글씨. 굵기 네 단계.
+ * - Neischool Sans: 한글과 일반 글씨. 굵기 네 단계.
  * - Outfit: 숫자와 영문만 나오는 자리(시각, 날짜, D-day, 열량 등).
  *   숫자를 다른 글꼴로 두면 화면이 단조롭지 않고, 숫자가 또렷하게 읽혀요.
+ *
+ * Neischool Sans 는 Pretendard 를 글자 수만 줄여서 쓴 거예요. 이름을 왜
+ * 바꿨냐면, Pretendard 는 OFL 의 '예약 글꼴 이름' 이 걸려 있거든요. 글자를
+ * 덜어내면 OFL 기준으로는 수정본이고, 수정본에는 원래 이름을 못 써요.
+ * 만든 분 표시는 assets/fonts/LICENSE.md 와 글꼴 파일 안에 그대로 있어요.
  */
 export const FONT = {
-  regular: 'Pretendard',
-  medium: 'PretendardMedium',
-  semibold: 'PretendardSemiBold',
-  bold: 'PretendardBold',
+  regular: 'NeischoolSans',
+  medium: 'NeischoolSansMedium',
+  semibold: 'NeischoolSansSemiBold',
+  bold: 'NeischoolSansBold',
   num: 'Outfit',
   numBold: 'OutfitBold',
 } as const;
 
 /** _layout에서 useFonts에 그대로 넘겨요. */
 export const FONT_ASSETS = {
-  [FONT.regular]: require('../../assets/fonts/Pretendard.ttf'),
-  [FONT.medium]: require('../../assets/fonts/PretendardMedium.ttf'),
-  [FONT.semibold]: require('../../assets/fonts/PretendardSemiBold.ttf'),
-  [FONT.bold]: require('../../assets/fonts/PretendardBold.ttf'),
+  [FONT.regular]: require('../../assets/fonts/NeischoolSans.ttf'),
+  [FONT.medium]: require('../../assets/fonts/NeischoolSansMedium.ttf'),
+  [FONT.semibold]: require('../../assets/fonts/NeischoolSansSemiBold.ttf'),
+  [FONT.bold]: require('../../assets/fonts/NeischoolSansBold.ttf'),
   [FONT.num]: require('../../assets/fonts/Outfit.ttf'),
   [FONT.numBold]: require('../../assets/fonts/OutfitBold.ttf'),
 };

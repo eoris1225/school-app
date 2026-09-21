@@ -131,6 +131,14 @@ console.log('\n== 학생 화면');
   await tab(page, '급식', 'student-meal');
   await tab(page, '시간표', 'student-timetable');
   await tab(page, '달력', 'student-calendar');
+
+  // 일정이 몰린 날은 다음 달에 있어요. 줄무늬와 "이 날 N개" 표시를 보여줘요.
+  try {
+    await page.getByRole('button', { name: /다음 달|›|>/ }).last().click({ timeout: 5000 });
+    await shot(page, 'student-calendar-busy');
+  } catch {
+    console.log('   건너뜀  student-calendar-busy.png');
+  }
   await tab(page, '커뮤니티|쪽지함', 'student-threads');
 
   // 답변완료된 쪽지를 열어서 찍어요. 못 열어도 나머지는 계속 찍어요.

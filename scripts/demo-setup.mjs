@@ -53,6 +53,21 @@ const day = (plus) => {
   return d.toISOString().slice(0, 10);
 };
 
+/*
+ * 일정을 몰아둘 날을 고를 때 주말을 피해요.
+ *
+ * 처음에는 그냥 오늘+12일로 뒀는데 하필 토요일이자 개천절이었어요.
+ * 그 날에 수행평가 여섯 개가 잡힌 달력은 아무도 안 믿어요.
+ * 12일 뒤부터 세어서 첫 수요일을 써요.
+ */
+function midweek(after) {
+  const d = new Date();
+  d.setDate(d.getDate() + after);
+  while (d.getDay() !== 3) d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+const BUSY = midweek(12);
+
 /** 계정을 만들어요. 이미 있으면 그냥 로그인해요. */
 async function account(email, name) {
   const body = JSON.stringify({ email, password: PW, data: { name } });
@@ -138,9 +153,11 @@ step('학생 개인 설정');
       { id: 'demo-1', date: day(1), title: '수학 학원 레벨테스트' },
       { id: 'demo-2', date: day(4), title: '동아리 발표 준비' },
       { id: 'demo-3', date: day(9), title: '치과' },
+      // 아래 날은 일부러 몰아뒀어요 (아래 '몰린 날' 참고)
+      { id: 'demo-4', date: BUSY, title: '학원 모의고사' },
     ],
   });
-  line('내 일정 3개');
+  line('내 일정 4개');
 
   // 선택과목이 갈린 칸을 하나 바꿔놔요. 이게 이 앱의 핵심이라 시연에 꼭 필요해요.
   const week = (await call(null,
@@ -195,6 +212,20 @@ step('수행평가');
     [TEACHERS[1], day(3), '미적분Ⅰ 수행평가 (도함수 활용)', '미적분Ⅰ', '연습장, 공학용 계산기. 3단원까지예요.'],
     [TEACHERS[0], day(8), '독서와 작문 서평 발표', '독서와 작문', '읽은 책 1권, 발표 원고. 5분 발표예요.'],
     [TEACHERS[2], day(15), '영어Ⅱ 말하기 수행평가', '영어Ⅱ', '대본 미리 제출. 짝과 2분 대화예요.'],
+
+    /*
+     * 하루에 일정이 몰린 날이에요.
+     *
+     * 달력 칸의 줄무늬와 홈의 "이 날 N개" 표시는 하루에 여럿 있을 때만
+     * 보여요. 하나씩만 있으면 그 기능이 화면에 안 나타나요. 그래서 일부러
+     * 한 날에 몰아뒀어요. 내 일정 하나까지 합쳐 그날 일곱 개예요.
+     */
+    [TEACHERS[1], BUSY, '미적분Ⅰ 단원평가', '미적분Ⅰ', '연습장, 공학용 계산기'],
+    [TEACHERS[1], BUSY, '경제 수학 과제 제출', '경제 수학', '보고서 2쪽, 인쇄해서 제출'],
+    [TEACHERS[0], BUSY, '공통국어2 발표', '공통국어2', '발표 자료, 대본'],
+    [TEACHERS[0], BUSY, '독서와 작문 쪽지시험', '독서와 작문', '교과서 3단원까지'],
+    [TEACHERS[2], BUSY, '영어Ⅱ 듣기평가', '영어Ⅱ', '이어폰 챙기기'],
+    [TEACHERS[2], BUSY, '심화 영어Ⅰ 단어시험', '심화 영어Ⅰ', '단어장 1~30과'],
   ];
   for (const [t, date, title, subject, detail] of rows) {
     const r = await post(t.token, `kind=assessments&${AT}`, {
