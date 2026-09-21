@@ -100,13 +100,42 @@ jobs:
           ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -eu
+          P=android/gradle.properties
+
+          for n in STORE_PW ALIAS KEY_PW; do
+            eval "v=\${$n}"
+            if [ -z "$v" ]; then
+              echo "::error::시크릿 $n 이 비어 있어요. Settings > Secrets and variables > Actions 를 보세요."
+              exit 1
+            fi
+          done
+
+          # 뒤에 붙이지 않고 맨 앞에 써요. 원래 파일 마지막 줄에 줄바꿈이 없으면
+          # 붙인 첫 줄이 거기 들러붙어서 'unknown property' 가 나요. 실제로 그랬어요.
           {
             echo "NEISCHOOL_STORE_FILE=neischool.keystore"
             echo "NEISCHOOL_STORE_PASSWORD=$STORE_PW"
             echo "NEISCHOOL_KEY_ALIAS=$ALIAS"
             echo "NEISCHOOL_KEY_PASSWORD=$KEY_PW"
-          } >> android/gradle.properties
+            echo ""
+            cat "$P"
+          } > "$P.new"
+          mv "$P.new" "$P"
+
+          # 진짜 들어갔는지 봐요. 값은 안 찍어요 (이름만요).
+          for k in NEISCHOOL_STORE_FILE NEISCHOOL_STORE_PASSWORD NEISCHOOL_KEY_ALIAS NEISCHOOL_KEY_PASSWORD; do
+            grep -q "^$k=" "$P" || { echo "::error::$k 가 gradle.properties 에 안 들어갔어요"; exit 1; }
+          done
+          echo "gradle.properties 맨 앞 줄 이름들: $(grep -o '^[A-Za-z_.]*=' "$P" | head -6 | tr '\n' ' ')"
+
           python3 scripts/ci-sign-gradle.py
+
+          # 서명 자리가 실제로 우리 걸 가리키는지도 봐요.
+          grep -q 'signingConfig signingConfigs.release' android/app/build.gradle \
+            || { echo "::error::release 가 아직 우리 열쇠를 안 가리켜요"; exit 1; }
+          echo "--- build.gradle 서명 부분 ---"
+          grep -n 'signingConfig signingConfigs' android/app/build.gradle
 
       - name: 만들기
         working-directory: android
