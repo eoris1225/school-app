@@ -192,3 +192,33 @@ export const saveMyEvents = (v: MyEvent[]) => write(EVENTS_KEY, v);
 
 /** 겹치지 않는 새 id를 만들어요. */
 export const newEventId = () => `my-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+/*
+ * 이 기기에 담긴 설정이 누구 것인지 적어둬요.
+ *
+ * 왜 필요하냐면요. 계정에 값이 없으면 기기에 있던 걸 끌어올려 계정에
+ * 담는 규칙이 있어요. 계정 연결 기능이 생기기 전에 기기에만 저장해 둔
+ * 사람을 위한 거예요.
+ *
+ * 그런데 그 규칙은 "기기에 있는 게 내 것" 이라고 믿어요. 한 폰을 둘이
+ * 쓰면 그게 깨져요. 앞사람이 쓰던 폰에 뒷사람이 로그인하면 앞사람의
+ * 알레르기와 개인 일정이 뒷사람 계정에 **저장돼요.** 화면에 보이는
+ * 정도가 아니라 서버에 박혀요. 실제로 그랬어요.
+ *
+ * 그래서 주인을 적어둬요. 주인이 다르면 기기 것은 남의 것이니 안 써요.
+ */
+const OWNER_KEY = 'my-settings-owner';
+
+export const loadSettingsOwner = () => read<string>(OWNER_KEY, '', okString);
+export const saveSettingsOwner = (id: string) => write(OWNER_KEY, id);
+
+/** 남의 설정을 기기에서 지워요. 안 지우면 다음 로그인 때 되살아나요. */
+export async function forgetDeviceSettings(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      SWAPS_KEY, ALLERGY_KEY, EVENTS_KEY, ACCENT_KEY, SCHEME_KEY, SETUP_KEY,
+    ]);
+  } catch {
+    // 저장소를 못 쓰는 기기도 있어요. 그래도 앱은 돌아가야 해요.
+  }
+}

@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Appearance } from 'react-native';
 
-import { loadMySchool, saveMySchool, type MySchool } from '@/lib/my-school';
+import { loadMySchool, saveMySchool, forgetMySchool, type MySchool } from '@/lib/my-school';
 import { toYmd } from '@/lib/time';
 import { clearRemoteCache, primeRemote } from '@/lib/use-remote';
 import type { TeachSettings } from '@/lib/teacher-week';
@@ -38,6 +38,9 @@ import {
   type Allergies,
   type MyEvent,
   type SubjectSwaps,
+  loadSettingsOwner,
+  saveSettingsOwner,
+  forgetDeviceSettings,
 } from '@/lib/my-settings';
 import {
   addAssessment,
@@ -587,6 +590,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pull = useCallback(async (who: Me) => {
+    /*
+     * 이 기기에 담긴 설정이 누구 것인지 먼저 봐요.
+     *
+     * 아래에는 "계정에 값이 없으면 기기 것을 끌어올려 계정에 담는" 가지가
+     * 여럿 있어요. 계정 연결 전에 기기에만 저장해 둔 사람을 위한 거예요.
+     * 그 가지는 기기에 있는 게 내 것이라고 믿어요.
+     *
+     * 한 폰을 둘이 쓰면 그게 깨져요. 앞사람이 쓰던 폰에 뒷사람이 로그인하면
+     * 앞사람의 알레르기와 개인 일정이 **뒷사람 계정에 저장돼요.** 화면에
+     * 보이는 정도가 아니라 서버에 박혀요. 검사로 확인했어요.
+     *
+     * 주인이 다르면 기기 것을 지우고 시작해요. 안 지우면 다음 로그인 때
+     * 되살아나요. 주인이 아직 없으면(이 기능 전부터 쓰던 기기) 예전처럼
+     * 끌어올려요. 그 사람 것이 맞으니까요.
+     */
+    const owner = await loadSettingsOwner();
+    if (owner && owner !== who.id) {
+      await forgetDeviceSettings();
+      await forgetMySchool();
+    }
+    void saveSettingsOwner(who.id);
+
     if (who.school) {
       const fromAccount: MySchool = {
         office: who.school.office,

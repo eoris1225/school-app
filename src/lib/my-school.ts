@@ -92,3 +92,12 @@ export const toMySchool = (
 
 /** '2학년 3반' */
 export const classLabelOf = (s: MySchool) => `${s.grade}학년 ${s.cls}반`;
+
+/** 기기에 담긴 학교·반을 지워요. 다른 사람이 로그인했을 때 써요. */
+export async function forgetMySchool(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(KEY);
+  } catch {
+    // 저장소를 못 쓰는 기기도 있어요.
+  }
+}

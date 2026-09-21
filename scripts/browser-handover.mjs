@@ -18,7 +18,7 @@ import { join, extname } from 'node:path';
 import pw from 'playwright';
 
 const { chromium } = pw;
-const PORT = 8803;
+const PORT = 8804;
 const BASE = `http://127.0.0.1:${PORT}`;
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const PW_ = 'neischool-demo-2026';
@@ -120,22 +120,33 @@ async function signOut() {
   await page.waitForTimeout(4000);
 }
 
-let bad = 0;
-console.log('\n== 1) 영어 선생님(1학년 5반)으로 먼저 들어가요');
+
+// 앞사람 설정이 새 사람에게 넘어가는지 봐요.
+console.log('\n== 1) 학생으로 들어가요 (알레르기 2개, 내 일정 4개, 교시 바꾸기 1칸)');
 await go();
-await signIn('demo-teacher-eng@example.com');
-const first = await readProfile();
-console.log(`   ${first.name} → ${first.grade}학년 ${first.cls}반`);
-
-console.log('\n== 2) 나갔다가 학생(2학년 3반 7번)으로 들어와요');
-await signOut();
 await signIn('demo-student@example.com');
-const second = await readProfile();
-console.log(`   ${second.name} → ${second.grade}학년 ${second.cls}반 ${second.no}번`);
+console.log('   들어감');
 
-const ok = second.grade === '2' && second.cls === '3' && second.no === '7';
-console.log(`\n   ${ok ? '통과' : '실패'}  갈아탄 계정의 반·번호가 나와야 해요 (2학년 3반 7번)`);
-if (!ok) { bad++; console.log(`   지금 화면: ${JSON.stringify(second)}`); }
+console.log('\n== 2) 나갔다가 국어 선생님으로 들어와요 (설정이 하나도 없는 계정)');
+await signOut();
+await signIn('demo-teacher-kor@example.com');
+await page.waitForTimeout(3000);
+
+// 서버에 실제로 무엇이 담겼는지 물어봐요. 화면만 보면 안 돼요.
+const U='https://isxbdvgvzdqpugaxqrzs.supabase.co';
+const KEY='sb_publishable_GfkqM8siiAriyu2jfYM8kw_erGjWr6n';
+const tok=await fetch(`${U}/auth/v1/token?grant_type=password`,{method:'POST',
+  headers:{apikey:KEY,'content-type':'application/json'},
+  body:JSON.stringify({email:'demo-teacher-kor@example.com',password:PW_})}).then(r=>r.json());
+const me=await fetch(`${U}/functions/v1/neis?kind=me`,{headers:{apikey:KEY,authorization:`Bearer ${tok.access_token}`}}).then(r=>r.json()).catch(()=>null);
+const p2=me?.me;
+console.log(`   국어쌤 계정 상태: 알레르기=${JSON.stringify(p2?.allergies)} 내일정=${p2?.myEvents?.length??0}개 교시바꾸기=${JSON.stringify(p2?.swaps)}`);
+
+let bad = 0;
+if ((p2?.allergies??[]).length) { bad++; console.log('   실패  앞사람 알레르기가 넘어왔어요'); }
+if ((p2?.myEvents??[]).length) { bad++; console.log('   실패  앞사람 내 일정이 넘어왔어요'); }
+if (Object.keys(p2?.swaps??{}).length) { bad++; console.log('   실패  앞사람 교시 바꾸기가 넘어왔어요'); }
+if (!bad) console.log('   통과  앞사람 설정이 안 넘어왔어요');
 
 await browser.close();
 server.close();
