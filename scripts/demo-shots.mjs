@@ -81,10 +81,55 @@ async function open() {
   return { ctx, page };
 }
 
+/*
+ * 화면이 다 뜰 때까지 기다렸다가 찍어요.
+ *
+ * 전에는 1.2초만 기다리고 찍었어요. 그래서 시간표가 아직 받아오는 중인
+ * 회색 뼈대만 찍힌 적이 있어요. 포트폴리오에 그게 들어가서 "최종 화면"이
+ * 옛날 판보다 못해 보였어요. 시간으로 재지 말고 글자가 멈출 때까지 봐요.
+ */
+async function settled(page, tries = 30) {
+  /*
+   * 글자가 안 바뀌는 걸로만 재면 안 돼요.
+   *
+   * 받아오는 동안에는 회색 뼈대만 있고 글자가 아예 없어요. 그래서 "두 번
+   * 연속 같으면 다 뜬 것" 으로 보면 **로딩 중인 화면을 다 뜬 걸로 착각**해요.
+   * 실제로 그래서 시간표 뼈대가 포트폴리오에 들어갔어요.
+   *
+   * 뼈대가 사라졌는지를 같이 봐요. 뼈대는 글자가 없는 둥근 회색 칸이라,
+   * 글자 없이 높이만 있는 칸이 여럿이면 아직 받아오는 중이에요.
+   *
+   * 달력은 이 셈에 걸려요. 일정 없는 날 칸도 글자 없는 네모라서요. 그래서
+   * 달력에서는 "다 안 떴을 수도 있어요" 가 뜨는데, 기다릴 만큼 기다린 뒤에
+   * 찍으니 그림은 멀쩡해요. 굳이 더 손대지 않았어요.
+   */
+  let last = '';
+  for (let i = 0; i < tries; i++) {
+    await page.waitForTimeout(400);
+    const [now, bones] = await Promise.all([
+      page.locator('body').innerText(),
+      page.evaluate(() => {
+        let n = 0;
+        for (const el of document.querySelectorAll('div')) {
+          if (el.children.length) continue;
+          if ((el.textContent ?? '').trim()) continue;
+          const r = el.getBoundingClientRect();
+          if (r.height >= 10 && r.width >= 40) n++;
+        }
+        return n;
+      }),
+    ]);
+    // 재보니 받아오는 중에는 20개쯤, 다 뜨면 8개쯤이었어요. 12로 가릅니다.
+    if (now === last && now.trim().length > 40 && bones < 12) return true;
+    last = now;
+  }
+  return false;
+}
+
 const shot = async (page, name) => {
-  await page.waitForTimeout(1200);
+  const ok = await settled(page);
   await page.screenshot({ path: join(OUT, `${name}.png`) });
-  console.log(`   찍음  docs/demo/${name}.png`);
+  console.log(`   찍음  docs/demo/${name}.png${ok ? '' : '  (다 안 떴을 수도 있어요)'}`);
 };
 
 async function signIn(page, email) {
