@@ -142,13 +142,17 @@ console.log('\n== 학생 화면');
   await tab(page, '커뮤니티|쪽지함', 'student-threads');
 
   // 답변완료된 쪽지를 열어서 찍어요. 못 열어도 나머지는 계속 찍어요.
+  // 목록에 보이는 글자가 잘릴 수 있어서 과목 딱지로 찾아요.
   try {
-    await page.getByText(/책은 소설이어도/).first().click({ timeout: 8000 });
+    await page.getByText('국어', { exact: true }).first().click({ timeout: 8000 });
+    await page.waitForTimeout(1500);
+    const t = await page.locator('body').innerText();
+    if (!/답변\s*완료/.test(t)) throw new Error('답변완료 쪽지가 아니에요');
     await shot(page, 'student-thread-done');
     await page.goBack();
-    await page.waitForTimeout(900);
-  } catch {
-    console.log('   건너뜀  student-thread-done.png');
+    await page.waitForTimeout(1200);
+  } catch (e) {
+    console.log(`   건너뜀  student-thread-done.png (${e.message.slice(0, 40)})`);
   }
   console.log('   ' + (await page.locator('body').innerText()).slice(0, 100).replace(/\n/g, ' / '));
   await ctx.close();
@@ -174,12 +178,32 @@ console.log('\n== 선생님 화면');
   await page.getByRole('tab', { name: /쪽지함|커뮤니티/ }).last().click();
   await page.waitForTimeout(1500);
   const inbox = await page.locator('body').innerText();
-  const outsiders = [...inbox.matchAll(/([가-힣]{2,4})\s*학생/g)]
+  /*
+   * 쪽지함 한 줄은 "이름 학생  2학년 3반 7번" 모양이에요. 학년까지 같이
+   * 봐야 해요. '학생' 앞 두 글자만 보면 "다른 학생이나 선생님에게는" 같은
+   * 안내 문구에서 '다른' 을 사람 이름으로 읽어요. 실제로 그랬어요.
+   */
+  const rowName = /([가-힣]{2,4})\s*학생\s+\d+학년/g;
+  const outsiders = [...inbox.matchAll(rowName)]
     .map((m) => m[1])
     .filter((n) => n !== '이수민');
   if (outsiders.length) {
-    console.log(`   건너뜀  teacher-inbox.png — 시연용이 아닌 학생이 보여요 (${[...new Set(outsiders)].join(', ')})`);
-    console.log('           그 쪽지를 먼저 치우고 다시 돌리세요.');
+    console.log(`   '답변 대기' 에 시연용이 아닌 학생이 있어요 (${[...new Set(outsiders)].join(', ')})`);
+    /*
+     * 그래도 쪽지함 화면은 보여줘야 해요. '답변 완료' 칸으로 가요.
+     * 남의 쪽지는 아직 대기 중이라 거기엔 안 나와요. 그래도 한 번 더 보고
+     * 찍어요 — 안 보이겠거니 하고 찍으면 언젠가 찍혀요.
+     */
+    await page.getByText(/답변\s*완료/).first().click().catch(() => {});
+    await page.waitForTimeout(1800);
+    const done = await page.locator('body').innerText();
+    const still = [...done.matchAll(rowName)].map((m) => m[1]).filter((n) => n !== '이수민');
+    if (still.length) {
+      console.log(`   건너뜀  teacher-inbox.png — '답변 완료' 에도 보여요 (${[...new Set(still)].join(', ')})`);
+    } else {
+      await shot(page, 'teacher-inbox');
+      console.log("           ('답변 완료' 칸으로 찍었어요)");
+    }
   } else {
     await shot(page, 'teacher-inbox');
   }

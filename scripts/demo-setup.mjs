@@ -243,21 +243,34 @@ step('쪽지');
 
   // 지울 수 있는 중복은 지워요 (답이 안 달린 것만 지울 수 있어요)
   {
-    const keep = new Set();
+    // 과목 + 완료 여부가 같은 게 둘 이상이면 중복이에요.
+    const seen = new Set();
     for (const one of already) {
-      const key = one.subject;
-      if (!keep.has(key)) { keep.add(key); continue; }
+      const key = `${one.subject}:${one.pending}`;
+      if (!seen.has(key)) { seen.add(key); continue; }
       const r = await call(s.token, `kind=thread&id=${one.id}`, { method: 'DELETE' });
-      if (r.status === 200) line(`중복 쪽지 하나 지움 [${key}]`);
+      if (r.status === 200) line(`중복 쪽지 하나 지움 [${one.subject}]`);
     }
   }
   const mine = (await call(s.token, 'kind=threads')).body?.threads ?? [];
-  const has = (group) => mine.find((t) => t.subject === group) ?? null;
-
-  const ask = async (group, teacher, text) => {
-    const old = has(group);
-    if (old) {
-      line(`[${group}] 이미 있어서 그대로 써요`);
+  /*
+   * 과목이 아니라 질문 글로 가려요. 수학에 두 개를 두거든요. 하나는 영상에서
+   * 직접 답해 보일 것이고, 하나는 선생님 쪽지함 '답변 완료' 칸에 보여줄
+   * 것이에요. 과목으로만 가리면 둘째가 안 만들어져요.
+   */
+  /*
+   * 이미 있는지 가릴 때 과목만 보면 안 돼요. 수학에 둘을 두거든요. 하나는
+   * 영상에서 직접 답해 보일 것(답변대기), 하나는 선생님 쪽지함 '답변 완료'
+   * 칸에 보여줄 것이에요. 과목으로만 가리면 한쪽이 안 만들어지거나 둘 다
+   * 또 만들어져요. 실제로 한 번 수학이 셋이 됐어요.
+   *
+   * 목록에는 글 내용이 안 실려와요. 그래서 과목 + 완료 여부로 가려요.
+   * 그 둘이면 넷을 구분하기에 충분해요.
+   */
+  const ask = async (group, teacher, text, wantDone = false) => {
+    const same = mine.find((t) => t.subject === group && t.pending === !wantDone);
+    if (same) {
+      line(`[${group}] ${wantDone ? '답변완료' : '답변대기'} 짜리가 이미 있어서 그대로 써요`);
       return null;   // 이미 있으면 답·완료 처리도 건드리지 않아요
     }
     const r = await post(s.token, 'kind=threads', { subject: group, text, teacher: teacher.id });
@@ -270,7 +283,7 @@ step('쪽지');
   const say = (t, id, text) => post(t.token, `kind=thread&id=${id}`, { text });
 
   // 1) 답변완료까지 끝난 것 — 학생 화면에 '답변완료'가 보여요
-  const a = await ask('국어', TEACHERS[0], '선생님, 서평 발표 때 책은 소설이어도 괜찮나요?');
+  const a = await ask('국어', TEACHERS[0], '선생님, 서평 발표 때 책은 소설이어도 괜찮나요?', true);
   if (a) {
     await say(TEACHERS[0], a, '네, 소설도 괜찮아요. 다만 줄거리 요약만 하지 말고 본인 생각이 꼭 들어가야 해요.');
     await patch(TEACHERS[0].token, `kind=thread&id=${a}`, { done: true });
@@ -287,6 +300,20 @@ step('쪽지');
   // 3) 아직 아무 답도 없는 것 — 영상에서 직접 답하고 완료를 눌러 보여줄 거예요
   const c = await ask('수학', TEACHERS[1], '선생님, 수행평가 범위가 3단원 전체인가요 아니면 도함수 활용까지인가요?');
   if (c) line('③ 수학 — 아직 답변 없음 (영상에서 직접 답해 보세요)');
+
+  /*
+   * 4) 수학 선생님 쪽지함 '답변 완료' 칸을 채우려고 하나 더 둬요.
+   *
+   * 포트폴리오에 넣을 쪽지함 화면이 필요한데, '답변 대기' 칸에는 시연용이
+   * 아닌 진짜 학생 쪽지가 섞여 있어요. 남의 이름을 제출물에 넣을 수 없어서
+   * '답변 완료' 칸을 찍는데, 거기가 비어 있으면 보여줄 게 없어요.
+   */
+  const d = await ask('수학', TEACHERS[1], '미적분 3단원 연습문제 12번이 잘 안 풀려요. 힌트만 주실 수 있을까요?', true);
+  if (d) {
+    await say(TEACHERS[1], d, '치환을 먼저 해보세요. t = x² 으로 두면 훨씬 간단해져요. 그래도 막히면 쉬는 시간에 오세요.');
+    await patch(TEACHERS[1].token, `kind=thread&id=${d}`, { done: true });
+    line('④ 수학 — 답변완료 (선생님 쪽지함 캡처용)');
+  }
 
   line('');
   line('영상 찍는 순서 추천:');
