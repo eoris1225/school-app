@@ -107,7 +107,16 @@ function StudentCommunity() {
    * 실제로 보낼 때도 교과군으로 바꿔서 써요. 쪽지는 교과군으로 오가거든요.
    */
   const group = subject ? subjectGroup(subject) : null;
-  const staff = useRemote(`teachers:${group ?? ''}`, () =>
+  /*
+   * 학교 코드를 열쇠에 같이 넣어요. 여기만 빠져 있었어요.
+   *
+   * 다른 열쇠는 전부 학교 코드를 넣고 있는데 여기만 과목만 넣었어요.
+   * 학교를 바꾸면 앞 학교 선생님 명단이 그대로 남아요. 서버는 내 계정에
+   * 적힌 학교로만 찾아주니 서버 쪽은 멀쩡한데, 화면이 낡은 걸 들고 있는
+   * 거예요. 그 이름을 눌러 쪽지를 보내면 "그 선생님께는 보낼 수 없어요"
+   * 가 뜨고, 학생은 왜 안 되는지 알 수가 없어요.
+   */
+  const staff = useRemote(`teachers:${school?.code ?? ''}:${group ?? ''}`, () =>
     group ? getSubjectTeachers(group) : Promise.resolve([]),
   );
   /*

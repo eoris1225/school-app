@@ -680,8 +680,9 @@ async function handle(req: Request, url: URL): Promise<Response> {
       const bad = checkBells(shape);
       if (bad) throw new BadRequest(bad);
 
+      // mustBeMySchool 이 둘이 같다는 걸 이미 봤어요. 그래서 school 을 써요.
       const saved = await storeBells(
-        { office: me.school.office, code: me.school.code },
+        { office: school.office, code: school.code },
         shape,
         { id: me.id, name: me.name },
       );
