@@ -597,12 +597,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cls: who.cls?.split('-')[1] ?? '1',
         number: who.no ?? undefined,
       };
-      // 이름까지 있을 때만 써요. 이름이 없으면 화면에 학교를 못 적어요.
-      // (이 기능 전에 저장된 계정이 그래요. 다음에 학교를 고르면 채워져요.)
+      /*
+       * 이름까지 있을 때만 써요. 이름이 없으면 화면에 학교를 못 적어요.
+       * (이 기능 전에 저장된 계정이 그래요. 다음에 학교를 고르면 채워져요.)
+       *
+       * 계정 것이 이겨요. 전에는 `cur ?? fromAccount` 였어요. 기기에 담긴
+       * 게 있으면 그걸 그대로 뒀다는 뜻이에요. 그래서 한 기기에서 다른
+       * 계정으로 갈아타면 **앞사람 반과 번호가 그대로 남았어요.** 이름만
+       * 새 사람 것이고요.
+       *
+       * 화면이 멀쩡해 보이고 숫자만 틀린 거라 제일 알아채기 어려워요.
+       * 게다가 반이 틀리면 그 반 시간표와 그 반 수행평가를 보게 돼요.
+       * 조용히 남의 것을 보여주는 셈이에요.
+       *
+       * 반을 고를 때 setSchool 이 계정에도 같이 적어요. 그러니 계정 쪽이
+       * 늘 최신이에요. 기기 것은 로그인 전에 고른 걸 들고 있으려고 있는
+       * 거지, 계정을 이길 이유가 없어요.
+       */
       if (fromAccount.name && who.cls) {
-        setSchoolState((cur) => cur ?? fromAccount);
-        const saved = await loadMySchool();
-        if (!saved) void saveMySchool(fromAccount);
+        setSchoolState(fromAccount);
+        void saveMySchool(fromAccount);
       }
     }
 
