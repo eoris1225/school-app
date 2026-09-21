@@ -199,6 +199,33 @@ console.log('\n== 학생 화면');
   } catch (e) {
     console.log(`   건너뜀  student-thread-done.png (${e.message.slice(0, 40)})`);
   }
+  /*
+   * 프롬프트마다 짝이 되는 화면을 따로 찍어요.
+   *
+   * 포트폴리오 표에서 "수행평가 등록" 프롬프트 옆에 달력 그림이 붙어 있었어요.
+   * 달력은 등록 화면이 아니에요. 프롬프트가 말한 그 화면을 찍어야 짝이 맞아요.
+   */
+
+  try {
+    await page.getByRole('tab', { name: /시간표/ }).last().click();
+    await page.waitForTimeout(2500);
+    await page.getByText(/^\d교시$/).nth(4).click({ timeout: 8000 });
+    await page.waitForTimeout(2200);
+    const t = await page.locator('body').innerText();
+    if (!/바꾸|고르/.test(t)) throw new Error('과목 바꾸기 화면이 아니에요');
+    await shot(page, 'student-swap');
+    await page.goBack(); await page.waitForTimeout(1200);
+  } catch (e) { console.log(`   건너뜀  student-swap.png (${e.message.slice(0, 40)})`); }
+
+  /*
+   * 선생님 고르는 화면은 따로 안 찍어요.
+   *
+   * 커뮤니티 탭이 이미 과목 칩과 질문 입력칸을 같이 보여줘요. 과목을 눌러
+   * 들어가려고 했더니 아래 쪽지 목록의 과목 딱지가 눌려서 대화가 열렸어요.
+   * 그걸 선생님 고르는 화면인 줄 알고 찍은 적이 있어요. 탭 화면 하나로
+   * 충분한데 굳이 더 눌러서 틀릴 이유가 없어요.
+   */
+
   console.log('   ' + (await page.locator('body').innerText()).slice(0, 100).replace(/\n/g, ' / '));
   await ctx.close();
 }
@@ -252,6 +279,25 @@ console.log('\n== 선생님 화면');
   } else {
     await shot(page, 'teacher-inbox');
   }
+  for (const [path, name, must] of [
+    ['add-event', 'teacher-add-event', /학년|반/],
+    ['bell-times', 'teacher-bells', /교시/],
+    ['profile', 'teacher-subjects', /과목/],
+  ]) {
+    try {
+      await page.goto(`${BASE}${PREFIX}/${path}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(2200);
+      // 일정 추가는 '수행평가' 칸을 눌러야 반 고르기까지 나와요.
+      if (name === 'teacher-add-event') {
+        await page.getByText('수행평가', { exact: true }).first().click().catch(() => {});
+        await page.waitForTimeout(1500);
+      }
+      const t = await page.locator('body').innerText();
+      if (!must.test(t)) throw new Error('다른 화면이에요');
+      await shot(page, name);
+    } catch (e) { console.log(`   건너뜀  ${name}.png (${e.message.slice(0, 40)})`); }
+  }
+
   console.log('   ' + (await page.locator('body').innerText()).slice(0, 100).replace(/\n/g, ' / '));
   await ctx.close();
 }
