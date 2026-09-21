@@ -819,7 +819,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
        * 로그인 전에 고를 수도 있어서, 그때는 넘어가고 로그인 뒤에 적어요.
        */
       if (!me) return;
-      saveSchoolToAccount({
+      const body = {
         office: next.office,
         code: next.code,
         name: next.name,
@@ -827,11 +827,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         grade: next.grade,
         cls: next.cls,
         no: next.number,
-      })
-        .then(() => reloadMe())
-        .catch(() => {
-          // 못 적어도 앱은 돌아가요. 쪽지를 보낼 때 서버가 다시 알려줘요.
-        });
+      };
+
+      /*
+       * 한 번 실패하면 다시 해봐요.
+       *
+       * 전에는 조용히 넘어갔어요. 기기 값이 계정 값을 이기던 때는 그래도
+       * 됐어요. 화면은 기기 것을 보고 있었으니까요.
+       *
+       * 이제는 계정이 이겨요. 그래서 여기서 못 적으면, 화면에는 방금 고른
+       * 반이 보이다가 **다음 로그인 때 옛 반으로 조용히 되돌아가요.**
+       * 고친 적이 없는 것처럼요. 그래서 한 번 더 해보고, 그래도 안 되면
+       * 흔적이라도 남겨요.
+       */
+      const push = () => saveSchoolToAccount(body).then(() => reloadMe());
+      push().catch(() =>
+        push().catch((e) => {
+          console.warn('학교·반을 계정에 못 적었어요. 다음에 고치면 다시 올라가요.', e);
+        }),
+      );
     },
     [me, reloadMe],
   );
