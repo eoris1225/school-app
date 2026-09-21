@@ -18,6 +18,17 @@ https://github.com/eoris1225/school-app/releases/latest
 Releases 에 붙이면 git 역사 밖에 따로 붙어요. 판을 열 번 내도 저장소는
 그대로예요.
 
+## 만드는 법
+
+Actions 탭 > **APK 만들어 릴리스** > Run workflow 를 누르면 돼요.
+깃허브가 만들고 서명하고 Releases 에 붙이는 것까지 다 해요.
+
+`app.json` 의 `version` 과 `versionCode` 를 먼저 올려야 해요. 같은 판이
+이미 있으면 워크플로가 멈춰요.
+
+처음 한 번은 시크릿 네 개를 넣어주세요. 방법은
+`.github/workflows/release-apk.yml` 맨 위에 적어뒀어요.
+
 ## 1.0.1
 
 | | |
@@ -39,12 +50,11 @@ Releases 에 붙이면 git 역사 밖에 따로 붙어요. 판을 열 번 내도
 풀려요. 열쇠 파일은 저장소에 없어요. 있으면 안 돼요 — 열쇠가 공개되면 누구나
 이 앱인 척하는 APK를 만들 수 있거든요.
 
-**2. `app.json` 의 `versionCode` 를 올려야 해요.** (지금 2예요) 숫자가 그대로면 폰이 업데이트로
-안 쳐줘요.
+**2. `app.json` 의 `versionCode` 를 올려야 해요.** 숫자가 그대로면 폰이
+업데이트로 안 쳐줘요.
 
 **3. Releases 에 붙이세요.** 저장소 안에 두지 마세요. 위에 적은 이유예요.
-
-    Releases > Draft a new release > 태그 새로 만들고 > 파일 끌어다 놓기
+워크플로가 알아서 해줘요.
 
 ## 판 기록
 

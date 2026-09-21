@@ -1,0 +1,171 @@
+# APK 를 만들어서 Releases 에 붙여요.
+#
+# Actions 탭 > "APK 만들어 릴리스" > Run workflow 를 누르면 돌아요.
+#
+# 왜 여기서 만드냐면, APK 를 저장소 안에 두면 판을 낼 때마다 57MB 가 git
+# 역사에 쌓이거든요. 실제로 두 판 만에 6MB 짜리 저장소가 85MB 가 됐고
+# 결국 역사를 다시 써서 들어냈어요. Releases 는 git 역사 밖이라 몇 판을
+# 내든 저장소가 안 커져요.
+#
+# 처음 한 번만 저장소 설정에서 시크릿 네 개를 넣어주세요.
+#   Settings > Secrets and variables > Actions > New repository secret
+#
+#     ANDROID_KEYSTORE_BASE64   서명 열쇠 파일을 base64 로 바꾼 글자
+#     ANDROID_KEYSTORE_PASSWORD 저장소 비밀번호
+#     ANDROID_KEY_ALIAS         열쇠 별명 (neischool)
+#     ANDROID_KEY_PASSWORD      열쇠 비밀번호 (저장소 비번과 같아요)
+#
+#   base64 로 바꾸는 법:
+#     맥·리눅스   base64 -i neischool.keystore | tr -d '\n' | pbcopy
+#     윈도우      certutil -encode neischool.keystore out.txt   (앞뒤 줄 빼고 복사)
+#
+# **열쇠는 꼭 쓰던 것과 같아야 해요.** 안드로이드는 같은 열쇠로 서명한
+# 것만 덮어쓰기를 허용해요. 다르면 친구들이 앱을 지우고 다시 깔아야 하고
+# 로그인도 풀려요. 그래서 아래에서 지문을 확인하고, 다르면 멈춰요.
+name: APK 만들어 릴리스
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: '릴리스에 적을 내용 (안 적으면 커밋 제목들로 채워요)'
+        required: false
+        type: string
+
+permissions:
+  contents: write     # 릴리스를 만들려면 쓰기가 필요해요
+
+concurrency:
+  group: release-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 만들고 올리기
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # 릴리스 내용을 커밋 기록에서 뽑으려고요
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 버전 읽기
+        id: ver
+        run: |
+          V=$(node -p "require('./app.json').expo.version")
+          C=$(node -p "require('./app.json').expo.android.versionCode")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$C"    >> "$GITHUB_OUTPUT"
+          echo "이번 판: $V (versionCode $C)"
+
+      - name: 같은 태그가 이미 있는지
+        run: |
+          # 있으면 멈춰요. app.json 의 version 을 올리고 다시 돌리세요.
+          if gh release view "v${{ steps.ver.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::v${{ steps.ver.outputs.version }} 릴리스가 이미 있어요. app.json 의 version 과 versionCode 를 올려주세요."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - run: npm ci
+
+      - name: 네이티브 폴더 만들기
+        run: npx expo prebuild --platform android --no-install
+
+      - name: 서명 열쇠 꺼내기
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 시크릿이 없어요. 워크플로 맨 위 설명을 보세요."
+            exit 1
+          fi
+          printf '%s' "$KS" | base64 -d > android/app/neischool.keystore
+          # 크기만 찍어요. 내용은 절대 찍으면 안 돼요.
+          echo "열쇠 파일 $(stat -c%s android/app/neischool.keystore) 바이트"
+
+      - name: 서명 설정 넣기
+        env:
+          STORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          {
+            echo "NEISCHOOL_STORE_FILE=neischool.keystore"
+            echo "NEISCHOOL_STORE_PASSWORD=$STORE_PW"
+            echo "NEISCHOOL_KEY_ALIAS=$ALIAS"
+            echo "NEISCHOOL_KEY_PASSWORD=$KEY_PW"
+          } >> android/gradle.properties
+          python3 scripts/ci-sign-gradle.py
+
+      - name: 만들기
+        working-directory: android
+        # 요즘 폰과 오래된 폰만요. 에뮬레이터용(x86)까지 넣으면 106MB 가 돼요.
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      - name: 서명이 맞는지 보기
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          GOT=$("$TOOLS/apksigner" verify --print-certs "$APK" | grep -m1 'SHA-256 digest' | awk '{print $NF}')
+          WANT=41efd46487d053d24e9eea4fbc349621a6624e727071d291c0c7b3eabc36305f
+          echo "지문: $GOT"
+          if [ "$GOT" != "$WANT" ]; then
+            echo "::error::서명 열쇠가 달라요. 이걸로 내면 친구들이 앱을 지우고 다시 깔아야 해요."
+            exit 1
+          fi
+          "$TOOLS/aapt2" dump badging "$APK" | grep -E "^package|^application-label:|^native-code"
+          mv "$APK" "neischool-${{ steps.ver.outputs.version }}.apk"
+          echo "SHA256=$(sha256sum neischool-${{ steps.ver.outputs.version }}.apk | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "SIZE=$(stat -c%s neischool-${{ steps.ver.outputs.version }}.apk)" >> "$GITHUB_ENV"
+
+      - name: 릴리스에 붙이기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          V=${{ steps.ver.outputs.version }}
+          if [ -z "$NOTES" ]; then
+            LAST=$(gh release view --json tagName -q .tagName 2>/dev/null || echo '')
+            if [ -n "$LAST" ]; then
+              NOTES=$(git log --pretty='- %s' "$LAST..HEAD" | head -20)
+            else
+              NOTES='첫 판이에요.'
+            fi
+          fi
+          cat > notes.md <<EOF
+          $NOTES
+
+          ## 받는 법
+
+          아래 \`neischool-$V.apk\` 를 눌러서 받은 뒤, 폰에서 그 파일을 누르면 설치돼요.
+          처음 한 번은 "출처를 알 수 없는 앱 설치 허용"을 켜야 해요.
+
+          | | |
+          |---|---|
+          | 크기 | $(numfmt --to=iec --suffix=B "$SIZE") |
+          | versionCode | ${{ steps.ver.outputs.code }} |
+          | 필요한 안드로이드 | 7.0 이상 |
+          | 맞는 폰 | arm64-v8a, armeabi-v7a |
+          | SHA-256 | \`$SHA256\` |
+
+          쓰는 권한은 인터넷, 사진 읽기(안드로이드 12 이하), 카메라, 진동,
+          네트워크 상태예요. 마이크와 "다른 앱 위에 그리기"는 일부러 막아뒀어요.
+          EOF
+
+          gh release create "v$V" "neischool-$V.apk" \
+            --title "나이스쿨 $V" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA"
+
+          echo "올라갔어요: $(gh release view "v$V" --json url -q .url)"
