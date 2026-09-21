@@ -217,6 +217,46 @@ console.log('\n== 학생 화면');
     await page.goBack(); await page.waitForTimeout(1200);
   } catch (e) { console.log(`   건너뜀  student-swap.png (${e.message.slice(0, 40)})`); }
 
+  // 가입 직후 안내 화면 (건너뛸 수 있는 그 화면)
+  try {
+    await page.goto(`${BASE}${PREFIX}/setup`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2200);
+    const t = await page.locator('body').innerText();
+    if (!/건너뛰기|다음에 하기/.test(t)) throw new Error('안내 화면이 아니에요');
+    await shot(page, 'student-setup');
+  } catch (e) { console.log(`   건너뜀  student-setup.png (${e.message.slice(0, 40)})`); }
+
+  /*
+   * 글자 크기와 어두운 화면.
+   *
+   * 바꾼 뒤에는 꼭 되돌려요. 안 되돌리면 다음에 찍는 그림이 전부 큰 글자로
+   * 나와요. 화면 밝기는 계정에 담겨서 영상 찍을 때까지 따라가고요.
+   */
+  try {
+    await page.goto(`${BASE}${PREFIX}/profile`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2200);
+    // 내 정보는 길어요. 칩이 화면 밖에 있으면 안 눌려요.
+    const tap = async (label) => {
+      const el = page.getByText(label, { exact: true }).first();
+      await el.scrollIntoViewIfNeeded({ timeout: 6000 });
+      await el.click({ timeout: 6000, force: true });
+    };
+    await tap('크게');
+    await page.waitForTimeout(1200);
+    await tap('어둡게');
+    await page.waitForTimeout(1800);
+    await page.getByRole('tab', { name: /시간표/ }).last().click();
+    await shot(page, 'student-bigdark');
+
+    await page.goto(`${BASE}${PREFIX}/profile`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1800);
+    await tap('보통').catch(() => {});
+    await page.waitForTimeout(900);
+    await tap('시스템').catch(() => {});
+    await page.waitForTimeout(1500);
+    console.log('           (글자 크기와 밝기는 원래대로 돌려놨어요)');
+  } catch (e) { console.log(`   건너뜀  student-bigdark.png (${e.message.slice(0, 40)})`); }
+
   /*
    * 선생님 고르는 화면은 따로 안 찍어요.
    *
