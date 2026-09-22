@@ -37,11 +37,25 @@
 - 사진을 `FormData` 에 객체로 넣어서 "사진이 없어요" (폰은 알아듣고 브라우저는
   글자로 바꿔요. 흉내내는 서버는 뭐가 오든 받아주니 안 걸려요)
 
-**브라우저 검사가 못 잡는 게 하나 더 있어요.** 손가락 동작(`GestureDetector`)은
-`GestureHandlerRootView` 안에 있어야만 먹는데, **웹에서는 그게 없어도
-돌아가요.** 게다가 빌드한 앱에서는 안 먹어도 아무 말을 안 해요. 그래서
-커스텀 컬러 색상환이 웹에서는 멀쩡하고 폰에서만 안 돌아갔어요. 그건
-`check-gesture-root.ts` 가 봐요.
+### 브라우저 검사가 통째로 못 보는 것
+
+**웹에서는 되고 빌드한 앱에서만 안 되는 것들이 있어요.** 이게 제일 무서워요.
+브라우저 검사가 전부 통과하고, 개발 중에도 멀쩡하고, 폰에 깔아서 손으로
+만져봐야만 알거든요. 한 번 당했어요 — 커스텀 컬러 색상환이 APK 에서만
+안 돌아갔어요.
+
+`check-native-only.ts` 가 넷을 세요.
+
+| | 웹 | 빌드한 앱 |
+|---|---|---|
+| `GestureDetector` 에 `GestureHandlerRootView` 가 없을 때 | 잘 돌아감 | **말없이 안 먹음** |
+| `react-native` 의 `Text` 를 그대로 썼을 때 | 글꼴 맞음 | 굵기 파일을 못 골라 글꼴이 달라짐 |
+| `atob`, `navigator.serviceWorker` 같은 걸 부를 때 | 있음 | **그 자리에서 터짐** |
+| 아래에 붙은 입력칸에 자판이 올라올 때 | 자판이 없음 | 입력칸이 덮임 |
+
+넷째는 예전 안드로이드에서는 문제가 아니었어요. 자판이 올라오면 창을
+알아서 줄여줬거든요. 지금은 앱이 화면 끝까지 그리는 방식(edge-to-edge)
+이라 창이 안 줄어요.
 
 넷 다 흉내내는 검사는 전부 통과했어요. **표에 칸을 늘렸으면 라이브 검사를
 꼭 한 번 돌려보세요.**
@@ -58,7 +72,7 @@ deno run --allow-read scripts/check-subjects.ts
 deno run --allow-read --sloppy-imports scripts/check-korean.ts
 deno run --allow-read --sloppy-imports scripts/check-palette.ts
 deno run --allow-read scripts/check-name.ts
-deno run --allow-read scripts/check-gesture-root.ts
+deno run --allow-read scripts/check-native-only.ts
 
 # 서버 쪽 (deno) — GitHub Actions 도 이걸 돌려요
 cd supabase/functions && deno test --allow-env --allow-read _shared/

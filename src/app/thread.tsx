@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';
@@ -203,9 +203,18 @@ export default function ThreadScreen() {
         </View>
       ) : null}
 
+      {/*
+        안드로이드에도 'padding' 을 줘요.
+        옛날 안드로이드는 자판이 올라오면 창을 알아서 줄여줘서 아무것도
+        안 해도 됐어요. 지금은 앱이 화면 끝까지 그리는 방식(edge-to-edge)
+        이라 창이 안 줄어들어요. 그러면 입력칸이 자판에 덮여요.
+
+        창이 줄어드는 기기에서도 탈은 없어요. 이 값은 '내 아래끝 - 자판
+        윗끝' 이라 창이 이미 줄어 있으면 0이 되거든요. 두 번 밀리지 않아요.
+      */}
       <KeyboardAvoidingView
         style={styles.fill}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={insets.top}>
         <ScrollView
           ref={scrollRef}

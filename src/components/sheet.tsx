@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,7 +60,7 @@ export function Sheet({
         있지만 화면으로는 바깥이라, 앱 맨 바깥에 깐 건 여기까지 안 와요.
         이게 없으면 팝업 안에서 미는 동작이 통째로 죽어요.
       */}
-      <GestureHandlerRootView style={[styles.root, tablet ? styles.center : styles.bottom]}>
+      <GestureHandlerRootView style={styles.root}>
         {/* 바깥을 누르면 닫혀요. 화면 읽어주는 기능에도 알려줘요. */}
         <Pressable
           accessibilityRole="button"
@@ -70,33 +70,47 @@ export function Sheet({
           <Animated.View style={[StyleSheet.absoluteFill, styles.dim, dim]} />
         </Pressable>
 
-        <Animated.View
-          style={[
-            styles.card,
-            tablet ? styles.cardWide : [styles.cardPhone, { paddingBottom: insets.bottom + 24 }],
-            { backgroundColor: palette.surface, borderColor: palette.line },
-            card,
-          ]}>
-          {/* 폰에서는 위에 손잡이를 그려요. 아래로 내려서 닫는다는 표시예요. */}
-          {!tablet ? <View style={[styles.grip, { backgroundColor: palette.line }]} /> : null}
+        {/*
+          자판이 올라오면 카드를 그만큼 올려요.
 
-          <View style={styles.head}>
-            <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
-              {title}
-            </Text>
-            <Tap
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="닫기"
-              hitSlop={8}
-              depth={0.1}
-              style={[styles.close, { backgroundColor: palette.tint }]}>
-              <Icon name="close" size={18} color={palette.sub} />
-            </Tap>
-          </View>
+          로그인 팝업에는 입력칸이 있어요. 자판이 덮으면 비밀번호 칸과
+          로그인 버튼이 가려지는데, 자판을 내리려고 빈 데를 누르면 팝업이
+          닫혀버려요. 그래서 여기서 피해줘야 해요.
 
-          {children}
-        </Animated.View>
+          box-none 이라 카드 밖을 누르면 밑에 깔린 닫기가 받아요.
+        */}
+        <KeyboardAvoidingView
+          behavior="padding"
+          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFill, tablet ? styles.center : styles.bottom]}>
+          <Animated.View
+            style={[
+              styles.card,
+              tablet ? styles.cardWide : [styles.cardPhone, { paddingBottom: insets.bottom + 24 }],
+              { backgroundColor: palette.surface, borderColor: palette.line },
+              card,
+            ]}>
+            {/* 폰에서는 위에 손잡이를 그려요. 아래로 내려서 닫는다는 표시예요. */}
+            {!tablet ? <View style={[styles.grip, { backgroundColor: palette.line }]} /> : null}
+
+            <View style={styles.head}>
+              <Text style={[styles.title, { color: palette.text }]} accessibilityRole="header">
+                {title}
+              </Text>
+              <Tap
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="닫기"
+                hitSlop={8}
+                depth={0.1}
+                style={[styles.close, { backgroundColor: palette.tint }]}>
+                <Icon name="close" size={18} color={palette.sub} />
+              </Tap>
+            </View>
+
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
